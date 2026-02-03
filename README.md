@@ -29,53 +29,66 @@ Base URL (development): ```http://<backend-ip>:8000/api```
 
 - # 1️⃣ Signup (User / Worker) #
 
-    + Endpoint: 
+    + Endpoint:
+      
         ```POST /api/accounts/signup/```
 
     + Request Body:
+      
         ```{"username": "krishal", "password": "password123", "role": "WORKER", "service_type": "plumber"}```
 
     + Field Rules:
-        ```role```must be one of: 
-            - ```USER```
-            - ```WORKER```
+      
+      ```role```must be one of:
+      - ```USER```
+      - ```WORKER```
 
-        ```service_type``` is:
-            - REQUIRED if role = ```WORKER```
-            - IGNORED if role = ```USER```
+      ```service_type``` is:
+      - REQUIRED if role = ```WORKER```
+      - IGNORED if role = ```USER```
 
     + Success Response (201)
+      
         ```{"message": "Signup successful"}```
 
     + Error Response (400)
+      
         ```{"error": "Username already exists"}```
 
 - # 2️⃣ Login (User & Worker) #
 
-    + Endpoint: 
+    + Endpoint:
+      
         ```POST /api/accounts/login/```
 
     + Request Body:
+      
         ```{"username": "krishal", "password": "password123"}```
 
     + Success Response (200)
+      
         ```{"access": "jwt_access_token", "refresh": "jwt_refresh_token", "role": "WORKER"}```
 
     + Error Response (401)
+      
         ```{"error": "Invalid credentials"}```
 
 - # 3️⃣ Get Logged-in User Profile #
 
-    + Endpoint: 
+    + Endpoint:
+      
         ```POST /api/accounts/me```
 
     + Headers:
+      
         ```Authorization: Bearer <access_token>```
 
     + Success Response (200)
+      
         ```{"username": "krishal", "role": "WORKER", "service_type": "plumber"}```
 
     + Error Response (401)
+      
         ```{"error": "Authentication credentials were not provided"}```
 
 ## 🧠 Backend Notes (Django) ##
