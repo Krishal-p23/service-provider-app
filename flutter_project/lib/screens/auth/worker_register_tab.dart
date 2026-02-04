@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../models/user_role.dart';
 import '../../models/user.dart';
-import '../../providers/user_provider.dart';
-import 'otp_verification_screen.dart';
+import 'package:flutter_project/screens/auth/otp_verification_screen.dart';
 
 class WorkerRegisterTab extends StatefulWidget {
   final Color roleColor;
@@ -28,7 +26,7 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
   final _passwordController = TextEditingController();
   final _skillsController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
-  
+
   String? _photoPath;
   String? _idProofPath;
   bool _obscurePassword = true;
@@ -64,9 +62,9 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking file: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking file: $e')));
       }
     }
   }
@@ -132,11 +130,7 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
             const SizedBox(height: 10),
 
             // Worker Registration Header
-            Icon(
-              Icons.engineering_rounded,
-              size: 64,
-              color: widget.roleColor,
-            ),
+            Icon(Icons.engineering_rounded, size: 64, color: widget.roleColor),
             const SizedBox(height: 16),
             Text(
               'Join as Professional',
@@ -185,7 +179,10 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                 decoration: InputDecoration(
                   labelText: 'Full Name',
                   hintText: 'Enter your full name',
-                  prefixIcon: Icon(Icons.person_outline, color: widget.roleColor),
+                  prefixIcon: Icon(
+                    Icons.person_outline,
+                    color: widget.roleColor,
+                  ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(16),
                 ),
@@ -212,7 +209,10 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                 decoration: InputDecoration(
                   labelText: 'Primary Skills',
                   hintText: 'e.g., Plumbing, Electrical, Carpentry',
-                  prefixIcon: Icon(Icons.build_outlined, color: widget.roleColor),
+                  prefixIcon: Icon(
+                    Icons.build_outlined,
+                    color: widget.roleColor,
+                  ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(16),
                 ),
@@ -229,7 +229,11 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
             // Documents Section
             Row(
               children: [
-                Icon(Icons.upload_file_outlined, size: 20, color: widget.roleColor),
+                Icon(
+                  Icons.upload_file_outlined,
+                  size: 20,
+                  color: widget.roleColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Upload Documents',
@@ -267,7 +271,11 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
             // Contact Information Section
             Row(
               children: [
-                Icon(Icons.contact_phone_outlined, size: 20, color: widget.roleColor),
+                Icon(
+                  Icons.contact_phone_outlined,
+                  size: 20,
+                  color: widget.roleColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Contact Information',
@@ -293,16 +301,23 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                 decoration: InputDecoration(
                   labelText: 'Phone Number',
                   hintText: '10-digit mobile number',
-                  prefixIcon: Icon(Icons.phone_android, color: widget.roleColor),
+                  prefixIcon: Icon(
+                    Icons.phone_android,
+                    color: widget.roleColor,
+                  ),
                   prefixText: '+91 ',
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(16),
                 ),
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
-                buildCounter: (context,
-                        {required currentLength, required isFocused, maxLength}) =>
-                    null,
+                buildCounter:
+                    (
+                      context, {
+                      required currentLength,
+                      required isFocused,
+                      maxLength,
+                    }) => null,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your phone number';
@@ -370,13 +385,19 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.verified_user_outlined, color: Colors.blue, size: 20),
+                  Icon(
+                    Icons.verified_user_outlined,
+                    color: Colors.blue,
+                    size: 20,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Your profile will be verified within 24-48 hours for quality assurance',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                        color: isDark
+                            ? Colors.grey.shade300
+                            : Colors.grey.shade700,
                       ),
                     ),
                   ),
@@ -469,7 +490,11 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                           ),
                         ),
                         SizedBox(width: 8),
-                        Icon(Icons.arrow_forward, size: 20, color: Colors.white),
+                        Icon(
+                          Icons.arrow_forward,
+                          size: 20,
+                          color: Colors.white,
+                        ),
                       ],
                     ),
             ),
@@ -479,10 +504,7 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  'Already registered? ',
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text('Already registered? ', style: theme.textTheme.bodyMedium),
                 TextButton(
                   onPressed: widget.onSwitchToLogin,
                   child: Text(
@@ -543,7 +565,8 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                       children: [
                         Text(
                           title,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: widget.roleColor,
                               ),
@@ -551,9 +574,8 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                         const SizedBox(height: 4),
                         Text(
                           'Tap to change',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey.shade600,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.grey.shade600),
                         ),
                       ],
                     ),
@@ -572,21 +594,26 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                        ),
+                      color: isDark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: widget.roleColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -609,8 +636,11 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
 
 
 
+
 // import 'package:flutter/material.dart';
 // import 'package:provider/provider.dart';
+// import 'package:image_picker/image_picker.dart';
+// import 'dart:io';
 // import '../../models/user_role.dart';
 // import '../../models/user.dart';
 // import '../../providers/user_provider.dart';
@@ -636,7 +666,10 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
 //   final _phoneController = TextEditingController();
 //   final _passwordController = TextEditingController();
 //   final _skillsController = TextEditingController();
-//   final _experienceController = TextEditingController();
+//   final ImagePicker _imagePicker = ImagePicker();
+  
+//   String? _photoPath;
+//   String? _idProofPath;
 //   bool _obscurePassword = true;
 //   bool _acceptTerms = false;
 //   bool _isLoading = false;
@@ -647,8 +680,34 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
 //     _phoneController.dispose();
 //     _passwordController.dispose();
 //     _skillsController.dispose();
-//     _experienceController.dispose();
 //     super.dispose();
+//   }
+
+//   Future<void> _pickDocument(bool isPhoto) async {
+//     try {
+//       final XFile? file = await _imagePicker.pickImage(
+//         source: ImageSource.gallery,
+//         maxWidth: 1024,
+//         maxHeight: 1024,
+//         imageQuality: 85,
+//       );
+
+//       if (file != null) {
+//         setState(() {
+//           if (isPhoto) {
+//             _photoPath = file.path;
+//           } else {
+//             _idProofPath = file.path;
+//           }
+//         });
+//       }
+//     } catch (e) {
+//       if (mounted) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(content: Text('Error picking file: $e')),
+//         );
+//       }
+//     }
 //   }
 
 //   Future<void> _handleRegister() async {
@@ -656,6 +715,16 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
 //       ScaffoldMessenger.of(context).showSnackBar(
 //         const SnackBar(
 //           content: Text('Please accept the Terms of Service'),
+//           backgroundColor: Colors.red,
+//         ),
+//       );
+//       return;
+//     }
+
+//     if (_photoPath == null || _idProofPath == null) {
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         const SnackBar(
+//           content: Text('Please upload both photo and ID proof'),
 //           backgroundColor: Colors.red,
 //         ),
 //       );
@@ -794,33 +863,43 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
 //                 },
 //               ),
 //             ),
+//             const SizedBox(height: 24),
+
+//             // Documents Section
+//             Row(
+//               children: [
+//                 Icon(Icons.upload_file_outlined, size: 20, color: widget.roleColor),
+//                 const SizedBox(width: 8),
+//                 Text(
+//                   'Upload Documents',
+//                   style: theme.textTheme.titleMedium?.copyWith(
+//                     fontWeight: FontWeight.bold,
+//                     color: widget.roleColor,
+//                   ),
+//                 ),
+//               ],
+//             ),
 //             const SizedBox(height: 16),
 
-//             // Experience Field
-//             Container(
-//               decoration: BoxDecoration(
-//                 color: isDark
-//                     ? const Color(0xFF1E1E1E)
-//                     : widget.roleColor.withOpacity(0.05),
-//                 borderRadius: BorderRadius.circular(12),
-//               ),
-//               child: TextFormField(
-//                 controller: _experienceController,
-//                 decoration: InputDecoration(
-//                   labelText: 'Years of Experience',
-//                   hintText: 'e.g., 5 years',
-//                   prefixIcon: Icon(Icons.timeline_outlined, color: widget.roleColor),
-//                   border: InputBorder.none,
-//                   contentPadding: const EdgeInsets.all(16),
-//                 ),
-//                 keyboardType: TextInputType.number,
-//                 validator: (value) {
-//                   if (value == null || value.isEmpty) {
-//                     return 'Please enter your experience';
-//                   }
-//                   return null;
-//                 },
-//               ),
+//             // Photo Upload Box
+//             _buildUploadBox(
+//               context: context,
+//               title: 'Profile Photo',
+//               subtitle: 'Upload a clear photo of yourself',
+//               filePath: _photoPath,
+//               onTap: () => _pickDocument(true),
+//               isDark: isDark,
+//             ),
+//             const SizedBox(height: 16),
+
+//             // ID Proof Upload Box
+//             _buildUploadBox(
+//               context: context,
+//               title: 'Government ID Proof',
+//               subtitle: 'Aadhaar, PAN, Driving License, etc.',
+//               filePath: _idProofPath,
+//               onTap: () => _pickDocument(false),
+//               isDark: isDark,
 //             ),
 //             const SizedBox(height: 24),
 
@@ -1060,4 +1139,112 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
 //       ),
 //     );
 //   }
+
+//   Widget _buildUploadBox({
+//     required BuildContext context,
+//     required String title,
+//     required String subtitle,
+//     required String? filePath,
+//     required VoidCallback onTap,
+//     required bool isDark,
+//   }) {
+//     final hasFile = filePath != null;
+
+//     return GestureDetector(
+//       onTap: onTap,
+//       child: Container(
+//         padding: const EdgeInsets.all(20),
+//         decoration: BoxDecoration(
+//           color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+//           borderRadius: BorderRadius.circular(12),
+//           border: Border.all(
+//             color: hasFile ? widget.roleColor : Colors.grey.shade300,
+//             width: 2,
+//             style: BorderStyle.solid,
+//           ),
+//         ),
+//         child: hasFile
+//             ? Row(
+//                 children: [
+//                   ClipRRect(
+//                     borderRadius: BorderRadius.circular(8),
+//                     child: Image.file(
+//                       File(filePath),
+//                       width: 60,
+//                       height: 60,
+//                       fit: BoxFit.cover,
+//                     ),
+//                   ),
+//                   const SizedBox(width: 16),
+//                   Expanded(
+//                     child: Column(
+//                       crossAxisAlignment: CrossAxisAlignment.start,
+//                       children: [
+//                         Text(
+//                           title,
+//                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
+//                                 fontWeight: FontWeight.w600,
+//                                 color: widget.roleColor,
+//                               ),
+//                         ),
+//                         const SizedBox(height: 4),
+//                         Text(
+//                           'Tap to change',
+//                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
+//                                 color: Colors.grey.shade600,
+//                               ),
+//                         ),
+//                       ],
+//                     ),
+//                   ),
+//                   Icon(Icons.check_circle, color: widget.roleColor, size: 28),
+//                 ],
+//               )
+//             : Column(
+//                 children: [
+//                   Icon(
+//                     Icons.cloud_upload_outlined,
+//                     size: 48,
+//                     color: widget.roleColor.withOpacity(0.5),
+//                   ),
+//                   const SizedBox(height: 12),
+//                   Text(
+//                     title,
+//                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
+//                           fontWeight: FontWeight.w600,
+//                         ),
+//                     textAlign: TextAlign.center,
+//                   ),
+//                   const SizedBox(height: 4),
+//                   Text(
+//                     subtitle,
+//                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
+//                           color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+//                         ),
+//                     textAlign: TextAlign.center,
+//                   ),
+//                   const SizedBox(height: 12),
+//                   Container(
+//                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+//                     decoration: BoxDecoration(
+//                       color: widget.roleColor.withOpacity(0.1),
+//                       borderRadius: BorderRadius.circular(8),
+//                     ),
+//                     child: Text(
+//                       'Tap to Upload',
+//                       style: TextStyle(
+//                         color: widget.roleColor,
+//                         fontWeight: FontWeight.w600,
+//                         fontSize: 12,
+//                       ),
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//       ),
+//     );
+//   }
 // }
+
+
+

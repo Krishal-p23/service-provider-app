@@ -18,6 +18,7 @@ class UserProvider extends ChangeNotifier {
   List<Review> get userReviews => List.unmodifiable(_userReviews);
   bool get isLoggedIn => _currentUser != null;
   bool get isInitialized => _isInitialized;
+  UserRole? get userRole => _currentUser?.role;
 
   String get displayAddress {
     if (_currentUser == null) {

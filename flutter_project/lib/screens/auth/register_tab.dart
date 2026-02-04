@@ -319,6 +319,7 @@ import '../../models/user_role.dart';
 import '../../models/user.dart';
 import '../../providers/user_provider.dart';
 import 'otp_verification_screen.dart';
+// Make sure the file 'otp_verification_screen.dart' exists in the same directory and contains the OTPVerificationScreen class.
 
 class RegisterTab extends StatefulWidget {
   final Color roleColor;
