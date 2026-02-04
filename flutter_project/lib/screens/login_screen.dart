@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       final user = User(
         name: _nameController.text,
@@ -39,8 +39,10 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
 
-      context.read<UserProvider>().login(user.email, user.password) ||
-          context.read<UserProvider>().register(user);
+      final loginSuccess = await context.read<UserProvider>().login(user.email, user.password);
+      if (!loginSuccess) {
+        await context.read<UserProvider>().register(user);
+      }
       Navigator.pop(context);
 
       ScaffoldMessenger.of(

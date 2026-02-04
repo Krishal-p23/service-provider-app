@@ -101,7 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         profilePicture: _profileImagePath,
       );
 
-      final success = context.read<UserProvider>().register(user);
+      final success = await context.read<UserProvider>().register(user);
 
       setState(() {
         _isLoading = false;
