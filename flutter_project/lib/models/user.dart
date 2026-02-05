@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+import 'user_role.dart';
+
+>>>>>>> kajal
 class User {
   final String name;
   final String email;
@@ -5,6 +10,10 @@ class User {
   final String password;
   final String address;
   final String? profilePicture;
+<<<<<<< HEAD
+=======
+  final UserRole role;
+>>>>>>> kajal
 
   User({
     required this.name,
@@ -13,6 +22,10 @@ class User {
     required this.password,
     required this.address,
     this.profilePicture,
+<<<<<<< HEAD
+=======
+    this.role = UserRole.customer,
+>>>>>>> kajal
   });
 
   User copyWith({
@@ -22,6 +35,10 @@ class User {
     String? password,
     String? address,
     String? profilePicture,
+<<<<<<< HEAD
+=======
+    UserRole? role,
+>>>>>>> kajal
   }) {
     return User(
       name: name ?? this.name,
@@ -30,6 +47,10 @@ class User {
       password: password ?? this.password,
       address: address ?? this.address,
       profilePicture: profilePicture ?? this.profilePicture,
+<<<<<<< HEAD
+=======
+      role: role ?? this.role,
+>>>>>>> kajal
     );
   }
 
@@ -41,6 +62,10 @@ class User {
       'password': password,
       'address': address,
       'profilePicture': profilePicture,
+<<<<<<< HEAD
+=======
+      'role': role.index,
+>>>>>>> kajal
     };
   }
 
@@ -52,6 +77,15 @@ class User {
       password: json['password'] ?? '',
       address: json['address'] ?? '',
       profilePicture: json['profilePicture'],
+<<<<<<< HEAD
     );
   }
 }
+=======
+      role: UserRole.values[json['role'] ?? 0],
+    );
+  }
+}
+
+
+>>>>>>> kajal

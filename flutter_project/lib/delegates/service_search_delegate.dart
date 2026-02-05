@@ -85,6 +85,7 @@ class ServiceSearchDelegate extends SearchDelegate {
     );
   }
 }
+<<<<<<< HEAD
 // import 'package:flutter/material.dart';
 // import 'package:provider/provider.dart';
 // import 'package:flutter_project/providers/user_provider.dart';
@@ -163,3 +164,5 @@ class ServiceSearchDelegate extends SearchDelegate {
 //     );
 //   }
 // }
+=======
+>>>>>>> kajal

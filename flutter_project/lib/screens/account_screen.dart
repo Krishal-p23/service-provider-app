@@ -1,12 +1,128 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+<<<<<<< HEAD
 import 'package:flutter_project/providers/user_provider.dart';
 import 'package:flutter_project/providers/theme_provider.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
+=======
+import 'package:image_picker/image_picker.dart';
+import '../providers/user_provider.dart';
+import '../providers/theme_provider.dart';
+
+class AccountScreen extends StatelessWidget { // Account screen with profile management and settings
+  const AccountScreen({super.key});
+
+  Future<void> _showProfileOptions(BuildContext context) async {// Show options to manage profile picture
+    final userProvider = context.read<UserProvider>();
+    final hasPhoto = userProvider.currentUser?.profilePicture != null;  // Check if user has a profile picture
+
+    await showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.visibility),
+              title: const Text('View Profile Picture'),
+              onTap: () {
+                Navigator.pop(context);
+                if (hasPhoto) {
+                  _showFullImage(context, userProvider.currentUser!.profilePicture!);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No profile picture to view')),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Change from Gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndUpdateImage(context, ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take a Photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndUpdateImage(context, ImageSource.camera);
+              },
+            ),
+            if (hasPhoto)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  userProvider.updateProfilePicture(null);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Profile picture removed')),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndUpdateImage(BuildContext context, ImageSource source) async {
+    try {
+      final imagePicker = ImagePicker();
+      final XFile? image = await imagePicker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 75,
+      );
+
+      if (image != null && context.mounted) {
+        context.read<UserProvider>().updateProfilePicture(image.path);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated!')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _showFullImage(BuildContext context, String imagePath) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppBar(
+              title: const Text('Profile Picture'),
+              automaticallyImplyLeading: false,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            Image.file(File(imagePath), fit: BoxFit.contain),
+          ],
+        ),
+      ),
+    );
+  }
+
+>>>>>>> kajal
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
@@ -25,6 +141,7 @@ class AccountScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
+<<<<<<< HEAD
               color: theme.primaryColor.withValues(alpha: 0.1),
               child: Column(
                 children: [
@@ -51,6 +168,58 @@ class AccountScreen extends StatelessWidget {
                             ),
                           )
                         : null,
+=======
+              color: theme.primaryColor.withOpacity(0.1),
+              child: Column(
+                children: [
+                  // Profile Picture with tap handler
+                  GestureDetector(
+                    onTap: isLoggedIn ? () => _showProfileOptions(context) : null,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: theme.primaryColor,
+                          backgroundImage: isLoggedIn &&
+                                  userProvider.currentUser?.profilePicture != null
+                              ? FileImage(
+                                  File(userProvider.currentUser!.profilePicture!))
+                              : null,
+                          child: !isLoggedIn ||
+                                  userProvider.currentUser?.profilePicture == null
+                              ? Text(
+                                  isLoggedIn
+                                      ? userProvider.currentUser!.name[0]
+                                          .toUpperCase()
+                                      : 'G',
+                                  style: const TextStyle(
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        if (isLoggedIn)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: theme.primaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+>>>>>>> kajal
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -103,7 +272,13 @@ class AccountScreen extends StatelessWidget {
                     context,
                     icon: Icons.location_on,
                     title: 'Saved Address',
+<<<<<<< HEAD
                     subtitle: userProvider.currentUser!.address,
+=======
+                    subtitle: userProvider.currentUser!.address.isNotEmpty
+                        ? userProvider.currentUser!.address
+                        : 'No address added',
+>>>>>>> kajal
                     onTap: () {},
                   ),
                 ],
@@ -272,6 +447,7 @@ class AccountScreen extends StatelessWidget {
                             child: const Text('Cancel'),
                           ),
                           TextButton(
+<<<<<<< HEAD
                             onPressed: () {
                               userProvider.logout();
                               Navigator.pop(context);
@@ -279,6 +455,19 @@ class AccountScreen extends StatelessWidget {
                                 const SnackBar(
                                     content: Text('Logged out successfully')),
                               );
+=======
+                            onPressed: () async {
+                              await userProvider.logout();
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                // Navigate to onboarding screen
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/',
+                                  (route) => false,
+                                );
+                              }
+>>>>>>> kajal
                             },
                             child: const Text('Logout'),
                           ),
@@ -302,7 +491,11 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
+<<<<<<< HEAD
   Widget _buildSection(
+=======
+  Widget _buildSection( // Build a section with title and card container
+>>>>>>> kajal
     BuildContext context, {
     required String title,
     required List<Widget> children,
@@ -328,7 +521,11 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
+<<<<<<< HEAD
   Widget _buildListTile(
+=======
+  Widget _buildListTile(  // Build a reusable ListTile widget
+>>>>>>> kajal
     BuildContext context, {
     required IconData icon,
     required String title,
@@ -338,9 +535,17 @@ class AccountScreen extends StatelessWidget {
     return ListTile(
       leading: Icon(icon),
       title: Text(title),
+<<<<<<< HEAD
       subtitle: subtitle != null ? Text(subtitle) : null,
+=======
+      subtitle: subtitle != null ? Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
+>>>>>>> kajal
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> kajal
