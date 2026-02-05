@@ -1,14 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-<<<<<<< HEAD
-import 'package:flutter_project/providers/user_provider.dart';
-import 'package:flutter_project/providers/theme_provider.dart';
-
-class AccountScreen extends StatelessWidget {
-  const AccountScreen({super.key});
-
-=======
 import 'package:image_picker/image_picker.dart';
 import '../providers/user_provider.dart';
 import '../providers/theme_provider.dart';
@@ -122,7 +114,6 @@ class AccountScreen extends StatelessWidget { // Account screen with profile man
     );
   }
 
->>>>>>> kajal
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
@@ -141,34 +132,6 @@ class AccountScreen extends StatelessWidget { // Account screen with profile man
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
-<<<<<<< HEAD
-              color: theme.primaryColor.withValues(alpha: 0.1),
-              child: Column(
-                children: [
-                  // Profile Picture
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: theme.primaryColor,
-                    backgroundImage: isLoggedIn &&
-                            userProvider.currentUser?.profilePicture != null
-                        ? FileImage(
-                            File(userProvider.currentUser!.profilePicture!))
-                        : null,
-                    child: !isLoggedIn ||
-                            userProvider.currentUser?.profilePicture == null
-                        ? Text(
-                            isLoggedIn
-                                ? userProvider.currentUser!.name[0]
-                                    .toUpperCase()
-                                : 'G',
-                            style: const TextStyle(
-                              fontSize: 40,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          )
-                        : null,
-=======
               color: theme.primaryColor.withOpacity(0.1),
               child: Column(
                 children: [
@@ -219,7 +182,6 @@ class AccountScreen extends StatelessWidget { // Account screen with profile man
                           ),
                       ],
                     ),
->>>>>>> kajal
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -272,13 +234,9 @@ class AccountScreen extends StatelessWidget { // Account screen with profile man
                     context,
                     icon: Icons.location_on,
                     title: 'Saved Address',
-<<<<<<< HEAD
-                    subtitle: userProvider.currentUser!.address,
-=======
                     subtitle: userProvider.currentUser!.address.isNotEmpty
                         ? userProvider.currentUser!.address
                         : 'No address added',
->>>>>>> kajal
                     onTap: () {},
                   ),
                 ],
@@ -447,15 +405,6 @@ class AccountScreen extends StatelessWidget { // Account screen with profile man
                             child: const Text('Cancel'),
                           ),
                           TextButton(
-<<<<<<< HEAD
-                            onPressed: () {
-                              userProvider.logout();
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Logged out successfully')),
-                              );
-=======
                             onPressed: () async {
                               await userProvider.logout();
                               if (context.mounted) {
@@ -467,7 +416,6 @@ class AccountScreen extends StatelessWidget { // Account screen with profile man
                                   (route) => false,
                                 );
                               }
->>>>>>> kajal
                             },
                             child: const Text('Logout'),
                           ),
@@ -491,11 +439,7 @@ class AccountScreen extends StatelessWidget { // Account screen with profile man
     );
   }
 
-<<<<<<< HEAD
-  Widget _buildSection(
-=======
   Widget _buildSection( // Build a section with title and card container
->>>>>>> kajal
     BuildContext context, {
     required String title,
     required List<Widget> children,
@@ -521,11 +465,7 @@ class AccountScreen extends StatelessWidget { // Account screen with profile man
     );
   }
 
-<<<<<<< HEAD
-  Widget _buildListTile(
-=======
   Widget _buildListTile(  // Build a reusable ListTile widget
->>>>>>> kajal
     BuildContext context, {
     required IconData icon,
     required String title,
@@ -535,17 +475,9 @@ class AccountScreen extends StatelessWidget { // Account screen with profile man
     return ListTile(
       leading: Icon(icon),
       title: Text(title),
-<<<<<<< HEAD
-      subtitle: subtitle != null ? Text(subtitle) : null,
-=======
       subtitle: subtitle != null ? Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
->>>>>>> kajal
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> kajal

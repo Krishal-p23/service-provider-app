@@ -101,11 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         profilePicture: _profileImagePath,
       );
 
-<<<<<<< HEAD
-      final success = context.read<UserProvider>().register(user);
-=======
       final success = await context.read<UserProvider>().register(user);
->>>>>>> kajal
 
       setState(() {
         _isLoading = false;

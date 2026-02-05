@@ -36,11 +36,8 @@ dependencies:
   provider: ^6.0.5
   cupertino_icons: ^1.0.8
   image_picker: ^0.8.7+4
-<<<<<<< HEAD
-=======
   shared_preferences: ^2.2.2
   pinput: ^3.0.1
->>>>>>> kajal
 
 dev_dependencies:
   flutter_test:

@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-<<<<<<< HEAD
-
-=======
->>>>>>> kajal
 enum AppThemeMode { light, dark, system }
 
 class ThemeProvider extends ChangeNotifier {

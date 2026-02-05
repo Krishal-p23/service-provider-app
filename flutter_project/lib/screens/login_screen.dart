@@ -29,11 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-<<<<<<< HEAD
-  void _handleLogin() {
-=======
   void _handleLogin() async {
->>>>>>> kajal
     if (_formKey.currentState!.validate()) {
       final user = User(
         name: _nameController.text,
@@ -43,15 +39,10 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
 
-<<<<<<< HEAD
-      context.read<UserProvider>().login(user.email, user.password) ||
-          context.read<UserProvider>().register(user);
-=======
       final loginSuccess = await context.read<UserProvider>().login(user.email, user.password);
       if (!loginSuccess) {
         await context.read<UserProvider>().register(user);
       }
->>>>>>> kajal
       Navigator.pop(context);
 
       ScaffoldMessenger.of(

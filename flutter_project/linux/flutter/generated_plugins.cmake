@@ -4,10 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_linux
-<<<<<<< HEAD
-=======
   smart_auth
->>>>>>> kajal
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
