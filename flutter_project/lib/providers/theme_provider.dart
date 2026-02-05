@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-
 enum AppThemeMode { light, dark, system }
 
 class ThemeProvider extends ChangeNotifier {

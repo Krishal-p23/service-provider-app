@@ -1,108 +1,92 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import '../models/user.dart';
 import '../models/user_role.dart';
 
 class WorkerProvider extends ChangeNotifier {
   User? _currentWorker;
-  final Map<String, User> _registeredWorkers = {}; // Worker database
-  bool _isInitialized = false;
+  final List<User> _registeredWorkers = []; // In-memory only - clears on app restart
+
+  // Dummy workers for demonstration (hardcoded)
+  static final List<User> _dummyWorkers = [
+    User(
+      name: 'Demo Worker',
+      email: 'worker@demo.com',
+      mobile: '9123456780',
+      password: 'demo123',
+      address: 'Mumbai Service Area',
+      role: UserRole.worker,
+    ),
+    User(
+      name: 'Test Service Provider',
+      email: 'provider@test.com',
+      mobile: '9123456781',
+      password: 'test123',
+      address: 'Delhi Service Area',
+      role: UserRole.worker,
+    ),
+    User(
+      name: 'Sample Technician',
+      email: 'tech@sample.com',
+      mobile: '9123456782',
+      password: 'sample123',
+      address: 'Bangalore Service Area',
+      role: UserRole.worker,
+    ),
+  ];
 
   User? get currentWorker => _currentWorker;
   bool get isLoggedIn => _currentWorker != null;
-  bool get isInitialized => _isInitialized;
 
   String get displayName => _currentWorker?.name ?? 'Worker';
   String get displayMobile => _currentWorker?.mobile ?? '';
 
-  // Initialize and check for saved worker session
-  Future<void> initialize() async {
-    if (_isInitialized) return;
-
-    final prefs = await SharedPreferences.getInstance();
-    final workerJson = prefs.getString('current_worker');
-    final workersJson = prefs.getString('registered_workers');
-
-    // Load registered workers
-    if (workersJson != null) {
-      final Map<String, dynamic> workersMap = json.decode(workersJson);
-      _registeredWorkers.clear();
-      workersMap.forEach((key, value) {
-        _registeredWorkers[key] = User.fromJson(value);
-      });
-    }
-
-    // Load current worker session
-    if (workerJson != null) {
-      _currentWorker = User.fromJson(json.decode(workerJson));
-    }
-
-    _isInitialized = true;
-    notifyListeners();
-  }
-
-  // Save registered workers to storage
-  Future<void> _saveRegisteredWorkers() async {
-    final prefs = await SharedPreferences.getInstance();
-    final workersMap = <String, dynamic>{};
-    _registeredWorkers.forEach((key, value) {
-      workersMap[key] = value.toJson();
-    });
-    await prefs.setString('registered_workers', json.encode(workersMap));
-  }
-
-  // Save current worker session
-  Future<void> _saveCurrentWorker() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (_currentWorker != null) {
-      await prefs.setString('current_worker', json.encode(_currentWorker!.toJson()));
-    } else {
-      await prefs.remove('current_worker');
-    }
-  }
-
-  // Register new worker
+  // Register new worker (in-memory only, clears on restart)
   Future<bool> register(User worker) async {
     // Ensure the role is worker
     if (worker.role != UserRole.worker) {
       return false;
     }
 
-    // Check if worker already exists
-    if (_registeredWorkers.containsKey(worker.email)) {
+    // Check if worker already exists in dummy data
+    if (_dummyWorkers.any((w) => w.email == worker.email || w.mobile == worker.mobile)) {
+      return false; // Worker already exists in dummy data
+    }
+
+    // Check if worker already exists in registered workers
+    if (_registeredWorkers.any((w) => w.email == worker.email || w.mobile == worker.mobile)) {
       return false; // Worker already exists
     }
     
-    _registeredWorkers[worker.email] = worker;
-    await _saveRegisteredWorkers();
+    // Add to in-memory list (will be cleared on app restart)
+    _registeredWorkers.add(worker);
     
     _currentWorker = worker;
-    await _saveCurrentWorker();
-    
     notifyListeners();
     return true;
   }
 
-  // Login existing worker
+  // Login existing worker (checks both dummy and registered workers)
   Future<bool> login(String phoneOrEmail, String password) async {
-    // Try to find worker by phone or email
-    User? foundWorker;
-    
-    for (var worker in _registeredWorkers.values) {
+    // First check dummy workers
+    for (var worker in _dummyWorkers) {
       if ((worker.email == phoneOrEmail || worker.mobile == phoneOrEmail) &&
           worker.password == password &&
           worker.role == UserRole.worker) {
-        foundWorker = worker;
-        break;
+        _currentWorker = worker;
+        notifyListeners();
+        return true;
       }
     }
 
-    if (foundWorker != null) {
-      _currentWorker = foundWorker;
-      await _saveCurrentWorker();
-      notifyListeners();
-      return true;
+    // Then check registered workers
+    for (var worker in _registeredWorkers) {
+      if ((worker.email == phoneOrEmail || worker.mobile == phoneOrEmail) &&
+          worker.password == password &&
+          worker.role == UserRole.worker) {
+        _currentWorker = worker;
+        notifyListeners();
+        return true;
+      }
     }
     
     return false;
@@ -110,17 +94,17 @@ class WorkerProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     _currentWorker = null;
-    await _saveCurrentWorker();
     notifyListeners();
   }
 
   void updateWorker(User worker) {
     if (_currentWorker != null && worker.role == UserRole.worker) {
-      // Update in registered workers map
-      _registeredWorkers[_currentWorker!.email] = worker;
+      // Update in registered workers list
+      final index = _registeredWorkers.indexWhere((w) => w.email == _currentWorker!.email);
+      if (index != -1) {
+        _registeredWorkers[index] = worker;
+      }
       _currentWorker = worker;
-      _saveRegisteredWorkers();
-      _saveCurrentWorker();
       notifyListeners();
     }
   }
@@ -132,9 +116,17 @@ class WorkerProvider extends ChangeNotifier {
     }
   }
 
-  // Check if worker exists by email or mobile
+  // Check if worker exists by email or mobile (checks both dummy and registered)
   bool workerExists(String phoneOrEmail) {
-    return _registeredWorkers.values.any(
+    // Check dummy workers
+    if (_dummyWorkers.any(
+      (worker) => (worker.email == phoneOrEmail || worker.mobile == phoneOrEmail) &&
+                  worker.role == UserRole.worker,
+    )) {
+      return true;
+    }
+    // Check registered workers
+    return _registeredWorkers.any(
       (worker) => (worker.email == phoneOrEmail || worker.mobile == phoneOrEmail) &&
                   worker.role == UserRole.worker,
     );

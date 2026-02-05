@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/user_provider.dart';
+import '../providers/worker_provider.dart';
 import '../screens/onboarding_screen.dart';
 
 class WorkerDashboard extends StatefulWidget {
@@ -15,9 +15,9 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final userProvider = context.watch<UserProvider>();
-    final user = userProvider.currentUser;
+    // final theme = Theme.of(context);
+    final workerProvider = context.watch<WorkerProvider>();
+    final worker = workerProvider.currentWorker;
 
     return Scaffold(
       appBar: AppBar(
@@ -56,7 +56,7 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    user?.name ?? 'Worker',
+                    worker?.name ?? 'Worker',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -64,7 +64,7 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                     ),
                   ),
                   Text(
-                    user?.mobile ?? '',
+                    worker?.mobile ?? '',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -152,7 +152,7 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                 );
 
                 if (shouldLogout == true && mounted) {
-                  await userProvider.logout();
+                  await workerProvider.logout();
                   if (mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,
@@ -217,8 +217,8 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
   }
 
   Widget _buildHomeTab() {
-    final userProvider = context.watch<UserProvider>();
-    final user = userProvider.currentUser;
+    final workerProvider = context.watch<WorkerProvider>();
+    final worker = workerProvider.currentWorker;
 
     return SingleChildScrollView(
       child: Column(
@@ -247,7 +247,7 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user?.name ?? 'Worker',
+                  worker?.name ?? 'Worker',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -268,9 +268,9 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                     mainAxisSize: MainAxisSize.min,
                     children: const [
                       Icon(Icons.verified, color: Colors.white, size: 16),
-                      SizedBox(width: 6),
+                      SizedBox(width: 4),
                       Text(
-                        'Verified Professional',
+                        'Verified Worker',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -284,38 +284,42 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // Quick Stats
+          // Stats Cards
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+            child: GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.5,
               children: [
-                Expanded(
-                  child: _buildStatCard(
-                    'Jobs Today',
-                    '0',
-                    Icons.work,
-                    Colors.orange,
-                  ),
+                _buildStatCard(
+                  'Today',
+                  '${workerProvider.todayJobsCount}',
+                  Icons.today,
+                  Colors.green,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    'This Week',
-                    '0',
-                    Icons.calendar_today,
-                    Colors.green,
-                  ),
+                _buildStatCard(
+                  'This Week',
+                  '${workerProvider.weekJobsCount}',
+                  Icons.calendar_today,
+                  Colors.blue,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    'Earnings',
-                    '₹0',
-                    Icons.currency_rupee,
-                    Colors.blue,
-                  ),
+                _buildStatCard(
+                  'Earnings',
+                  '₹${workerProvider.totalEarnings.toStringAsFixed(0)}',
+                  Icons.account_balance_wallet,
+                  Colors.orange,
+                ),
+                _buildStatCard(
+                  'Rating',
+                  '${workerProvider.averageRating.toStringAsFixed(1)}★',
+                  Icons.star,
+                  Colors.amber,
                 ),
               ],
             ),
@@ -452,8 +456,8 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
   }
 
   Widget _buildProfileTab() {
-    final userProvider = context.watch<UserProvider>();
-    final user = userProvider.currentUser;
+    final workerProvider = context.watch<WorkerProvider>();
+    final worker = workerProvider.currentWorker;
 
     return SingleChildScrollView(
       child: Column(
@@ -470,7 +474,7 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
           ),
           const SizedBox(height: 16),
           Text(
-            user?.name ?? 'Worker',
+            worker?.name ?? 'Worker',
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -478,7 +482,7 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
           ),
           const SizedBox(height: 4),
           Text(
-            user?.mobile ?? '',
+            worker?.mobile ?? '',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade600,

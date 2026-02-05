@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+// import 'package:provider/provider.dart';
 import '../models/user_role.dart';
-import '../providers/theme_provider.dart';
+// import '../providers/theme_provider.dart';
 import 'auth/auth_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -348,7 +348,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       ),
     );
   }
-
+// this method builds a role selection card and highlights it when selected 
   Widget _buildRoleCard({
     required UserRole role,
     required IconData icon,
@@ -356,11 +356,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     required bool isDark,
   }) {
     final isSelected = _selectedRole == role;
-    final roleColor = role == UserRole.customer
+    final roleColor = role == UserRole.customer  
         ? const Color(0xFF00897B)
         : const Color(0xFF1976D2);
 
-    return GestureDetector(
+    return GestureDetector( // handle tap to select role
       onTap: () {
         setState(() {
           _selectedRole = role;
@@ -450,7 +450,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
             ),
             // Selection Indicator
-            AnimatedOpacity(
+            AnimatedOpacity( // fade in/out check icon
               duration: const Duration(milliseconds: 250),
               opacity: isSelected ? 1.0 : 0.0,
               child: Icon(
@@ -465,350 +465,3 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 }
-
-// import 'package:flutter/material.dart';
-// import 'package:provider/provider.dart';
-// import '../models/user_role.dart';
-// import '../providers/theme_provider.dart';
-// import 'auth/auth_screen.dart';
-
-// class OnboardingScreen extends StatefulWidget {
-//   const OnboardingScreen({super.key});
-
-//   @override
-//   State<OnboardingScreen> createState() => _OnboardingScreenState();
-// }
-
-// class _OnboardingScreenState extends State<OnboardingScreen>
-//     with TickerProviderStateMixin {
-//   late AnimationController _logoController;
-//   late AnimationController _cardController;
-//   late AnimationController _slideController;
-//   late AnimationController _buttonController;
-
-//   late Animation<double> _logoAnimation;
-//   late Animation<double> _cardAnimation;
-//   late Animation<Offset> _slideAnimation;
-//   late Animation<double> _buttonAnimation;
-
-//   UserRole _selectedRole = UserRole.customer;
-//   bool _animationsComplete = false;
-
-//   @override
-//   void initState() {
-//     super.initState();
-    
-//     // Logo fade in
-//     _logoController = AnimationController(
-//       vsync: this,
-//       duration: const Duration(milliseconds: 800),
-//     );
-//     _logoAnimation = CurvedAnimation(
-//       parent: _logoController,
-//       curve: Curves.easeIn,
-//     );
-
-//     // Card fade in
-//     _cardController = AnimationController(
-//       vsync: this,
-//       duration: const Duration(milliseconds: 600),
-//     );
-//     _cardAnimation = CurvedAnimation(
-//       parent: _cardController,
-//       curve: Curves.easeIn,
-//     );
-
-//     // Slide up animation
-//     _slideController = AnimationController(
-//       vsync: this,
-//       duration: const Duration(milliseconds: 800),
-//     );
-//     _slideAnimation = Tween<Offset>(
-//       begin: Offset.zero,
-//       end: const Offset(0, -0.35),
-//     ).animate(CurvedAnimation(
-//       parent: _slideController,
-//       curve: Curves.easeInOut,
-//     ));
-
-//     // Button fade in
-//     _buttonController = AnimationController(
-//       vsync: this,
-//       duration: const Duration(milliseconds: 600),
-//     );
-//     _buttonAnimation = CurvedAnimation(
-//       parent: _buttonController,
-//       curve: Curves.easeIn,
-//     );
-
-//     _startAnimations();
-//   }
-
-//   void _startAnimations() async {
-//     // Start logo animation
-//     await _logoController.forward();
-    
-//     // Wait 500ms then show card
-//     await Future.delayed(const Duration(milliseconds: 500));
-//     await _cardController.forward();
-    
-//     // Wait 600ms then slide up
-//     await Future.delayed(const Duration(milliseconds: 600));
-//     await _slideController.forward();
-    
-//     // Show buttons
-//     await _buttonController.forward();
-    
-//     setState(() {
-//       _animationsComplete = true;
-//     });
-//   }
-
-//   @override
-//   void dispose() {
-//     _logoController.dispose();
-//     _cardController.dispose();
-//     _slideController.dispose();
-//     _buttonController.dispose();
-//     super.dispose();
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final theme = Theme.of(context);
-//     final isDark = theme.brightness == Brightness.dark;
-    
-//     return Scaffold(
-//       body: SafeArea(
-//         child: Stack(
-//           children: [
-//             // Logo and Card (with slide animation)
-//             SlideTransition(
-//               position: _slideAnimation,
-//               child: Column(
-//                 mainAxisAlignment: MainAxisAlignment.center,
-//                 children: [
-//                   // Logo
-//                   FadeTransition(
-//                     opacity: _logoAnimation,
-//                     child: Container(
-//                       width: 120,
-//                       height: 120,
-//                       decoration: BoxDecoration(
-//                         color: theme.primaryColor,
-//                         borderRadius: BorderRadius.circular(24),
-//                         boxShadow: [
-//                           BoxShadow(
-//                             color: theme.primaryColor.withOpacity(0.3),
-//                             blurRadius: 20,
-//                             offset: const Offset(0, 8),
-//                           ),
-//                         ],
-//                       ),
-//                       child: const Icon(
-//                         Icons.home_repair_service,
-//                         size: 60,
-//                         color: Colors.white,
-//                       ),
-//                     ),
-//                   ),
-                  
-//                   const SizedBox(height: 24),
-                  
-//                   // Info Card
-//                   FadeTransition(
-//                     opacity: _cardAnimation,
-//                     child: Container(
-//                       margin: const EdgeInsets.symmetric(horizontal: 40),
-//                       padding: const EdgeInsets.symmetric(
-//                         horizontal: 24,
-//                         vertical: 16,
-//                       ),
-//                       decoration: BoxDecoration(
-//                         color: isDark
-//                             ? const Color(0xFF1E1E1E)
-//                             : Colors.white,
-//                         borderRadius: BorderRadius.circular(16),
-//                         boxShadow: [
-//                           BoxShadow(
-//                             color: Colors.black.withOpacity(0.1),
-//                             blurRadius: 20,
-//                             offset: const Offset(0, 4),
-//                           ),
-//                         ],
-//                       ),
-//                       child: Text(
-//                         'Trusted Home Services\nNear You',
-//                         textAlign: TextAlign.center,
-//                         style: theme.textTheme.bodyLarge?.copyWith(
-//                           fontWeight: FontWeight.w600,
-//                           height: 1.4,
-//                         ),
-//                       ),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-
-//             // Bottom Section (Role selection and button)
-//             if (_animationsComplete)
-//               Positioned(
-//                 left: 0,
-//                 right: 0,
-//                 bottom: 0,
-//                 child: FadeTransition(
-//                   opacity: _buttonAnimation,
-//                   child: Container(
-//                     padding: const EdgeInsets.all(24),
-//                     child: Column(
-//                       mainAxisSize: MainAxisSize.min,
-//                       children: [
-//                         // Role Selection
-//                         Row(
-//                           children: [
-//                             Expanded(
-//                               child: _buildRoleCard(
-//                                 role: UserRole.customer,
-//                                 icon: Icons.person,
-//                                 theme: theme,
-//                                 isDark: isDark,
-//                               ),
-//                             ),
-//                             const SizedBox(width: 16),
-//                             Expanded(
-//                               child: _buildRoleCard(
-//                                 role: UserRole.worker,
-//                                 icon: Icons.work,
-//                                 theme: theme,
-//                                 isDark: isDark,
-//                               ),
-//                             ),
-//                           ],
-//                         ),
-                        
-//                         const SizedBox(height: 24),
-                        
-//                         // Get Started Button
-//                         SizedBox(
-//                           width: double.infinity,
-//                           child: ElevatedButton(
-//                             onPressed: () {
-//                               Navigator.pushReplacement(
-//                                 context,
-//                                 MaterialPageRoute(
-//                                   builder: (context) => AuthScreen(
-//                                     initialRole: _selectedRole,
-//                                   ),
-//                                 ),
-//                               );
-//                             },
-//                             style: ElevatedButton.styleFrom(
-//                               padding: const EdgeInsets.symmetric(vertical: 16),
-//                               shape: RoundedRectangleBorder(
-//                                 borderRadius: BorderRadius.circular(12),
-//                               ),
-//                             ),
-//                             child: Row(
-//                               mainAxisAlignment: MainAxisAlignment.center,
-//                               children: [
-//                                 Text(
-//                                   'Get Started',
-//                                   style: TextStyle(
-//                                     fontSize: 16,
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                                 const SizedBox(width: 8),
-//                                 const Icon(Icons.arrow_forward, size: 20),
-//                               ],
-//                             ),
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildRoleCard({
-//     required UserRole role,
-//     required IconData icon,
-//     required ThemeData theme,
-//     required bool isDark,
-//   }) {
-//     final isSelected = _selectedRole == role;
-    
-//     return GestureDetector(
-//       onTap: () {
-//         setState(() {
-//           _selectedRole = role;
-//         });
-//       },
-//       child: AnimatedContainer(
-//         duration: const Duration(milliseconds: 200),
-//         padding: const EdgeInsets.all(20),
-//         decoration: BoxDecoration(
-//           color: isSelected
-//               ? theme.primaryColor.withOpacity(0.1)
-//               : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
-//           borderRadius: BorderRadius.circular(16),
-//           border: Border.all(
-//             color: isSelected
-//                 ? theme.primaryColor
-//                 : (isDark ? Colors.grey.shade700 : Colors.grey.shade300),
-//             width: isSelected ? 2 : 1,
-//           ),
-//           boxShadow: isSelected
-//               ? [
-//                   BoxShadow(
-//                     color: theme.primaryColor.withOpacity(0.2),
-//                     blurRadius: 12,
-//                     offset: const Offset(0, 4),
-//                   ),
-//                 ]
-//               : [],
-//         ),
-//         child: Column(
-//           children: [
-//             Container(
-//               padding: const EdgeInsets.all(16),
-//               decoration: BoxDecoration(
-//                 color: isSelected
-//                     ? theme.primaryColor
-//                     : theme.primaryColor.withOpacity(0.1),
-//                 shape: BoxShape.circle,
-//               ),
-//               child: Icon(
-//                 icon,
-//                 size: 32,
-//                 color: isSelected
-//                     ? Colors.white
-//                     : theme.primaryColor,
-//               ),
-//             ),
-//             const SizedBox(height: 12),
-//             Text(
-//               role.displayName,
-//               style: theme.textTheme.bodyLarge?.copyWith(
-//                 fontWeight: FontWeight.w600,
-//                 color: isSelected ? theme.primaryColor : null,
-//               ),
-//             ),
-//             const SizedBox(height: 4),
-//             Text(
-//               role.description,
-//               style: theme.textTheme.bodySmall,
-//               textAlign: TextAlign.center,
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
