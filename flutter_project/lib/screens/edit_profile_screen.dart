@@ -14,9 +14,6 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-<<<<<<< HEAD
-  late TextEditingController _addressController;
-=======
   late TextEditingController _mobileController;
   late TextEditingController _pincodeController;
   late TextEditingController _cityController;
@@ -25,7 +22,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _stateController;
   late TextEditingController _countryController;
   
->>>>>>> kajal
   String? _profileImagePath;
   final ImagePicker _imagePicker = ImagePicker();
   bool _isLoading = false;
@@ -35,20 +31,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     final user = context.read<UserProvider>().currentUser;
     _nameController = TextEditingController(text: user?.name ?? '');
-<<<<<<< HEAD
-    _addressController = TextEditingController(text: user?.address ?? '');
-    _profileImagePath = user?.profilePicture;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _addressController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-=======
     _mobileController = TextEditingController(text: user?.mobile ?? '');
     
     // Parse existing address if available
@@ -165,7 +147,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async { // Pick profile image from gallery or camera
->>>>>>> kajal
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: source,
@@ -188,11 +169,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-<<<<<<< HEAD
-  void _showImageSourceDialog() {
-=======
   void _showImageSourceDialog() {  // Show dialog to choose image source
->>>>>>> kajal
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -231,11 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-<<<<<<< HEAD
-  void _handleSave() {
-=======
   void _handleSave() {  // Validate and save profile changes
->>>>>>> kajal
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -247,12 +220,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (currentUser != null) {
         final updatedUser = currentUser.copyWith(
           name: _nameController.text.trim(),
-<<<<<<< HEAD
-          address: _addressController.text.trim(),
-=======
           mobile: _mobileController.text.trim(),
           address: _formatAddress(),
->>>>>>> kajal
           profilePicture: _profileImagePath,
         );
 
@@ -262,11 +231,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _isLoading = false;
         });
 
-<<<<<<< HEAD
-        Navigator.pop(context);
-=======
         Navigator.pop(context); // Go back to previous screen
->>>>>>> kajal
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully!')),
         );
@@ -275,11 +240,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   @override
-<<<<<<< HEAD
-  Widget build(BuildContext context) {
-=======
   Widget build(BuildContext context) {  // Build the Edit Profile screen UI
->>>>>>> kajal
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -308,11 +269,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 60,
-<<<<<<< HEAD
-                        backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-=======
                         backgroundColor: theme.primaryColor.withOpacity(0.1),
->>>>>>> kajal
                         backgroundImage: _profileImagePath != null
                             ? FileImage(File(_profileImagePath!))
                             : null,
@@ -371,20 +328,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 
-<<<<<<< HEAD
-                // Address
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Address',
-                    hintText: 'Enter your address',
-                    prefixIcon: Icon(Icons.location_on),
-                  ),
-                  maxLines: 3,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your address';
-=======
                 // Mobile Number
                 TextFormField(
                   controller: _mobileController,
@@ -520,7 +463,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter country';
->>>>>>> kajal
                     }
                     return null;
                   },
