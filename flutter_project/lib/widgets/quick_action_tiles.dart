@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+<<<<<<< HEAD
 
+=======
+// Quick Action Tiles widget for Home Screen
+>>>>>>> kajal
 class QuickActionTiles extends StatelessWidget {
   const QuickActionTiles({super.key});
 

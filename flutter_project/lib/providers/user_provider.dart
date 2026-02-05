@@ -1,18 +1,61 @@
 import 'package:flutter/material.dart';
+<<<<<<< HEAD
 import 'package:flutter_project/models/user.dart';
 import 'package:flutter_project/models/service_booking.dart';
 import 'package:flutter_project/models/review.dart';
+=======
+import '../models/user.dart';
+import '../models/user_role.dart';
+import '../models/service_booking.dart';
+import '../models/review.dart';
+>>>>>>> kajal
 
 class UserProvider extends ChangeNotifier {
   User? _currentUser;
   final List<ServiceBooking> _bookingHistory = [];
   final List<Review> _userReviews = [];
+<<<<<<< HEAD
   final Map<String, User> _registeredUsers = {}; // Simulated user database
+=======
+  final List<User> _registeredUsers = []; // In-memory only - clears on app restart
+
+  // Dummy users for demonstration (hardcoded)
+  static final List<User> _dummyUsers = [
+    User(
+      name: 'Demo User',
+      email: 'user@demo.com',
+      mobile: '9876543210',
+      password: 'demo123',
+      address: '123 Main Street, Mumbai',
+      role: UserRole.customer,
+    ),
+    User(
+      name: 'Test Customer',
+      email: 'customer@test.com',
+      mobile: '9876543211',
+      password: 'test123',
+      address: '456 Park Avenue, Delhi',
+      role: UserRole.customer,
+    ),
+    User(
+      name: 'Sample User',
+      email: 'sample@user.com',
+      mobile: '9876543212',
+      password: 'sample123',
+      address: '789 Lake Road, Bangalore',
+      role: UserRole.customer,
+    ),
+  ];
+>>>>>>> kajal
 
   User? get currentUser => _currentUser;
   List<ServiceBooking> get bookingHistory => List.unmodifiable(_bookingHistory);
   List<Review> get userReviews => List.unmodifiable(_userReviews);
   bool get isLoggedIn => _currentUser != null;
+<<<<<<< HEAD
+=======
+  UserRole? get userRole => _currentUser?.role;
+>>>>>>> kajal
 
   String get displayAddress {
     if (_currentUser == null) {
@@ -21,6 +64,7 @@ class UserProvider extends ChangeNotifier {
     return _currentUser!.address;
   }
 
+<<<<<<< HEAD
   // Register new user
   bool register(User user) {
     // Check if user already exists
@@ -29,12 +73,30 @@ class UserProvider extends ChangeNotifier {
     }
     
     _registeredUsers[user.email] = user;
+=======
+  // Register new user (in-memory only, clears on restart)
+  Future<bool> register(User user) async {
+    // Check if user already exists in dummy data
+    if (_dummyUsers.any((u) => u.email == user.email || u.mobile == user.mobile)) {
+      return false; // User already exists in dummy data
+    }
+
+    // Check if user already exists in registered users
+    if (_registeredUsers.any((u) => u.email == user.email || u.mobile == user.mobile)) {
+      return false; // User already exists
+    }
+    
+    // Add to in-memory list (will be cleared on app restart)
+    _registeredUsers.add(user);
+    
+>>>>>>> kajal
     _currentUser = user;
     _loadMockData();
     notifyListeners();
     return true;
   }
 
+<<<<<<< HEAD
   // Login existing user
   bool login(String emailOrMobile, String password) {
     // Try to find user by email or mobile
@@ -53,12 +115,48 @@ class UserProvider extends ChangeNotifier {
       _loadMockData();
       notifyListeners();
       return true;
+=======
+  // Login existing user (checks both dummy and registered users)
+  Future<bool> login(String emailOrMobile, String password, {UserRole? role}) async {
+    // First check dummy users
+    for (var user in _dummyUsers) {
+      if ((user.email == emailOrMobile || user.mobile == emailOrMobile) &&
+          user.password == password) {
+        // Check role if specified
+        if (role != null && user.role != role) {
+          continue;
+        }
+        _currentUser = user;
+        _loadMockData();
+        notifyListeners();
+        return true;
+      }
+    }
+
+    // Then check registered users
+    for (var user in _registeredUsers) {
+      if ((user.email == emailOrMobile || user.mobile == emailOrMobile) &&
+          user.password == password) {
+        // Check role if specified
+        if (role != null && user.role != role) {
+          continue;
+        }
+        _currentUser = user;
+        _loadMockData();
+        notifyListeners();
+        return true;
+      }
+>>>>>>> kajal
     }
     
     return false;
   }
 
+<<<<<<< HEAD
   void logout() {
+=======
+  Future<void> logout() async {
+>>>>>>> kajal
     _currentUser = null;
     _bookingHistory.clear();
     _userReviews.clear();
@@ -67,8 +165,16 @@ class UserProvider extends ChangeNotifier {
 
   void updateUser(User user) {
     if (_currentUser != null) {
+<<<<<<< HEAD
       // Update in registered users map
       _registeredUsers[_currentUser!.email] = user;
+=======
+      // Update in registered users list
+      final index = _registeredUsers.indexWhere((u) => u.email == _currentUser!.email);
+      if (index != -1) {
+        _registeredUsers[index] = user;
+      }
+>>>>>>> kajal
       _currentUser = user;
       notifyListeners();
     }
@@ -81,6 +187,21 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+<<<<<<< HEAD
+=======
+  // Check if user exists by email or mobile (checks both dummy and registered)
+  bool userExists(String emailOrMobile) {
+    // Check dummy users
+    if (_dummyUsers.any((user) => user.email == emailOrMobile || user.mobile == emailOrMobile)) {
+      return true;
+    }
+    // Check registered users
+    return _registeredUsers.any(
+      (user) => user.email == emailOrMobile || user.mobile == emailOrMobile,
+    );
+  }
+
+>>>>>>> kajal
   void _loadMockData() {
     _loadMockBookings();
     _loadMockReviews();
