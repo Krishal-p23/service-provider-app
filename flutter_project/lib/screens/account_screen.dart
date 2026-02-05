@@ -5,12 +5,12 @@ import 'package:image_picker/image_picker.dart';
 import '../providers/user_provider.dart';
 import '../providers/theme_provider.dart';
 
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatelessWidget { // Account screen with profile management and settings
   const AccountScreen({super.key});
 
-  Future<void> _showProfileOptions(BuildContext context) async {
+  Future<void> _showProfileOptions(BuildContext context) async {// Show options to manage profile picture
     final userProvider = context.read<UserProvider>();
-    final hasPhoto = userProvider.currentUser?.profilePicture != null;
+    final hasPhoto = userProvider.currentUser?.profilePicture != null;  // Check if user has a profile picture
 
     await showModalBottomSheet(
       context: context,
@@ -439,7 +439,7 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(
+  Widget _buildSection( // Build a section with title and card container
     BuildContext context, {
     required String title,
     required List<Widget> children,
@@ -465,7 +465,7 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildListTile(
+  Widget _buildListTile(  // Build a reusable ListTile widget
     BuildContext context, {
     required IconData icon,
     required String title,

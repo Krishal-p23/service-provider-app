@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+// Quick Action Tiles widget for Home Screen
 class QuickActionTiles extends StatelessWidget {
   const QuickActionTiles({super.key});
 

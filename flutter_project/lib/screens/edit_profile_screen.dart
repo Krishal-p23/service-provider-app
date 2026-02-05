@@ -86,7 +86,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
     }
 
-    // Assign remaining parts intelligently
+    // Assign remaining parts intelligently to locality, city, state, country 
     final filteredParts = parts.where((part) {
       return !part.toLowerCase().startsWith('near ') && 
              !pincodePattern.hasMatch(part);
@@ -107,7 +107,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     return addressMap;
   }
-
+// Format address from individual fields
   String _formatAddress() {
     final parts = <String>[];
     
@@ -134,7 +134,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   @override
-  void dispose() {
+  void dispose() { // Dispose controllers to free resources
     _nameController.dispose();
     _mobileController.dispose();
     _pincodeController.dispose();
@@ -146,7 +146,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickImage(ImageSource source) async { // Pick profile image from gallery or camera
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: source,
@@ -169,7 +169,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  void _showImageSourceDialog() {
+  void _showImageSourceDialog() {  // Show dialog to choose image source
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -208,7 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  void _handleSave() {
+  void _handleSave() {  // Validate and save profile changes
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -231,7 +231,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _isLoading = false;
         });
 
-        Navigator.pop(context);
+        Navigator.pop(context); // Go back to previous screen
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully!')),
         );
@@ -240,7 +240,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) {  // Build the Edit Profile screen UI
     final theme = Theme.of(context);
 
     return Scaffold(
