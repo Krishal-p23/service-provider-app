@@ -1,27 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_project/providers/theme_provider.dart';
+import 'package:flutter_project/theme/theme_provider.dart';
 import 'package:flutter_project/providers/user_provider.dart';
 import 'package:flutter_project/providers/worker_provider.dart';
-import 'package:flutter_project/utils/app_theme.dart';
-import 'package:flutter_project/screens/onboarding_screen.dart';
-import 'package:flutter_project/screens/login_screen.dart';
-import 'package:flutter_project/screens/register_screen.dart';
-import 'package:flutter_project/screens/edit_profile_screen.dart';
-import 'package:flutter_project/screens/reviews_screen.dart';
-import 'package:flutter_project/screens/all_services_screen.dart';
+import 'package:flutter_project/theme/app_theme.dart';
+import 'package:flutter_project/customer/screens/onboarding_screen.dart';
+import 'package:flutter_project/auth/login_tab.dart';
+import 'package:flutter_project/auth/register_tab.dart';
+import 'package:flutter_project/customer/screens/edit_profile_screen.dart';
+import 'package:flutter_project/customer/screens/reviews_screen.dart';
+import 'package:flutter_project/customer/screens/all_services_screen.dart';
+import 'package:flutter_project/customer/providers/booking_provider.dart';
+import 'package:flutter_project/customer/providers/service_provider.dart';
+import 'package:flutter_project/customer/providers/wallet_provider.dart';
+import 'package:flutter_project/customer/providers/language_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => WorkerProvider()),
+        ChangeNotifierProvider(create: (_) => BookingProvider()),
+        ChangeNotifierProvider(create: (_) => ServiceProvider()),
+        ChangeNotifierProvider(create: (_) => WalletProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
       ],
-      child: const HomeServicesApp(),
+      child: HomeServicesApp(),
     ),
   );
 }
@@ -41,8 +49,18 @@ class HomeServicesApp extends StatelessWidget {
           themeMode: themeProvider.materialThemeMode,
           home: const AppInitializer(),
           routes: {
-            '/login': (context) => const LoginScreen(),
-            '/register': (context) => const RegisterScreen(),
+            '/login': (context) => LoginTab(
+              roleColor: Theme.of(context).primaryColor,
+              onSwitchToRegister: () {
+                Navigator.pushNamed(context, '/register');
+              },
+            ),
+            '/register': (context) => RegisterTab(
+              roleColor: Theme.of(context).primaryColor,
+              onSwitchToLogin: () {
+                Navigator.pushNamed(context, '/login');
+              },
+            ),
             '/edit-profile': (context) => const EditProfileScreen(),
             '/reviews': (context) => const ReviewsScreen(),
             '/all-services': (context) => const AllServicesScreen(),

@@ -1,140 +1,173 @@
 import 'package:flutter/material.dart';
-import '../models/user.dart';
-import '../models/user_role.dart';
+import '../../customer/models/user.dart';
+import '../../customer/models/worker.dart';
+import 'package:flutter_project/customer/services/api_service.dart';
 
+/// WorkerProvider - Manages worker (WORKER role) authentication and state
+/// Communicates ONLY via REST API, no direct database access
 class WorkerProvider extends ChangeNotifier {
-  User? _currentWorker;
-  final List<User> _registeredWorkers = []; // In-memory only - clears on app restart
+  final ApiService _apiService = ApiService();
+  
+  User? _currentUser; // Base user data
+  Worker? _workerProfile; // Worker-specific data
+  bool _isLoading = false;
+  String? _error;
 
-  // Dummy workers for demonstration (hardcoded)
-  static final List<User> _dummyWorkers = [
-    User(
-      name: 'Demo Worker',
-      email: 'worker@demo.com',
-      mobile: '9123456780',
-      password: 'demo123',
-      address: 'Mumbai Service Area',
-      role: UserRole.worker,
-    ),
-    User(
-      name: 'Test Service Provider',
-      email: 'provider@test.com',
-      mobile: '9123456781',
-      password: 'test123',
-      address: 'Delhi Service Area',
-      role: UserRole.worker,
-    ),
-    User(
-      name: 'Sample Technician',
-      email: 'tech@sample.com',
-      mobile: '9123456782',
-      password: 'sample123',
-      address: 'Bangalore Service Area',
-      role: UserRole.worker,
-    ),
-  ];
+  User? get currentUser => _currentUser;
+  Worker? get workerProfile => _workerProfile;
+  bool get isLoggedIn => _currentUser != null && _workerProfile != null;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
-  User? get currentWorker => _currentWorker;
-  bool get isLoggedIn => _currentWorker != null;
+  /// Initialize provider and check if worker is already logged in
+  Future<void> initialize() async {
+    await _apiService.initialize();
+    if (_apiService.isAuthenticated) {
+      await fetchProfile();
+    }
+  }
 
-  String get displayName => _currentWorker?.name ?? 'Worker';
-  String get displayMobile => _currentWorker?.mobile ?? '';
+  /// Register new worker (WORKER role)
+  /// API: POST /api/accounts/signup/
+  Future<Map<String, dynamic>> register({
+    required String username,
+    required String password,
+    required String serviceType, // REQUIRED for workers
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
 
-  // Register new worker (in-memory only, clears on restart)
-  Future<bool> register(User worker) async {
-    // Ensure the role is worker
-    if (worker.role != UserRole.worker) {
+    try {
+      final result = await _apiService.signup(
+        username: username,
+        password: password,
+        role: 'WORKER',
+        serviceType: serviceType,
+      );
+
+      _isLoading = false;
+
+      if (result['success']) {
+        notifyListeners();
+        return {
+          'success': true,
+          'message': result['data']['message'] ?? 'Signup successful',
+        };
+      } else {
+        _error = result['data']['error'] ?? 'Registration failed';
+        notifyListeners();
+        return {
+          'success': false,
+          'message': _error,
+        };
+      }
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Registration error: $e';
+      notifyListeners();
+      return {
+        'success': false,
+        'message': _error,
+      };
+    }
+  }
+
+  /// Login worker
+  /// API: POST /api/accounts/login/
+  Future<bool> login({
+    required String username,
+    required String password,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.login(
+        username: username,
+        password: password,
+      );
+
+      _isLoading = false;
+
+      if (result['success']) {
+        final role = result['data']['role'];
+        
+        // Ensure this is a WORKER, not a USER
+        if (role != 'WORKER') {
+          _error = 'Invalid login. Please use customer login.';
+          notifyListeners();
+          return false;
+        }
+
+        // Fetch worker profile after successful login
+        await fetchProfile();
+        return true;
+      } else {
+        _error = result['data']['error'] ?? 'Login failed';
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Login error: $e';
+      notifyListeners();
       return false;
     }
-
-    // Check if worker already exists in dummy data
-    if (_dummyWorkers.any((w) => w.email == worker.email || w.mobile == worker.mobile)) {
-      return false; // Worker already exists in dummy data
-    }
-
-    // Check if worker already exists in registered workers
-    if (_registeredWorkers.any((w) => w.email == worker.email || w.mobile == worker.mobile)) {
-      return false; // Worker already exists
-    }
-    
-    // Add to in-memory list (will be cleared on app restart)
-    _registeredWorkers.add(worker);
-    
-    _currentWorker = worker;
-    notifyListeners();
-    return true;
   }
 
-  // Login existing worker (checks both dummy and registered workers)
-  Future<bool> login(String phoneOrEmail, String password) async {
-    // First check dummy workers
-    for (var worker in _dummyWorkers) {
-      if ((worker.email == phoneOrEmail || worker.mobile == phoneOrEmail) &&
-          worker.password == password &&
-          worker.role == UserRole.worker) {
-        _currentWorker = worker;
-        notifyListeners();
-        return true;
-      }
-    }
+  /// Fetch current worker profile
+  /// API: POST /api/accounts/me/
+  Future<void> fetchProfile() async {
+    try {
+      final result = await _apiService.getProfile();
 
-    // Then check registered workers
-    for (var worker in _registeredWorkers) {
-      if ((worker.email == phoneOrEmail || worker.mobile == phoneOrEmail) &&
-          worker.password == password &&
-          worker.role == UserRole.worker) {
-        _currentWorker = worker;
-        notifyListeners();
-        return true;
+      if (result['success']) {
+        final userData = result['data'];
+        
+        // Verify role is WORKER
+        if (userData['role'] == 'WORKER') {
+          _currentUser = User.fromJson(userData);
+          
+          // TODO: When backend provides worker details, parse them here
+          // For now, create a basic worker profile
+          _workerProfile = Worker(
+            id: userData['id'] ?? 0,
+            userId: userData['id'] ?? 0,
+            isVerified: false,
+            isAvailable: true,
+          );
+          
+          _error = null;
+        } else {
+          _error = 'Invalid worker role';
+          await logout();
+        }
+      } else {
+        _error = result['data']['error'] ?? 'Failed to fetch profile';
+        await logout();
       }
-    }
-    
-    return false;
-  }
-
-  Future<void> logout() async {
-    _currentWorker = null;
-    notifyListeners();
-  }
-
-  void updateWorker(User worker) {
-    if (_currentWorker != null && worker.role == UserRole.worker) {
-      // Update in registered workers list
-      final index = _registeredWorkers.indexWhere((w) => w.email == _currentWorker!.email);
-      if (index != -1) {
-        _registeredWorkers[index] = worker;
-      }
-      _currentWorker = worker;
+      
+      notifyListeners();
+    } catch (e) {
+      _error = 'Profile fetch error: $e';
       notifyListeners();
     }
   }
 
-  void updateProfilePicture(String? imagePath) {
-    if (_currentWorker != null) {
-      final updatedWorker = _currentWorker!.copyWith(profilePicture: imagePath);
-      updateWorker(updatedWorker);
-    }
+  /// Logout current worker
+  Future<void> logout() async {
+    await _apiService.logout();
+    _currentUser = null;
+    _workerProfile = null;
+    _error = null;
+    notifyListeners();
   }
 
-  // Check if worker exists by email or mobile (checks both dummy and registered)
-  bool workerExists(String phoneOrEmail) {
-    // Check dummy workers
-    if (_dummyWorkers.any(
-      (worker) => (worker.email == phoneOrEmail || worker.mobile == phoneOrEmail) &&
-                  worker.role == UserRole.worker,
-    )) {
-      return true;
-    }
-    // Check registered workers
-    return _registeredWorkers.any(
-      (worker) => (worker.email == phoneOrEmail || worker.mobile == phoneOrEmail) &&
-                  worker.role == UserRole.worker,
-    );
+  /// Clear error
+  void clearError() {
+    _error = null;
+    notifyListeners();
   }
-
-  // Worker-specific data (can be expanded)
-  int get todayJobsCount => 0; // TODO: Implement real job counting
-  int get weekJobsCount => 0; // TODO: Implement real job counting
-  double get totalEarnings => 0.0; // TODO: Implement real earnings tracking
-  double get averageRating => 0.0; // TODO: Implement real rating calculation
 }
