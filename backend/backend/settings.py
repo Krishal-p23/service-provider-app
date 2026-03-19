@@ -25,7 +25,15 @@ SECRET_KEY = 'django-insecure-k-%py7jlowpxcow*!de$l!uhv(s#az=jt4(610c!m0y-_$7@5#
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.0.2.2']  # 10.0.2.2 for Android emulator
+
+# CORS Settings for Flutter
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://localhost:3000",
+    "http://127.0.0.1:8080",
+]
+CORS_ALLOW_ALL_ORIGINS = True  # For development only - disable in production
 
 
 # Application definition
@@ -37,9 +45,17 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',  # For Flutter API calls
+    'authentication',  # User authentication app
+    'workers',  # Worker domain
+    'services',  # Services catalog
+    'bookings',  # Booking management
+    'payments',  # Payment transactions
+    'reviews',  # Reviews and ratings
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Must be at the top
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -72,16 +88,28 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# Using Supabase PostgreSQL Database
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'service_provider',
-        'USER': 'postgres',
-        'PASSWORD': 'your_password',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': 'postgres',
+        'USER': 'postgres.jgdojkbhcxzploxzpzxa',
+        'PASSWORD': 'xpgwvUKtz/m*7!X',
+        'HOST': 'aws-1-ap-south-1.pooler.supabase.com',
+        'PORT': '6543',
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+        'CONN_MAX_AGE': 600,  # Connection pooling
     }
 }
+
+
+# Password validation
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
 
 
 # Password validation
