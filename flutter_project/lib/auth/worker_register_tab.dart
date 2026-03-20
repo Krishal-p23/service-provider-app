@@ -19,6 +19,7 @@ class WorkerRegisterTab extends StatefulWidget {
 class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -43,14 +44,10 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
   @override
   void dispose() {
     _nameController.dispose();
+    _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  // Generate username from phone number
-  String _getUsernameFromPhone() {
-    return 'worker_${_phoneController.text.trim()}';
   }
 
   Future<void> _handleRegister() async {
@@ -85,6 +82,7 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
         MaterialPageRoute(
           builder: (context) => WorkerOTPVerificationScreen(
             name: _nameController.text.trim(),
+            email: _emailController.text.trim(),
             phone: _phoneController.text.trim(),
             password: _passwordController.text,
             serviceType: _selectedServiceType!,
@@ -99,9 +97,10 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
   }
 
   String _formatServiceType(String type) {
-    return type.split('_').map((word) => 
-      word[0].toUpperCase() + word.substring(1)
-    ).join(' ');
+    return type
+        .split('_')
+        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .join(' ');
   }
 
   @override
@@ -145,7 +144,9 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                 color: isDark
                     ? AppTheme.darkSurfaceVariant
                     : widget.roleColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                borderRadius: BorderRadius.circular(
+                  AppTheme.borderRadiusMedium,
+                ),
               ),
               child: TextFormField(
                 controller: _nameController,
@@ -166,13 +167,48 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
             ),
             const SizedBox(height: AppTheme.spacingLarge),
 
+            // Email Field
+            Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppTheme.darkSurfaceVariant
+                    : widget.roleColor.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(
+                  AppTheme.borderRadiusMedium,
+                ),
+              ),
+              child: TextFormField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'Enter your email',
+                  prefixIcon: Icon(Icons.email, color: widget.roleColor),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.all(AppTheme.spacingLarge),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Please enter a valid email';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingLarge),
+
             // Phone Number Field
             Container(
               decoration: BoxDecoration(
                 color: isDark
                     ? AppTheme.darkSurfaceVariant
                     : widget.roleColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                borderRadius: BorderRadius.circular(
+                  AppTheme.borderRadiusMedium,
+                ),
               ),
               child: TextFormField(
                 controller: _phoneController,
@@ -186,9 +222,13 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                 ),
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
-                buildCounter: (context,
-                        {required currentLength, required isFocused, maxLength}) =>
-                    null,
+                buildCounter:
+                    (
+                      context, {
+                      required currentLength,
+                      required isFocused,
+                      maxLength,
+                    }) => null,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your phone number';
@@ -208,7 +248,9 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                 color: isDark
                     ? AppTheme.darkSurfaceVariant
                     : widget.roleColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                borderRadius: BorderRadius.circular(
+                  AppTheme.borderRadiusMedium,
+                ),
               ),
               padding: const EdgeInsets.symmetric(
                 horizontal: AppTheme.spacingLarge,
@@ -249,7 +291,9 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                 color: isDark
                     ? AppTheme.darkSurfaceVariant
                     : widget.roleColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                borderRadius: BorderRadius.circular(
+                  AppTheme.borderRadiusMedium,
+                ),
               ),
               child: TextFormField(
                 controller: _passwordController,
@@ -333,7 +377,9 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                 backgroundColor: widget.roleColor,
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.borderRadiusMedium,
+                  ),
                 ),
                 elevation: AppTheme.cardElevationHigh,
               ),
@@ -361,10 +407,7 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  'Already registered? ',
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text('Already registered? ', style: theme.textTheme.bodyMedium),
                 TextButton(
                   onPressed: widget.onSwitchToLogin,
                   child: Text(

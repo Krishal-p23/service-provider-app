@@ -6,7 +6,7 @@
 // /// Communicates ONLY via REST API, no direct database access
 // class UserProvider extends ChangeNotifier {
 //   final ApiService _apiService = ApiService();
-  
+
 //   User? _currentUser;
 //   bool _isLoading = false;
 //   String? _error;
@@ -88,7 +88,7 @@
 
 //       if (result['success']) {
 //         final role = result['data']['role'];
-        
+
 //         // Ensure this is a USER (customer), not a WORKER
 //         if (role != 'USER') {
 //           _error = 'Invalid login. Please use worker login for service providers.';
@@ -120,7 +120,7 @@
 
 //       if (result['success']) {
 //         final userData = result['data'];
-        
+
 //         // Verify role is USER
 //         if (userData['role'] == 'USER') {
 //           _currentUser = User.fromJson(userData);
@@ -133,7 +133,7 @@
 //         _error = result['data']['error'] ?? 'Failed to fetch profile';
 //         await logout();
 //       }
-      
+
 //       notifyListeners();
 //     } catch (e) {
 //       _error = 'Profile fetch error: $e';
@@ -166,7 +166,7 @@ import '../customer/services/api_service.dart';
 /// Communicates ONLY via REST API, no direct database access
 class UserProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
-  
+
   User? _currentUser;
   UserLocation? _currentUserLocation;
   List<Review> _userReviews = [];
@@ -179,10 +179,11 @@ class UserProvider extends ChangeNotifier {
   bool get isLoggedIn => _currentUser != null;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  
+
   /// Get display address from user location
   String get displayAddress {
-    if (_currentUserLocation != null && _currentUserLocation!.address.isNotEmpty) {
+    if (_currentUserLocation != null &&
+        _currentUserLocation!.address.isNotEmpty) {
       // Truncate long addresses for display
       final address = _currentUserLocation!.address;
       if (address.length > 50) {
@@ -203,10 +204,12 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  /// Register new customer (USER role)
-  /// API: POST /api/accounts/signup/
+  /// Register new customer
+  /// API: POST /api/accounts/register/
   Future<Map<String, dynamic>> register({
-    required String username,
+    required String name,
+    required String email,
+    required String phone,
     required String password,
   }) async {
     _isLoading = true;
@@ -214,10 +217,12 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _apiService.signup(
-        username: username,
+      final result = await _apiService.register(
+        name: name,
+        email: email,
+        phone: phone,
         password: password,
-        role: 'USER',
+        role: 'customer',
       );
 
       _isLoading = false;
@@ -231,57 +236,51 @@ class UserProvider extends ChangeNotifier {
       } else {
         _error = result['data']['error'] ?? 'Registration failed';
         notifyListeners();
-        return {
-          'success': false,
-          'message': _error,
-        };
+        return {'success': false, 'message': _error};
       }
     } catch (e) {
       _isLoading = false;
       _error = 'Registration error: $e';
       notifyListeners();
-      return {
-        'success': false,
-        'message': _error,
-      };
+      return {'success': false, 'message': _error};
     }
   }
 
   /// Login customer
   /// API: POST /api/accounts/login/
-  Future<bool> login({
-    required String username,
-    required String password,
-  }) async {
+  Future<bool> login({required String email, required String password}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final result = await _apiService.login(
-        username: username,
-        password: password,
-      );
+      final result = await _apiService.login(email: email, password: password);
 
       _isLoading = false;
 
       if (result['success']) {
-        final role = result['data']['role'];
-        
-        // Ensure this is a USER (customer), not a WORKER
-        if (role != 'USER') {
-          _error = 'Invalid login. Please use worker login for service providers.';
+        final role = (result['data']['data']?['role'] ?? '')
+            .toString()
+            .toLowerCase();
+
+        // Ensure this is a customer account
+        if (role == 'worker') {
+          _error =
+              'Invalid login. Please use worker login for service providers.';
           notifyListeners();
           return false;
         }
 
-        // Fetch user profile and related data after successful login
-        await fetchProfile();
-        await fetchUserLocation();
-        await fetchUserReviews();
+        final userData = result['data']['data'] ?? {};
+        _currentUser = User.fromJson(userData);
+        _error = null;
+        notifyListeners();
         return true;
       } else {
-        _error = result['data']['error'] ?? 'Login failed';
+        _error =
+            result['data']['message'] ??
+            result['data']['error'] ??
+            'Login failed';
         notifyListeners();
         return false;
       }
@@ -301,7 +300,7 @@ class UserProvider extends ChangeNotifier {
 
       if (result['success']) {
         final userData = result['data'];
-        
+
         // Verify role is USER
         if (userData['role'] == 'USER') {
           _currentUser = User.fromJson(userData);
@@ -314,7 +313,7 @@ class UserProvider extends ChangeNotifier {
         _error = result['data']['error'] ?? 'Failed to fetch profile';
         await logout();
       }
-      
+
       notifyListeners();
     } catch (e) {
       _error = 'Profile fetch error: $e';
@@ -337,7 +336,7 @@ class UserProvider extends ChangeNotifier {
         // User doesn't have a location yet, this is normal
         _currentUserLocation = null;
       }
-      
+
       notifyListeners();
     } catch (e) {
       // Location not found is not an error, user just hasn't added location yet
@@ -403,12 +402,14 @@ class UserProvider extends ChangeNotifier {
 
       if (result['success']) {
         final reviewsData = result['data'] as List;
-        _userReviews = reviewsData.map((json) => Review.fromJson(json)).toList();
+        _userReviews = reviewsData
+            .map((json) => Review.fromJson(json))
+            .toList();
         _error = null;
       } else {
         _userReviews = [];
       }
-      
+
       notifyListeners();
     } catch (e) {
       _userReviews = [];

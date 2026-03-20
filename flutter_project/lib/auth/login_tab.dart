@@ -39,7 +39,7 @@ class _LoginTabState extends State<LoginTab> {
 
       final userProvider = context.read<UserProvider>();
       final success = await userProvider.login(
-        username: _emailController.text.trim(), // Backend still uses 'username' parameter
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -53,10 +53,7 @@ class _LoginTabState extends State<LoginTab> {
       } else if (mounted) {
         final error = userProvider.error ?? 'Login failed';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error),
-            backgroundColor: AppTheme.errorColor,
-          ),
+          SnackBar(content: Text(error), backgroundColor: AppTheme.errorColor),
         );
       }
     }
@@ -125,9 +122,7 @@ class _LoginTabState extends State<LoginTab> {
                 prefixIcon: Icon(Icons.lock, color: widget.roleColor),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off
-                        : Icons.visibility,
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
                   ),
                   onPressed: () {
                     setState(() {
@@ -151,9 +146,13 @@ class _LoginTabState extends State<LoginTab> {
               onPressed: _isLoading ? null : _handleLogin,
               style: ElevatedButton.styleFrom(
                 backgroundColor: widget.roleColor,
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingLarge),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppTheme.spacingLarge,
+                ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.borderRadiusMedium,
+                  ),
                 ),
               ),
               child: _isLoading

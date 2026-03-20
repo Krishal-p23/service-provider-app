@@ -1,13 +1,34 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// API Service for backend communication
 /// Handles all HTTP requests to Django backend
 class ApiService {
-  // Base URL for API - Update this with your backend IP
-  static const String baseUrl = 'http://192.168.1.100:8000/api';
-  
+  // Override with: --dart-define=API_BASE_URL=http://<host>:8000/api
+  static const String _envBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
+
+  // Use emulator-friendly defaults when API_BASE_URL is not provided.
+  static String get baseUrl {
+    if (_envBaseUrl.isNotEmpty) {
+      return _envBaseUrl;
+    }
+
+    if (kIsWeb) {
+      return 'http://127.0.0.1:8000/api';
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8000/api';
+    }
+
+    return 'http://127.0.0.1:8000/api';
+  }
+
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -44,42 +65,39 @@ class ApiService {
 
   /// Get authorization headers
   Map<String, String> get _headers {
-    final headers = {
-      'Content-Type': 'application/json',
-    };
+    final headers = {'Content-Type': 'application/json'};
     if (_accessToken != null) {
       headers['Authorization'] = 'Bearer $_accessToken';
     }
     return headers;
   }
 
-  /// User/Worker Signup
-  /// POST /api/accounts/signup/
-  Future<Map<String, dynamic>> signup({
-    required String username,
+  /// User/Worker Register
+  /// POST /api/accounts/register/
+  Future<Map<String, dynamic>> register({
+    required String name,
+    required String email,
+    required String phone,
     required String password,
-    required String role, // 'USER' or 'WORKER'
-    String? serviceType, // Required if role = 'WORKER'
+    required String role, // e.g. customer/worker
   }) async {
     try {
       final body = {
-        'username': username,
+        'name': name,
+        'email': email,
+        'phone': phone,
         'password': password,
         'role': role,
       };
-      
-      if (role == 'WORKER' && serviceType != null) {
-        body['service_type'] = serviceType;
-      }
 
       final response = await http.post(
-        Uri.parse('$baseUrl/accounts/signup/'),
+        Uri.parse('$baseUrl/accounts/register/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );
 
       final data = jsonDecode(response.body);
-      
+
       return {
         'success': response.statusCode == 201,
         'statusCode': response.statusCode,
@@ -97,26 +115,24 @@ class ApiService {
   /// User/Worker Login
   /// POST /api/accounts/login/
   Future<Map<String, dynamic>> login({
-    required String username,
+    required String email,
     required String password,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/accounts/login/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': username,
-          'password': password,
-        }),
+        body: jsonEncode({'email': email, 'password': password}),
       );
 
       final data = jsonDecode(response.body);
-      
+
       if (response.statusCode == 200) {
-        // Save tokens
-        await _saveTokens(data['access'], data['refresh']);
+        // Backend currently returns profile-like data, not JWT tokens.
+        // Keep a lightweight local session marker for provider checks.
+        await _saveTokens('local_session', '');
       }
-      
+
       return {
         'success': response.statusCode == 200,
         'statusCode': response.statusCode,
@@ -141,7 +157,7 @@ class ApiService {
       );
 
       final data = jsonDecode(response.body);
-      
+
       return {
         'success': response.statusCode == 200,
         'statusCode': response.statusCode,
@@ -177,7 +193,7 @@ class ApiService {
       );
 
       final data = jsonDecode(response.body);
-      
+
       return {
         'success': response.statusCode == 200,
         'statusCode': response.statusCode,
@@ -212,7 +228,7 @@ class ApiService {
       }
 
       final data = jsonDecode(response.body);
-      
+
       return {
         'success': false,
         'statusCode': response.statusCode,
@@ -269,7 +285,9 @@ class ApiService {
 
   /// Create user location
   /// POST /api/locations/
-  Future<Map<String, dynamic>> createUserLocation(Map<String, dynamic> locationData) async {
+  Future<Map<String, dynamic>> createUserLocation(
+    Map<String, dynamic> locationData,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/locations/'),
@@ -278,7 +296,7 @@ class ApiService {
       );
 
       final data = jsonDecode(response.body);
-      
+
       return {
         'success': response.statusCode == 201,
         'statusCode': response.statusCode,
@@ -307,7 +325,7 @@ class ApiService {
       );
 
       final data = jsonDecode(response.body);
-      
+
       return {
         'success': response.statusCode == 200,
         'statusCode': response.statusCode,
@@ -341,17 +359,9 @@ class ApiService {
       }
 
       final data = jsonDecode(response.body);
-      return {
-        'success': false,
-        'statusCode': response.statusCode,
-        'data': [],
-      };
+      return {'success': false, 'statusCode': response.statusCode, 'data': []};
     } catch (e) {
-      return {
-        'success': false,
-        'statusCode': 500,
-        'data': [],
-      };
+      return {'success': false, 'statusCode': 500, 'data': []};
     }
   }
 
@@ -362,7 +372,7 @@ class ApiService {
 
   /// Check if user is authenticated
   bool get isAuthenticated => _accessToken != null;
-  
+
   /// Get current access token
   String? get accessToken => _accessToken;
 }

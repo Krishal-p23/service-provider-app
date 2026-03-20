@@ -6,6 +6,7 @@ import 'dart:async';
 
 class WorkerOTPVerificationScreen extends StatefulWidget {
   final String name;
+  final String email;
   final String phone;
   final String password;
   final String serviceType;
@@ -13,22 +14,25 @@ class WorkerOTPVerificationScreen extends StatefulWidget {
   const WorkerOTPVerificationScreen({
     super.key,
     required this.name,
+    required this.email,
     required this.phone,
     required this.password,
     required this.serviceType,
   });
 
   @override
-  State<WorkerOTPVerificationScreen> createState() => _WorkerOTPVerificationScreenState();
+  State<WorkerOTPVerificationScreen> createState() =>
+      _WorkerOTPVerificationScreenState();
 }
 
-class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScreen> {
+class _WorkerOTPVerificationScreenState
+    extends State<WorkerOTPVerificationScreen> {
   final List<TextEditingController> _otpControllers = List.generate(
     6,
     (index) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
-  
+
   bool _isLoading = false;
   bool _isResending = false;
   int _resendTimer = 30;
@@ -76,14 +80,15 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
   }
 
   String _formatServiceType(String type) {
-    return type.split('_').map((word) => 
-      word[0].toUpperCase() + word.substring(1)
-    ).join(' ');
+    return type
+        .split('_')
+        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .join(' ');
   }
 
   Future<void> _verifyOTP() async {
     final otp = _getOTP();
-    
+
     if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -103,12 +108,12 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
     if (!mounted) return;
 
     final workerProvider = context.read<WorkerProvider>();
-    final username = 'worker_${widget.phone.trim()}';
-    
+
     final result = await workerProvider.register(
-      username: username,
+      name: widget.name.trim(),
+      email: widget.email.trim(),
+      phone: widget.phone.trim(),
       password: widget.password,
-      serviceType: widget.serviceType,
     );
 
     setState(() {
@@ -119,7 +124,9 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
       if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Worker registration successful! Please login.'),
+            content: const Text(
+              'Worker registration successful! Please login.',
+            ),
             backgroundColor: AppTheme.successColor,
             duration: const Duration(seconds: 3),
           ),
@@ -147,14 +154,14 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
       setState(() {
         _isResending = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('OTP sent successfully to your phone'),
           backgroundColor: AppTheme.successColor,
         ),
       );
-      
+
       _startResendTimer();
     }
   }
@@ -162,7 +169,7 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const workerColor = Color(0xFF1976D2); 
+    const workerColor = Color(0xFF1976D2);
 
     return Scaffold(
       appBar: AppBar(
@@ -176,11 +183,7 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: AppTheme.spacingLarge),
-              Icon(
-                Icons.engineering_rounded,
-                size: 80,
-                color: workerColor,
-              ),
+              Icon(Icons.engineering_rounded, size: 80, color: workerColor),
               const SizedBox(height: AppTheme.spacingXLarge),
               Text(
                 'Verify Worker Account',
@@ -201,7 +204,9 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
                   ),
                   decoration: BoxDecoration(
                     color: workerColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
+                    borderRadius: BorderRadius.circular(
+                      AppTheme.borderRadiusLarge,
+                    ),
                     border: Border.all(color: workerColor.withOpacity(0.3)),
                   ),
                   child: Row(
@@ -265,14 +270,18 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
                         filled: true,
                         fillColor: AppTheme.getSurfaceColor(context),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.borderRadiusMedium,
+                          ),
                           borderSide: BorderSide(
                             color: AppTheme.getDividerColor(context),
                             width: 2,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.borderRadiusMedium,
+                          ),
                           borderSide: const BorderSide(
                             color: workerColor,
                             width: 2.5,
@@ -302,17 +311,27 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
                 padding: const EdgeInsets.all(AppTheme.spacingMedium),
                 decoration: BoxDecoration(
                   color: AppTheme.infoColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
-                  border: Border.all(color: AppTheme.infoColor.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.borderRadiusMedium,
+                  ),
+                  border: Border.all(
+                    color: AppTheme.infoColor.withOpacity(0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: AppTheme.infoColor, size: 20),
+                    Icon(
+                      Icons.info_outline,
+                      color: AppTheme.infoColor,
+                      size: 20,
+                    ),
                     const SizedBox(width: AppTheme.spacingSmall),
                     Expanded(
                       child: Text(
                         'Your account will be reviewed for verification',
-                        style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.infoColor),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppTheme.infoColor,
+                        ),
                       ),
                     ),
                   ],
@@ -324,26 +343,41 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
                 onPressed: _isLoading ? null : _verifyOTP,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: workerColor,
-                  padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingLarge),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppTheme.spacingLarge,
+                  ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                    borderRadius: BorderRadius.circular(
+                      AppTheme.borderRadiusMedium,
+                    ),
                   ),
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                        height: 20, width: 20, 
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text(
                         'Verify & Create Account',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
               ),
               const SizedBox(height: AppTheme.spacingXLarge),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text("Didn't receive code? ", style: theme.textTheme.bodyMedium),
+                  Text(
+                    "Didn't receive code? ",
+                    style: theme.textTheme.bodyMedium,
+                  ),
                   if (_resendTimer > 0)
                     Text(
                       'Resend in ${_resendTimer}s',
@@ -355,10 +389,17 @@ class _WorkerOTPVerificationScreenState extends State<WorkerOTPVerificationScree
                     TextButton(
                       onPressed: _isResending ? null : _resendOTP,
                       child: _isResending
-                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Text(
                               'Resend OTP',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: workerColor),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: workerColor,
+                              ),
                             ),
                     ),
                 ],

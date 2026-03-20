@@ -19,21 +19,16 @@ class WorkerLoginTab extends StatefulWidget {
 
 class _WorkerLoginTabState extends State<WorkerLoginTab> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  // Generate username from phone number
-  String _getUsernameFromPhone() {
-    return 'worker_${_phoneController.text.trim()}';
   }
 
   Future<void> _handleLogin() async {
@@ -43,10 +38,8 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
       });
 
       final workerProvider = context.read<WorkerProvider>();
-      final username = _getUsernameFromPhone();
-      
       final success = await workerProvider.login(
-        username: username,
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -60,10 +53,7 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
       } else if (mounted) {
         final error = workerProvider.error ?? 'Login failed';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error),
-            backgroundColor: AppTheme.errorColor,
-          ),
+          SnackBar(content: Text(error), backgroundColor: AppTheme.errorColor),
         );
       }
     }
@@ -84,11 +74,7 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
             const SizedBox(height: AppTheme.spacingSmall),
 
             // Worker Welcome Header
-            Icon(
-              Icons.work_outline_rounded,
-              size: 64,
-              color: widget.roleColor,
-            ),
+            Icon(Icons.work_outline_rounded, size: 64, color: widget.roleColor),
             const SizedBox(height: AppTheme.spacingLarge),
             Text(
               'Worker Login',
@@ -106,29 +92,36 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: AppTheme.spacingXXLarge + AppTheme.spacingSmall),
+            const SizedBox(
+              height: AppTheme.spacingXXLarge + AppTheme.spacingSmall,
+            ),
 
-            // Phone Number Field
+            // Email Field
             Container(
               decoration: BoxDecoration(
                 color: isDark
                     ? AppTheme.darkSurfaceVariant
                     : widget.roleColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                borderRadius: BorderRadius.circular(
+                  AppTheme.borderRadiusMedium,
+                ),
               ),
               child: TextFormField(
-                controller: _phoneController,
+                controller: _emailController,
                 decoration: InputDecoration(
-                  labelText: 'Phone Number',
-                  hintText: 'Enter your registered phone',
-                  prefixIcon: Icon(Icons.phone_android, color: widget.roleColor),
+                  labelText: 'Email',
+                  hintText: 'Enter your registered email',
+                  prefixIcon: Icon(Icons.email, color: widget.roleColor),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(AppTheme.spacingLarge),
                 ),
-                keyboardType: TextInputType.phone,
+                keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your phone number';
+                    return 'Please enter your email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Please enter a valid email';
                   }
                   return null;
                 },
@@ -142,7 +135,9 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
                 color: isDark
                     ? AppTheme.darkSurfaceVariant
                     : widget.roleColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                borderRadius: BorderRadius.circular(
+                  AppTheme.borderRadiusMedium,
+                ),
               ),
               child: TextFormField(
                 controller: _passwordController,
@@ -183,7 +178,9 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
                 backgroundColor: widget.roleColor,
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.borderRadiusMedium,
+                  ),
                 ),
                 elevation: AppTheme.cardElevationHigh,
               ),
@@ -208,7 +205,11 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
                           ),
                         ),
                         SizedBox(width: AppTheme.spacingSmall),
-                        Icon(Icons.arrow_forward, size: 20, color: Colors.white),
+                        Icon(
+                          Icons.arrow_forward,
+                          size: 20,
+                          color: Colors.white,
+                        ),
                       ],
                     ),
             ),
@@ -219,10 +220,7 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  "New worker? ",
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text("New worker? ", style: theme.textTheme.bodyMedium),
                 TextButton(
                   onPressed: widget.onSwitchToRegister,
                   child: Text(

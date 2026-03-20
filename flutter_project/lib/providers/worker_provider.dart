@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../customer/models/user.dart';
-import '../../customer/models/worker.dart';
+import '../customer/models/user.dart';
+import '../customer/models/worker.dart';
 import 'package:flutter_project/customer/services/api_service.dart';
 
 /// WorkerProvider - Manages worker (WORKER role) authentication and state
 /// Communicates ONLY via REST API, no direct database access
 class WorkerProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
-  
+
   User? _currentUser; // Base user data
   Worker? _workerProfile; // Worker-specific data
   bool _isLoading = false;
@@ -27,23 +27,25 @@ class WorkerProvider extends ChangeNotifier {
     }
   }
 
-  /// Register new worker (WORKER role)
-  /// API: POST /api/accounts/signup/
+  /// Register new worker
+  /// API: POST /api/accounts/register/
   Future<Map<String, dynamic>> register({
-    required String username,
+    required String name,
+    required String email,
+    required String phone,
     required String password,
-    required String serviceType, // REQUIRED for workers
   }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final result = await _apiService.signup(
-        username: username,
+      final result = await _apiService.register(
+        name: name,
+        email: email,
+        phone: phone,
         password: password,
-        role: 'WORKER',
-        serviceType: serviceType,
+        role: 'worker',
       );
 
       _isLoading = false;
@@ -57,55 +59,56 @@ class WorkerProvider extends ChangeNotifier {
       } else {
         _error = result['data']['error'] ?? 'Registration failed';
         notifyListeners();
-        return {
-          'success': false,
-          'message': _error,
-        };
+        return {'success': false, 'message': _error};
       }
     } catch (e) {
       _isLoading = false;
       _error = 'Registration error: $e';
       notifyListeners();
-      return {
-        'success': false,
-        'message': _error,
-      };
+      return {'success': false, 'message': _error};
     }
   }
 
   /// Login worker
   /// API: POST /api/accounts/login/
-  Future<bool> login({
-    required String username,
-    required String password,
-  }) async {
+  Future<bool> login({required String email, required String password}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final result = await _apiService.login(
-        username: username,
-        password: password,
-      );
+      final result = await _apiService.login(email: email, password: password);
 
       _isLoading = false;
 
       if (result['success']) {
-        final role = result['data']['role'];
-        
-        // Ensure this is a WORKER, not a USER
-        if (role != 'WORKER') {
+        final role = (result['data']['data']?['role'] ?? '')
+            .toString()
+            .toLowerCase();
+
+        // Ensure this is a worker account
+        if (role != 'worker') {
           _error = 'Invalid login. Please use customer login.';
           notifyListeners();
           return false;
         }
 
-        // Fetch worker profile after successful login
-        await fetchProfile();
+        final userData = result['data']['data'] ?? {};
+        _currentUser = User.fromJson(userData);
+        _workerProfile = Worker(
+          id: userData['id'] ?? 0,
+          userId: userData['id'] ?? 0,
+          isVerified: false,
+          isAvailable: true,
+        );
+        _error = null;
+        notifyListeners();
         return true;
       } else {
-        _error = result['data']['error'] ?? 'Login failed';
+        _error =
+            result['data']['message'] ??
+            result['data']['error'] ??
+            'Login failed';
         notifyListeners();
         return false;
       }
@@ -125,11 +128,11 @@ class WorkerProvider extends ChangeNotifier {
 
       if (result['success']) {
         final userData = result['data'];
-        
+
         // Verify role is WORKER
         if (userData['role'] == 'WORKER') {
           _currentUser = User.fromJson(userData);
-          
+
           // TODO: When backend provides worker details, parse them here
           // For now, create a basic worker profile
           _workerProfile = Worker(
@@ -138,7 +141,7 @@ class WorkerProvider extends ChangeNotifier {
             isVerified: false,
             isAvailable: true,
           );
-          
+
           _error = null;
         } else {
           _error = 'Invalid worker role';
@@ -148,11 +151,12 @@ class WorkerProvider extends ChangeNotifier {
         _error = result['data']['error'] ?? 'Failed to fetch profile';
         await logout();
       }
-      
+
       notifyListeners();
     } catch (e) {
       _error = 'Profile fetch error: $e';
       notifyListeners();
+      return false;
     }
   }
 

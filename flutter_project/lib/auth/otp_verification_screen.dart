@@ -28,7 +28,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     (index) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
-  
+
   bool _isLoading = false;
   bool _isResending = false;
   int _resendTimer = 30;
@@ -76,17 +76,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     return _otpControllers.map((controller) => controller.text).join();
   }
 
-  String _generateUsername() {
-    final name = widget.name.trim().toLowerCase().replaceAll(' ', '_');
-    if (name.isNotEmpty) return name;
-    final email = widget.email.trim();
-    if (email.contains('@')) return email.split('@')[0];
-    return 'user_${widget.phone.trim()}';
-  }
-
   Future<void> _verifyOTP() async {
     final otp = _getOTP();
-    
+
     if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -106,10 +98,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     if (!mounted) return;
 
     final userProvider = context.read<UserProvider>();
-    final username = _generateUsername();
-    
+
     final result = await userProvider.register(
-      username: username,
+      name: widget.name.trim(),
+      email: widget.email.trim(),
+      phone: widget.phone.trim(),
       password: widget.password,
     );
 
@@ -148,14 +141,14 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       setState(() {
         _isResending = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('OTP sent successfully to your phone'),
           backgroundColor: AppTheme.successColor,
         ),
       );
-      
+
       _startResendTimer();
     }
   }
@@ -165,10 +158,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Verify OTP'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Verify OTP'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppTheme.spacingXLarge),
@@ -176,11 +166,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: AppTheme.spacingXLarge),
-              Icon(
-                Icons.verified_user,
-                size: 80,
-                color: AppTheme.primaryColor,
-              ),
+              Icon(Icons.verified_user, size: 80, color: AppTheme.primaryColor),
               const SizedBox(height: AppTheme.spacingXLarge),
               Text(
                 'Enter Verification Code',
@@ -216,7 +202,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                       // FIX: Using AppTheme for dynamic font color
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.getTextColor(context), 
+                        color: AppTheme.getTextColor(context),
                       ),
                       decoration: InputDecoration(
                         counterText: '',
@@ -224,14 +210,18 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                         filled: true,
                         fillColor: AppTheme.getSurfaceColor(context),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.borderRadiusMedium,
+                          ),
                           borderSide: BorderSide(
                             color: AppTheme.getDividerColor(context),
                             width: 2,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.borderRadiusMedium,
+                          ),
                           borderSide: const BorderSide(
                             color: AppTheme.primaryColor,
                             width: 2.5,
@@ -261,9 +251,13 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingLarge),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppTheme.spacingLarge,
+                  ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                    borderRadius: BorderRadius.circular(
+                      AppTheme.borderRadiusMedium,
+                    ),
                   ),
                 ),
                 child: _isLoading

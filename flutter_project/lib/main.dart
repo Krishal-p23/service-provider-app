@@ -10,6 +10,8 @@ import 'package:flutter_project/auth/register_tab.dart';
 import 'package:flutter_project/customer/screens/edit_profile_screen.dart';
 import 'package:flutter_project/customer/screens/reviews_screen.dart';
 import 'package:flutter_project/customer/screens/all_services_screen.dart';
+import 'package:flutter_project/customer/screens/main_screen.dart';
+import 'package:flutter_project/worker/worker_dashboard.dart';
 import 'package:flutter_project/customer/providers/booking_provider.dart';
 import 'package:flutter_project/customer/providers/service_provider.dart';
 import 'package:flutter_project/customer/providers/wallet_provider.dart';
@@ -61,6 +63,8 @@ class HomeServicesApp extends StatelessWidget {
                 Navigator.pushNamed(context, '/login');
               },
             ),
+            '/customer-home': (context) => const MainScreen(),
+            '/worker-dashboard': (context) => const WorkerDashboard(),
             '/edit-profile': (context) => const EditProfileScreen(),
             '/reviews': (context) => const ReviewsScreen(),
             '/all-services': (context) => const AllServicesScreen(),
