@@ -156,6 +156,7 @@ class WorkerProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Profile fetch error: $e';
       notifyListeners();
+      return false;
     }
   }
 
