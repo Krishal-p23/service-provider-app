@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/worker_provider.dart';
-import '../screens/onboarding_screen.dart';
+import '../theme/theme_provider.dart';
+import '../theme/app_theme.dart';
 
 class WorkerDashboard extends StatefulWidget {
   const WorkerDashboard({super.key});
@@ -11,582 +12,678 @@ class WorkerDashboard extends StatefulWidget {
 }
 
 class _WorkerDashboardState extends State<WorkerDashboard> {
-  int _currentIndex = 0;
+  int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch worker profile on dashboard load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<WorkerProvider>().fetchProfile();
+    });
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // final theme = Theme.of(context);
-    final workerProvider = context.watch<WorkerProvider>();
-    final worker = workerProvider.currentWorker;
+    final screens = [
+      const WorkerHomeTab(),
+      const WorkerBookingsTab(),
+      const WorkerProfileTab(),
+    ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Worker Dashboard'),
-        backgroundColor: const Color(0xFF1976D2),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // TODO: Navigate to notifications
-            },
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(
-                color: Color(0xFF1976D2),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 35,
-                      color: const Color(0xFF1976D2),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    worker?.name ?? 'Worker',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    worker?.mobile ?? '',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.dashboard),
-              title: const Text('Dashboard'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.work),
-              title: const Text('My Jobs'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigate to jobs screen
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.schedule),
-              title: const Text('Schedule'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigate to schedule screen
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.star),
-              title: const Text('Reviews'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigate to reviews screen
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.account_circle),
-              title: const Text('Profile'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigate to profile screen
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigate to settings screen
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline),
-              title: const Text('Help & Support'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Navigate to help screen
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Logout', style: TextStyle(color: Colors.red)),
-              onTap: () async {
-                final shouldLogout = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Logout'),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (shouldLogout == true && mounted) {
-                  await workerProvider.logout();
-                  if (mounted) {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const OnboardingScreen(),
-                      ),
-                      (route) => false,
-                    );
-                  }
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-      body: _buildBody(),
+      body: screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        selectedItemColor: const Color(0xFF1976D2),
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        selectedItemColor: AppTheme.primaryColor,
+        unselectedItemColor: AppTheme.getTextColor(context, secondary: true),
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
             label: 'Home',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.work_outline),
+            activeIcon: Icon(Icons.work),
             label: 'Jobs',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.schedule),
-            label: 'Schedule',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_circle),
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
             label: 'Profile',
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0:
-        return _buildHomeTab();
-      case 1:
-        return _buildJobsTab();
-      case 2:
-        return _buildScheduleTab();
-      case 3:
-        return _buildProfileTab();
-      default:
-        return _buildHomeTab();
-    }
-  }
+// Home Tab
+class WorkerHomeTab extends StatelessWidget {
+  const WorkerHomeTab({super.key});
 
-  Widget _buildHomeTab() {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final workerProvider = context.watch<WorkerProvider>();
-    final worker = workerProvider.currentWorker;
+    final user = workerProvider.currentUser;
+    final worker = workerProvider.workerProfile;
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Welcome Banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF1976D2), Color(0xFF1565C0)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome back,',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                  ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Worker Dashboard'),
+        actions: [
+          // Theme Toggle
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return IconButton(
+                icon: Icon(
+                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  worker?.name ?? 'Worker',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.verified, color: Colors.white, size: 16),
-                      SizedBox(width: 4),
-                      Text(
-                        'Verified Worker',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+                onPressed: () {
+                  themeProvider.toggleTheme();
+                },
+              );
+            },
           ),
-
-          const SizedBox(height: 20),
-
-          // Stats Cards
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.5,
-              children: [
-                _buildStatCard(
-                  'Today',
-                  '${workerProvider.todayJobsCount}',
-                  Icons.today,
-                  Colors.green,
-                ),
-                _buildStatCard(
-                  'This Week',
-                  '${workerProvider.weekJobsCount}',
-                  Icons.calendar_today,
-                  Colors.blue,
-                ),
-                _buildStatCard(
-                  'Earnings',
-                  '₹${workerProvider.totalEarnings.toStringAsFixed(0)}',
-                  Icons.account_balance_wallet,
-                  Colors.orange,
-                ),
-                _buildStatCard(
-                  'Rating',
-                  '${workerProvider.averageRating.toStringAsFixed(1)}★',
-                  Icons.star,
-                  Colors.amber,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Upcoming Jobs Section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Upcoming Jobs',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _currentIndex = 1;
-                    });
-                  },
-                  child: const Text('View All'),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Empty State
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
+          // Availability Toggle
+          if (worker != null)
+            Padding(
+              padding: const EdgeInsets.only(right: AppTheme.spacingSmall),
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.work_outline,
-                    size: 80,
-                    color: Colors.grey.shade300,
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    'No upcoming jobs',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    worker.isAvailable ? 'Available' : 'Offline',
+                    style: theme.textTheme.bodySmall,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'New job requests will appear here',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade500,
-                    ),
+                  const SizedBox(width: AppTheme.spacingXSmall),
+                  Switch(
+                    value: worker.isAvailable,
+                    onChanged: (value) {
+                      // TODO: Update availability via API
+                      // PATCH /api/workers/availability/
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            value ? 'You are now available for jobs' : 'You are now offline',
+                          ),
+                          backgroundColor: value ? AppTheme.successColor : AppTheme.warningColor,
+                        ),
+                      );
+                    },
+                    activeColor: AppTheme.successColor,
                   ),
                 ],
               ),
             ),
-          ),
         ],
+      ),
+      body: workerProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(AppTheme.spacingLarge),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Welcome Card
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTheme.spacingLarge),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 35,
+                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                            child: const Icon(
+                              Icons.person,
+                              size: 40,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(width: AppTheme.spacingLarge),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Welcome, ${user?.name ?? "Worker"}!',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: AppTheme.spacingXSmall),
+                                if (worker != null)
+                                  Row(
+                                    children: [
+                                      if (worker.isVerified) ...[
+                                        const Icon(
+                                          Icons.verified,
+                                          size: 16,
+                                          color: AppTheme.successColor,
+                                        ),
+                                        const SizedBox(width: AppTheme.spacingXSmall),
+                                        Text(
+                                          'Verified',
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: AppTheme.successColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        const Icon(
+                                          Icons.pending,
+                                          size: 16,
+                                          color: AppTheme.warningColor,
+                                        ),
+                                        const SizedBox(width: AppTheme.spacingXSmall),
+                                        Text(
+                                          'Pending Verification',
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: AppTheme.warningColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                if (user?.phone != null) ...[
+                                  const SizedBox(height: AppTheme.spacingXSmall - 2),
+                                  Text(
+                                    '+91 ${user!.phone}',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: AppTheme.getTextColor(context, secondary: true),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.spacingLarge),
+
+                  // Stats Cards
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          title: 'Completed',
+                          value: '0', // TODO: Fetch from backend
+                          icon: Icons.check_circle,
+                          color: AppTheme.successColor,
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spacingMedium),
+                      Expanded(
+                        child: _StatCard(
+                          title: 'Pending',
+                          value: '0', // TODO: Fetch from backend
+                          icon: Icons.pending_actions,
+                          color: AppTheme.warningColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.spacingMedium),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          title: 'Rating',
+                          value: '0.0', // TODO: Fetch from backend
+                          icon: Icons.star,
+                          color: Colors.amber,
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spacingMedium),
+                      Expanded(
+                        child: _StatCard(
+                          title: 'Earnings',
+                          value: '₹0', // TODO: Fetch from backend
+                          icon: Icons.account_balance_wallet,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.spacingXLarge),
+
+                  // Quick Actions
+                  Text(
+                    'Quick Actions',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.spacingMedium),
+                  
+                  _ActionButton(
+                    icon: Icons.work,
+                    title: 'View Active Jobs',
+                    subtitle: 'See your current bookings',
+                    color: AppTheme.primaryColor,
+                    onTap: () {
+                      // Navigate to jobs tab
+                    },
+                  ),
+                  const SizedBox(height: AppTheme.spacingSmall),
+                  
+                  _ActionButton(
+                    icon: Icons.history,
+                    title: 'Job History',
+                    subtitle: 'View completed jobs',
+                    color: AppTheme.successColor,
+                    onTap: () {
+                      // Navigate to history
+                    },
+                  ),
+                  const SizedBox(height: AppTheme.spacingSmall),
+                  
+                  _ActionButton(
+                    icon: Icons.account_balance_wallet,
+                    title: 'Earnings',
+                    subtitle: 'View your earnings',
+                    color: Colors.green,
+                    onTap: () {
+                      // Navigate to earnings
+                    },
+                  ),
+                  const SizedBox(height: AppTheme.spacingSmall),
+                  
+                  _ActionButton(
+                    icon: Icons.settings,
+                    title: 'Settings',
+                    subtitle: 'Manage your account',
+                    color: Colors.grey,
+                    onTap: () {
+                      // Navigate to settings
+                    },
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+// Bookings Tab
+class WorkerBookingsTab extends StatelessWidget {
+  const WorkerBookingsTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Jobs'),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spacingXLarge),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.work_outline,
+                size: 80,
+                color: AppTheme.getTextColor(context, secondary: true),
+              ),
+              const SizedBox(height: AppTheme.spacingXLarge),
+              Text(
+                'No Active Jobs',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppTheme.spacingSmall),
+              Text(
+                'Your job bookings will appear here',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.getTextColor(context, secondary: true),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppTheme.spacingXXLarge),
+              OutlinedButton.icon(
+                onPressed: () {
+                  // TODO: Navigate to available jobs or help
+                },
+                icon: const Icon(Icons.info_outline),
+                label: const Text('How to get jobs?'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
 
-  Widget _buildJobsTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.work_outline,
-            size: 80,
-            color: Colors.grey.shade300,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Jobs Coming Soon',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Your job listings will appear here',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+// Profile Tab
+class WorkerProfileTab extends StatelessWidget {
+  const WorkerProfileTab({super.key});
 
-  Widget _buildScheduleTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.schedule,
-            size: 80,
-            color: Colors.grey.shade300,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Schedule Coming Soon',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Manage your availability here',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileTab() {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final workerProvider = context.watch<WorkerProvider>();
-    final worker = workerProvider.currentWorker;
+    final user = workerProvider.currentUser;
+    final worker = workerProvider.workerProfile;
 
-    return SingleChildScrollView(
-      child: Column(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(AppTheme.spacingLarge),
         children: [
-          const SizedBox(height: 24),
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: const Color(0xFF1976D2).withOpacity(0.1),
-            child: const Icon(
-              Icons.person,
-              size: 50,
-              color: Color(0xFF1976D2),
+          // Profile Header
+          Center(
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 50,
+                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                  child: const Icon(
+                    Icons.person,
+                    size: 50,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spacingLarge),
+                Text(
+                  user?.name ?? 'Worker',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spacingXSmall),
+                if (user?.phone != null)
+                  Text(
+                    '+91 ${user!.phone}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.getTextColor(context, secondary: true),
+                    ),
+                  ),
+                const SizedBox(height: AppTheme.spacingSmall),
+                if (worker != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spacingMedium,
+                      vertical: AppTheme.spacingSmall,
+                    ),
+                    decoration: BoxDecoration(
+                      color: worker.isVerified 
+                          ? AppTheme.successColor.withOpacity(0.1)
+                          : AppTheme.warningColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(AppTheme.borderRadiusLarge),
+                      border: Border.all(
+                        color: worker.isVerified 
+                            ? AppTheme.successColor.withOpacity(0.3)
+                            : AppTheme.warningColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          worker.isVerified ? Icons.verified : Icons.pending,
+                          size: 16,
+                          color: worker.isVerified 
+                              ? AppTheme.successColor 
+                              : AppTheme.warningColor,
+                        ),
+                        const SizedBox(width: AppTheme.spacingXSmall),
+                        Text(
+                          worker.isVerified ? 'Verified Professional' : 'Pending Verification',
+                          style: TextStyle(
+                            color: worker.isVerified 
+                                ? AppTheme.successColor 
+                                : AppTheme.warningColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            worker?.name ?? 'Worker',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            worker?.mobile ?? '',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildProfileOption(
-            Icons.person,
-            'Edit Profile',
-            'Update your personal information',
-            () {
+          const SizedBox(height: AppTheme.spacingXXLarge),
+
+          // Profile Options
+          _ProfileOption(
+            icon: Icons.edit,
+            title: 'Edit Profile',
+            subtitle: 'Update your information',
+            onTap: () {
               // TODO: Navigate to edit profile
             },
           ),
-          _buildProfileOption(
-            Icons.star,
-            'My Ratings',
-            'View your customer reviews',
-            () {
-              // TODO: Navigate to ratings
+          _ProfileOption(
+            icon: Icons.build,
+            title: 'Services',
+            subtitle: 'Manage your services',
+            onTap: () {
+              // TODO: Navigate to services
             },
           ),
-          _buildProfileOption(
-            Icons.payment,
-            'Payment Details',
-            'Manage your payment methods',
-            () {
-              // TODO: Navigate to payment
+          _ProfileOption(
+            icon: Icons.schedule,
+            title: 'Availability',
+            subtitle: 'Set your working hours',
+            onTap: () {
+              // TODO: Navigate to availability settings
             },
           ),
-          _buildProfileOption(
-            Icons.verified_user,
-            'Verification',
-            'View your verification status',
-            () {
-              // TODO: Navigate to verification
+          _ProfileOption(
+            icon: Icons.payment,
+            title: 'Payment Details',
+            subtitle: 'Bank account & UPI',
+            onTap: () {
+              // TODO: Navigate to payment settings
             },
+          ),
+          _ProfileOption(
+            icon: Icons.star,
+            title: 'Reviews & Ratings',
+            subtitle: 'See what customers say',
+            onTap: () {
+              // TODO: Navigate to reviews
+            },
+          ),
+          _ProfileOption(
+            icon: Icons.help_outline,
+            title: 'Help & Support',
+            subtitle: 'Get help or report issue',
+            onTap: () {
+              // TODO: Navigate to help
+            },
+          ),
+          _ProfileOption(
+            icon: Icons.info_outline,
+            title: 'About',
+            subtitle: 'App version & info',
+            onTap: () {
+              // TODO: Show about dialog
+            },
+          ),
+          const SizedBox(height: AppTheme.spacingXLarge),
+
+          // Logout Button
+          OutlinedButton.icon(
+            onPressed: () async {
+              // Show confirmation dialog
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Logout'),
+                  content: const Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true && context.mounted) {
+                await workerProvider.logout();
+                if (context.mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/',
+                    (route) => false,
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.logout, color: AppTheme.errorColor),
+            label: const Text(
+              'Logout',
+              style: TextStyle(color: AppTheme.errorColor),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingLarge),
+              side: const BorderSide(color: AppTheme.errorColor),
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
+// Stat Card Widget
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacingLarge),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: AppTheme.spacingSmall),
+            Text(
+              value,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingXSmall),
+            Text(
+              title,
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }
+}
 
-  Widget _buildProfileOption(
-    IconData icon,
-    String title,
-    String subtitle,
-    VoidCallback onTap,
-  ) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1976D2).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
+// Action Button Widget
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(AppTheme.spacingSmall),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
+          ),
+          child: Icon(icon, color: color),
         ),
-        child: Icon(icon, color: const Color(0xFF1976D2)),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
       ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w500),
+    );
+  }
+}
+
+// Profile Option Widget
+class _ProfileOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ProfileOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppTheme.spacingSmall),
+      child: ListTile(
+        leading: Icon(icon, color: AppTheme.primaryColor),
+        title: Text(title),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppTheme.getTextColor(context, secondary: true),
+          ),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
       ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-      ),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: onTap,
     );
   }
 }
