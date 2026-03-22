@@ -420,7 +420,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
-import '../../screens/onboarding_screen.dart';
+import '../../customer/screens/onboarding_screen.dart';
 
 class WorkerCultScreen extends StatelessWidget {
   const WorkerCultScreen({super.key});
