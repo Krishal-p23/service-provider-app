@@ -6,7 +6,7 @@ class User {
   final String email;
   final String phone;
   final String passwordHash;
-  final String role; // 'USER' or 'WORKER'
+  final String role; // 'CUSTOMER' or 'WORKER'
   final DateTime createdAt;
 
   User({
@@ -42,7 +42,7 @@ class User {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'name': name,
+      'username': name,
       'email': email,
       'phone': phone,
       'password_hash': passwordHash,
@@ -54,7 +54,7 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] ?? 0,
-      name: json['name'] ?? '',
+      name: json['username'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
       passwordHash: json['password_hash'] ?? '',
@@ -67,7 +67,7 @@ class User {
 
   @override
   String toString() {
-    return 'User(id: $id, name: $name, email: $email, role: $role)';
+    return 'User(id: $id, username: $name, email: $email, role: $role)';
   }
 
   @override

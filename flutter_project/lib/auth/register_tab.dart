@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 import 'otp_verification_screen.dart';
 
 class RegisterTab extends StatefulWidget {
@@ -54,10 +56,10 @@ class _RegisterTabState extends State<RegisterTab> {
     }
 
     // Regular expression: only allows a-z, A-Z, and underscore
-    final validUsernameRegex = RegExp(r'^[a-zA-Z_]+$');
-    
+    final validUsernameRegex = RegExp(r'^[a-zA-Z0-9_]+$');
+
     if (!validUsernameRegex.hasMatch(value)) {
-      return 'Only English letters (a-z, A-Z) and underscore (_) are allowed';
+      return 'Only AlphaNumeric Characters (a-z, A-Z, 0-9) and underscore (_) are allowed';
     }
 
     // Check if username starts with underscore (optional - you can remove this if not needed)
@@ -84,10 +86,21 @@ class _RegisterTabState extends State<RegisterTab> {
       return;
     }
 
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final userProvider = context.read<UserProvider>();
+      final response = await userProvider.register(
+        name: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+        role: 'CUSTOMER',
+      );
 
       // Navigate to OTP verification
       Navigator.push(
@@ -98,10 +111,18 @@ class _RegisterTabState extends State<RegisterTab> {
             email: _emailController.text.trim(),
             phone: _phoneController.text.trim(),
             password: _passwordController.text,
+            role: 'CUSTOMER',
           ),
         ),
       );
-
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    } finally {
       setState(() {
         _isLoading = false;
       });
@@ -147,12 +168,13 @@ class _RegisterTabState extends State<RegisterTab> {
                 labelText: 'Username',
                 hintText: 'Choose a username',
                 prefixIcon: Icon(Icons.person_outline, color: widget.roleColor),
-                helperText: 'Only letters (a-z, A-Z) and underscore (_)',
+                helperText:
+                    'Only alpha-numeric characters (a-z, A-Z, 0-9) and underscore (_)',
                 helperMaxLines: 2,
               ),
               inputFormatters: [
                 // Only allow a-z, A-Z, and underscore
-                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z_]')),
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
               ],
               validator: _validateUsername,
               autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -191,9 +213,13 @@ class _RegisterTabState extends State<RegisterTab> {
               ),
               keyboardType: TextInputType.phone,
               maxLength: 10,
-              buildCounter: (context,
-                      {required currentLength, required isFocused, maxLength}) =>
-                  null,
+              buildCounter:
+                  (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    maxLength,
+                  }) => null,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter your phone number';
@@ -282,9 +308,13 @@ class _RegisterTabState extends State<RegisterTab> {
               onPressed: _isLoading ? null : _handleRegister,
               style: ElevatedButton.styleFrom(
                 backgroundColor: widget.roleColor,
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingLarge),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppTheme.spacingLarge,
+                ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.borderRadiusMedium,
+                  ),
                 ),
               ),
               child: _isLoading

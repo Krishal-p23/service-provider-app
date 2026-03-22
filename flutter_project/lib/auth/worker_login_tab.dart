@@ -19,14 +19,14 @@ class WorkerLoginTab extends StatefulWidget {
 
 class _WorkerLoginTabState extends State<WorkerLoginTab> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -39,8 +39,9 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
 
       final workerProvider = context.read<WorkerProvider>();
       final success = await workerProvider.login(
-        email: _emailController.text.trim(),
+        identifier: _identifierController.text.trim(),
         password: _passwordController.text,
+        role: 'WORKER',
       );
 
       setState(() {
@@ -57,6 +58,13 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
         );
       }
     }
+  }
+
+  bool _isValidIdentifier(String value) {
+    // Basic validation: check if it's a valid username or phone number
+    final usernameRegex = RegExp(r'^[a-zA-Z0-9_]+$');
+    final phoneRegex = RegExp(r'^\+?\d{10,15}$');
+    return usernameRegex.hasMatch(value) || phoneRegex.hasMatch(value);
   }
 
   @override
@@ -107,21 +115,21 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
                 ),
               ),
               child: TextFormField(
-                controller: _emailController,
+                controller: _identifierController,
                 decoration: InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'Enter your registered email',
+                  labelText: 'Username or Phone',
+                  hintText: 'Enter your username or phone number',
                   prefixIcon: Icon(Icons.email, color: widget.roleColor),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(AppTheme.spacingLarge),
                 ),
-                keyboardType: TextInputType.emailAddress,
+                keyboardType: TextInputType.text,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return 'Please enter your username or phone number';
                   }
-                  if (!value.contains('@')) {
-                    return 'Please enter a valid email';
+                  if (!_isValidIdentifier(value)) {
+                    return 'Please enter a valid username or phone number';
                   }
                   return null;
                 },

@@ -211,6 +211,7 @@ class UserProvider extends ChangeNotifier {
     required String email,
     required String phone,
     required String password,
+    required String role,
   }) async {
     _isLoading = true;
     _error = null;
@@ -222,8 +223,11 @@ class UserProvider extends ChangeNotifier {
         email: email,
         phone: phone,
         password: password,
-        role: 'customer',
+        role: role,
       );
+
+      // print("STATUS: ${result['statusCode']}");
+      // print("BODY: ${result['data']}");
 
       _isLoading = false;
 
@@ -246,15 +250,63 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  /// Verify OTP for customer registration
+  /// API: POST /api/accounts/verify-otp/
+  Future<Map<String, dynamic>> verifyOTP({
+    required String phone,
+    required String otp,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _apiService.verifyOTP(phone: phone, otp: otp);
+
+      if (response['success']) {
+        _error = null;
+        return {
+          'success': true,
+          'message':
+              response['data']['message'] ?? 'OTP verification successful',
+          'data': response['data'],
+        };
+      } else {
+        final error = response['data'];
+        String message = "OTP verification failed";
+
+        if (error is Map && error.isNotEmpty) {
+          message = error.values.first.toString();
+        }
+
+        _error = message;
+        return {'success': false, 'message': message, 'data': null};
+      }
+    } catch (e) {
+      _error = e.toString();
+      return {'success': false, 'message': _error!, 'data': null};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// Login customer
   /// API: POST /api/accounts/login/
-  Future<bool> login({required String email, required String password}) async {
+  Future<bool> login({
+    required String identifier,
+    required String password,
+    required String role,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final result = await _apiService.login(email: email, password: password);
+      final result = await _apiService.login(
+        identifier: identifier,
+        password: password,
+        role: role,
+      );
 
       _isLoading = false;
 

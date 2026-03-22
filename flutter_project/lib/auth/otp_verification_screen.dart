@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import '../customer/screens/main_screen.dart';
 import 'dart:async';
 
 class OTPVerificationScreen extends StatefulWidget {
@@ -9,6 +10,7 @@ class OTPVerificationScreen extends StatefulWidget {
   final String email;
   final String phone;
   final String password;
+  final String role;
 
   const OTPVerificationScreen({
     super.key,
@@ -16,6 +18,7 @@ class OTPVerificationScreen extends StatefulWidget {
     required this.email,
     required this.phone,
     required this.password,
+    required this.role,
   });
 
   @override
@@ -99,11 +102,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
     final userProvider = context.read<UserProvider>();
 
-    final result = await userProvider.register(
-      name: widget.name.trim(),
-      email: widget.email.trim(),
+    final result = await userProvider.verifyOTP(
       phone: widget.phone.trim(),
-      password: widget.password,
+      otp: otp,
     );
 
     setState(() {
@@ -114,11 +115,14 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Registration successful! Please login.'),
+            content: const Text('Registration successful!'),
             backgroundColor: AppTheme.successColor,
           ),
         );
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+          (route) => false,
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
