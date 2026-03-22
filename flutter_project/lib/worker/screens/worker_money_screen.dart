@@ -599,7 +599,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
-import '../../screens/onboarding_screen.dart';
+import '../../customer/screens/onboarding_screen.dart';
 import 'worker_notifications_screen.dart';
 import 'bank_transfers_screen.dart';
 import 'pending_deductions_screen.dart';

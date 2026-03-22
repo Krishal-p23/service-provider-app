@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/worker_provider.dart';
-import '../utils/app_theme.dart';
-import '../screens/onboarding_screen.dart';
+import '../theme/app_theme.dart';
+import '../customer/screens/onboarding_screen.dart';
 
 class WorkerAccountScreen extends StatelessWidget {
   const WorkerAccountScreen({super.key});
