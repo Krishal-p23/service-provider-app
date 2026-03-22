@@ -7,9 +7,9 @@ extension UserRoleExtension on UserRole {
   String get displayName {
     switch (this) {
       case UserRole.customer:
-        return 'Customer';
+        return 'CUSTOMER';
       case UserRole.worker:
-        return 'Worker';
+        return 'WORKER';
     }
   }
 

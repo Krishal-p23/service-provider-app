@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../providers/worker_provider.dart';
 import 'worker_otp_verification_screen.dart';
 
 class WorkerRegisterTab extends StatefulWidget {
@@ -26,15 +28,11 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
   // Service type dropdown
   String? _selectedServiceType;
   final List<String> _serviceTypes = [
-    'plumber',
-    'electrician',
-    'carpenter',
-    'cleaner',
-    'cook',
-    'gardener',
-    'pest_control',
-    'ac_technician',
-    'baby_sitter',
+    'PLUMBING',
+    'ELECTRICAL',
+    'CARPENTRY',
+    'CLEANING',
+    'PAINTING',
   ];
 
   bool _obscurePassword = true;
@@ -76,23 +74,42 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
         _isLoading = true;
       });
 
-      // Navigate to Worker OTP verification
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => WorkerOTPVerificationScreen(
-            name: _nameController.text.trim(),
-            email: _emailController.text.trim(),
-            phone: _phoneController.text.trim(),
-            password: _passwordController.text,
-            serviceType: _selectedServiceType!,
+      try {
+        final workerProvider = context.read<WorkerProvider>();
+        final result = await workerProvider.register(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          phone: _phoneController.text.trim(),
+          password: _passwordController.text,
+          role: 'WORKER',
+          serviceType: _selectedServiceType!,
+        );
+        // Navigate to Worker OTP verification
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WorkerOTPVerificationScreen(
+              name: _nameController.text.trim(),
+              email: _emailController.text.trim(),
+              phone: _phoneController.text.trim(),
+              password: _passwordController.text,
+              serviceType: _selectedServiceType!,
+              role: 'WORKER',
+            ),
           ),
-        ),
-      );
-
-      setState(() {
-        _isLoading = false;
-      });
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

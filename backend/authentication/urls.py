@@ -1,11 +1,9 @@
 from django.urls import path
-from .views import demo_api, get_users, register, login
-
-app_name = 'authentication'
+from .views import RegisterApi, UserApi, LoginApi, VerifyOTPApi
 
 urlpatterns = [
-    path('demo/', demo_api, name='demo_api'),
-    path('users/', get_users, name='get_users'),
-    path('register/', register, name='register'),
-    path('login/', login, name='login'),
+    path('user/', UserApi.as_view(), name='user'),
+    path('login/', LoginApi.as_view(), name='login'),
+    path('register/', RegisterApi.as_view(), name='register'),
+    path('verify-otp/', VerifyOTPApi.as_view(), name='verify-otp'),
 ]

@@ -72,23 +72,28 @@ class ApiService {
     return headers;
   }
 
-  /// User/Worker Register
+  /// Customer/Worker Register
   /// POST /api/accounts/register/
   Future<Map<String, dynamic>> register({
     required String name,
-    required String email,
+    required String? email,
     required String phone,
     required String password,
     required String role, // e.g. customer/worker
+    String? serviceType, // Only for workers, can be null for customers
   }) async {
     try {
       final body = {
-        'name': name,
+        'username': name,
         'email': email,
         'phone': phone,
         'password': password,
         'role': role,
       };
+
+      if (serviceType != null) {
+        body['service_type'] = serviceType;
+      }
 
       final response = await http.post(
         Uri.parse('$baseUrl/accounts/register/'),
@@ -112,17 +117,51 @@ class ApiService {
     }
   }
 
-  /// User/Worker Login
+  /// Customer/Worker OTP Verification
+  /// POST /api/accounts/verify-otp/
+  Future<Map<String, dynamic>> verifyOTP({
+    required String phone,
+    required String otp,
+  }) async {
+    final body = {'phone': phone, 'otp': otp};
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/accounts/verify-otp/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      final data = jsonDecode(response.body);
+      return {
+        'success': response.statusCode == 201,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Customer/Worker Login
   /// POST /api/accounts/login/
   Future<Map<String, dynamic>> login({
-    required String email,
+    required String identifier,
     required String password,
+    required String role, // e.g. customer/worker
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/accounts/login/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
+        body: jsonEncode({
+          'identifier': identifier,
+          'password': password,
+          'role': role,
+        }),
       );
 
       final data = jsonDecode(response.body);
@@ -359,7 +398,11 @@ class ApiService {
       }
 
       final data = jsonDecode(response.body);
-      return {'success': false, 'statusCode': response.statusCode, 'data': []};
+      return {
+        'success': false,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
     } catch (e) {
       return {'success': false, 'statusCode': 500, 'data': []};
     }

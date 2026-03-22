@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/worker_provider.dart';
 import '../theme/app_theme.dart';
+import '../worker/worker_dashboard.dart';
 import 'dart:async';
 
 class WorkerOTPVerificationScreen extends StatefulWidget {
@@ -10,6 +11,7 @@ class WorkerOTPVerificationScreen extends StatefulWidget {
   final String phone;
   final String password;
   final String serviceType;
+  final String role;
 
   const WorkerOTPVerificationScreen({
     super.key,
@@ -18,6 +20,7 @@ class WorkerOTPVerificationScreen extends StatefulWidget {
     required this.phone,
     required this.password,
     required this.serviceType,
+    required this.role,
   });
 
   @override
@@ -109,11 +112,9 @@ class _WorkerOTPVerificationScreenState
 
     final workerProvider = context.read<WorkerProvider>();
 
-    final result = await workerProvider.register(
-      name: widget.name.trim(),
-      email: widget.email.trim(),
+    final result = await workerProvider.verifyOTP(
       phone: widget.phone.trim(),
-      password: widget.password,
+      otp: otp,
     );
 
     setState(() {
@@ -131,7 +132,10 @@ class _WorkerOTPVerificationScreenState
             duration: const Duration(seconds: 3),
           ),
         );
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const WorkerDashboard()),
+          (route) => false,
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
