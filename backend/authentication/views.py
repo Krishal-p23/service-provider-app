@@ -1,9 +1,11 @@
 ### Django REST Framework ###
 
+from random import random
+
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import User
+from .models import OTP, User
 from .serializers import RegisterSerializer, UpdateProfileSerializer, UserSerializer, LoginSerializer, VerifyOTPSerializer
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -120,4 +122,57 @@ class ProfileApi(APIView):
         return Response(
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
+        )
+    
+class ChangePhoneRequestOTP(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        new_phone = request.data.get('new_phone')
+
+        if User.objects.filter(phone=new_phone).exists():
+            return Response({
+                'error': 'A user with this phone number already exists.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        otp = str(random.randint(100000, 999999))
+
+        OTP.objects.update_or_create(
+            phone=new_phone,
+            defaults={
+                "otp": otp,
+                "data": {"user_id": request.user.id}
+            }
+        )
+
+        print(f"OTP for changing phone to {new_phone}: {otp}")
+
+        return Response(
+            {"message": "OTP sent to new phone number. Please verify to complete the change."},
+            status=status.HTTP_200_OK
+        )
+    
+class ChangePhoneVerifyOTP(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        phone = request.data.get('phone')
+        otp = request.data.get('otp')
+
+        otp_obj = OTP.objects.filter(phone=phone, otp=otp).last()
+
+        if not otp_obj or otp_obj.is_expired():
+            return Response(
+                {"error": "Invalid or expired OTP"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        request.user.phone = phone
+        request.user.save()
+
+        otp_obj.delete()
+
+        return Response(
+            {"message": "Phone updated successfully"},
+            status=status.HTTP_200_OK
         )
