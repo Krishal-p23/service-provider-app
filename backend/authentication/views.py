@@ -176,3 +176,26 @@ class ChangePhoneVerifyOTP(APIView):
             {"message": "Phone updated successfully"},
             status=status.HTTP_200_OK
         )
+    
+class ChangePasswordApi(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+
+        user = request.user
+
+        if not user.check_password(old_password):
+            return Response(
+                {"error": "Incorrect old password"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response(
+            {"message": "Password updated successfully"},
+            status=status.HTTP_200_OK
+        )
