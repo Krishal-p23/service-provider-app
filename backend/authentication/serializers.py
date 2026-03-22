@@ -173,3 +173,25 @@ class VerifyOTPSerializer(serializers.Serializer):
             OTP.objects.filter(phone=phone).delete()
             return user
     
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    address = serializers.CharField(required=False)
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'profile_picture']
+
+    def update(self, instance, validated_data):
+        request = self.context.get('request')
+
+        instance.username = validated_data.get('username', instance.username)
+        instance.email = validated_data.get('email', instance.email)
+        instance.profile_picture = validated_data.get('profile_picture', instance.profile_picture)
+        instance.save()
+
+        if instance.role == 'CUSTOMER':
+            address = validated_data.get('address')
+            if address:
+                instance.customer_profile.address = address
+                instance.customer_profile.save()
+                
+        return instance

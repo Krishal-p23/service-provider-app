@@ -2,7 +2,7 @@ from django.db import models
 
 
 class Worker(models.Model):
-    user = models.OneToOneField('authentication.AppUser', on_delete=models.CASCADE, related_name='worker_profile')
+    user = models.OneToOneField('authentication.User', on_delete=models.CASCADE, related_name='worker_profile')
     is_verified = models.BooleanField(default=False)
     is_available = models.BooleanField(default=True)
     experience_years = models.IntegerField(default=0)
