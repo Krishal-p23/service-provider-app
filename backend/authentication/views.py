@@ -199,3 +199,26 @@ class ChangePasswordApi(APIView):
             {"message": "Password updated successfully"},
             status=status.HTTP_200_OK
         )
+
+class UpdateWorkerLocationApi(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.data.get('role') != 'WORKER':
+            return Response(
+                {"error": "Unauthorized."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        lat = request.data.get('lat')
+        lon = request.data.get('lon')
+
+        worker = request.user.worker_profile
+        worker.lat = lat
+        worker.lon = lon
+        worker.save()
+
+        return Response(
+            {"message": "Location updated successfully"},
+            status=status.HTTP_200_OK
+        )
