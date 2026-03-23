@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -212,21 +213,20 @@ class ApiService {
   }
 
   /// Update user profile
-  /// PUT /api/accounts/profile/{userId}/
+  /// PUT /api/accounts/profile/
   Future<Map<String, dynamic>> updateProfile({
-    required int userId,
-    String? name,
+    String? username,
     String? email,
-    String? phone,
+    String? address,
   }) async {
     try {
       final body = <String, dynamic>{};
-      if (name != null) body['name'] = name;
+      if (username != null) body['username'] = username;
       if (email != null) body['email'] = email;
-      if (phone != null) body['phone'] = phone;
+      if (address != null) body['address'] = address;
 
-      final response = await http.put(
-        Uri.parse('$baseUrl/accounts/profile/$userId/'),
+      final response = await http.patch(
+        Uri.parse('$baseUrl/accounts/profile/'),
         headers: _headers,
         body: jsonEncode(body),
       );
@@ -243,6 +243,41 @@ class ApiService {
         'success': false,
         'statusCode': 500,
         'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Upload profile image
+  /// PATCH /api/accounts/profile/ (multipart/form-data)
+  Future<Map<String, dynamic>> uploadProfileImage(File imageFile) async {
+    try {
+      final request = http.MultipartRequest(
+        'PATCH',
+        Uri.parse('$baseUrl/accounts/profile/'),
+      );
+
+      if (_accessToken != null) {
+        request.headers['Authorization'] = 'Bearer $_accessToken';
+      }
+
+      request.files.add(
+        await http.MultipartFile.fromPath('profile_picture', imageFile.path),
+      );
+
+      final response = await request.send();
+      final responseData = await response.stream.bytesToString();
+      final data = jsonDecode(responseData);
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Image upload error: $e'},
       };
     }
   }
@@ -418,4 +453,119 @@ class ApiService {
 
   /// Get current access token
   String? get accessToken => _accessToken;
+
+  /// Change user password
+  /// POST accounts/change-password/
+  Future<Map<String, dynamic>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/accounts/change-password/'),
+        headers: _headers,
+        body: jsonEncode({
+          'old_password': oldPassword,
+          'new_password': newPassword,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Password change error: $e'},
+      };
+    }
+  }
+
+  /// Change phone number (requires OTP verification)
+  /// POST /change-phone/request-otp
+  Future<Map<String, dynamic>> requestPhoneOTP(String phone) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/accounts/change-phone/request-otp/'),
+        headers: _headers,
+        body: jsonEncode({'phone': phone}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'OTP request error: $e'},
+      };
+    }
+  }
+
+  /// POST /change-phone/verify-otp
+  Future<Map<String, dynamic>> verifyPhoneOTP({
+    required String phone,
+    required String otp,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/accounts/change-phone/verify-otp/'),
+        headers: _headers,
+        body: jsonEncode({'phone': phone, 'otp': otp}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'OTP verification error: $e'},
+      };
+    }
+  }
+
+  /// Update worker location (for workers only)
+  /// POST /worker/update-location/
+  Future<Map<String, dynamic>> updateWorkerLocation({
+    required double lat,
+    required double lon,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/accounts/worker/update-location/'),
+        headers: _headers,
+        body: jsonEncode({'lat': lat, 'lon': lon}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Location update error: $e'},
+      };
+    }
+  }
 }
