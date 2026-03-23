@@ -68,7 +68,7 @@ class ApiService {
   Map<String, String> get _headers {
     final headers = {'Content-Type': 'application/json'};
     if (_accessToken != null) {
-      headers['Authorization'] = 'Bearer $_accessToken';
+      headers['Authorization'] = 'Token $_accessToken';
     }
     return headers;
   }
@@ -257,7 +257,7 @@ class ApiService {
       );
 
       if (_accessToken != null) {
-        request.headers['Authorization'] = 'Bearer $_accessToken';
+        request.headers['Authorization'] = 'Token $_accessToken';
       }
 
       request.files.add(

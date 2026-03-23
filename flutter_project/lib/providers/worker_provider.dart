@@ -8,14 +8,14 @@ import 'package:flutter_project/customer/services/api_service.dart';
 class WorkerProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
 
-  User? _currentUser; // Base user data
+  User? _currentWorker; // Base user data
   Worker? _workerProfile; // Worker-specific data
   bool _isLoading = false;
   String? _error;
 
-  User? get currentUser => _currentUser;
+  User? get currentWorker => _currentWorker;
   Worker? get workerProfile => _workerProfile;
-  bool get isLoggedIn => _currentUser != null && _workerProfile != null;
+  bool get isLoggedIn => _currentWorker != null && _workerProfile != null;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -94,7 +94,7 @@ class WorkerProvider extends ChangeNotifier {
         final data = response['data'];
 
         // if (data['user_id'] != null) {
-        //   _currentUser = User.fromJson(data);
+        //   _currentWorker = User.fromJson(data);
         // }
 
         _error = null;
@@ -149,7 +149,7 @@ class WorkerProvider extends ChangeNotifier {
         }
 
         final userData = result['data']['data'] ?? {};
-        _currentUser = User.fromJson(userData);
+        _currentWorker = User.fromJson(userData);
         _workerProfile = Worker(
           id: userData['id'] ?? 0,
           userId: userData['id'] ?? 0,
@@ -186,7 +186,7 @@ class WorkerProvider extends ChangeNotifier {
 
         // Verify role is WORKER
         if (userData['role'] == 'WORKER') {
-          _currentUser = User.fromJson(userData);
+          _currentWorker = User.fromJson(userData);
 
           // TODO: When backend provides worker details, parse them here
           // For now, create a basic worker profile
@@ -218,7 +218,7 @@ class WorkerProvider extends ChangeNotifier {
   /// Logout current worker
   Future<void> logout() async {
     await _apiService.logout();
-    _currentUser = null;
+    _currentWorker = null;
     _workerProfile = null;
     _error = null;
     notifyListeners();
