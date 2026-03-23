@@ -74,7 +74,7 @@ class WorkerHomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final workerProvider = context.watch<WorkerProvider>();
-    final user = workerProvider.currentUser;
+    final user = workerProvider.currentWorker;
     final worker = workerProvider.workerProfile;
 
     return Scaffold(
@@ -378,7 +378,7 @@ class WorkerProfileTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final workerProvider = context.watch<WorkerProvider>();
-    final user = workerProvider.currentUser;
+    final user = workerProvider.currentWorker;
     final worker = workerProvider.workerProfile;
 
     return Scaffold(

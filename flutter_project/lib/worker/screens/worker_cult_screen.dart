@@ -492,7 +492,7 @@ class WorkerCultScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            worker?.mobile ?? '',
+                            worker?.phone ?? '',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey.shade600,
@@ -594,7 +594,7 @@ class WorkerCultScreen extends StatelessWidget {
               _buildInfoTile(
                 Icons.phone_outlined,
                 'Mobile Number',
-                worker?.mobile ?? 'Not set',
+                worker?.phone ?? 'Not set',
                 () {},
               ),
 
@@ -608,7 +608,7 @@ class WorkerCultScreen extends StatelessWidget {
               _buildInfoTile(
                 Icons.location_on_outlined,
                 'Address',
-                worker?.address ?? 'Not set',
+                worker?.location ?? 'Not set',
                 () {},
               ),
 
