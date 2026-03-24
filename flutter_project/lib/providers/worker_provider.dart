@@ -15,9 +15,16 @@ class WorkerProvider extends ChangeNotifier {
 
   User? get currentUser => _currentUser;
   Worker? get workerProfile => _workerProfile;
+  Worker? get currentWorker => _workerProfile; // Alias for workerProfile
   bool get isLoggedIn => _currentUser != null && _workerProfile != null;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  // Job statistics (dummy values for now)
+  int get todayJobsCount => 5; // TODO: Implement actual count
+  int get weekJobsCount => 25; // TODO: Implement actual count
+  double get totalEarnings => 1250.50; // TODO: Implement actual earnings
+  double get averageRating => 4.7; // TODO: Implement actual rating
 
   /// Initialize provider and check if worker is already logged in
   Future<void> initialize() async {
@@ -228,5 +235,68 @@ class WorkerProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  /// Update worker profile
+  Future<bool> updateWorker(Map<String, dynamic> workerData) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // TODO: Implement API call to update worker
+      // For now, just update local data
+      if (_workerProfile != null) {
+        // Update worker profile with new data
+        _workerProfile = Worker(
+          id: _workerProfile!.id,
+          userId: _workerProfile!.userId,
+          isVerified: workerData['isVerified'] ?? _workerProfile!.isVerified,
+          isAvailable: workerData['isAvailable'] ?? _workerProfile!.isAvailable,
+        );
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Update error: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Update user profile
+  Future<bool> updateUser(Map<String, dynamic> userData) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // TODO: Implement API call to update user
+      // For now, just update local data
+      if (_currentUser != null) {
+        // Update user profile with new data
+        _currentUser = User(
+          id: _currentUser!.id,
+          name: userData['name'] ?? _currentUser!.name,
+          email: userData['email'] ?? _currentUser!.email,
+          phone: userData['phone'] ?? _currentUser!.phone,
+          passwordHash: _currentUser!.passwordHash, // Keep existing
+          role: _currentUser!.role, // Keep existing
+          createdAt: _currentUser!.createdAt,
+        );
+      }
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Update error: $e';
+      notifyListeners();
+      return false;
+    }
   }
 }

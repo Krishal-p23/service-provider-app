@@ -4,8 +4,6 @@ import '../models/service.dart';
 import '../models/service_category.dart';
 // import '../models/worker_service.dart';
 import '../models/review.dart';
-import '../models/user.dart';
-import '../models/user_location.dart';
 import '../utils/mock_data.dart';
 import 'dart:math' show cos, sqrt, asin;
 
@@ -187,7 +185,6 @@ class ServiceProvider with ChangeNotifier {
     final workerServices = _services.where((s) => serviceIds.contains(s.id)).toList();
     
     // Calculate distance
-    final userLocation = MockDatabase.getUserLocation(userId);
     double distance = (workerId % 10) + 1.0; // Mock distance
     
     return {

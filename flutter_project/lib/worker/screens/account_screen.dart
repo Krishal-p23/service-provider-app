@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/worker_provider.dart';
-import '../theme/app_theme.dart';
-import '../customer/screens/onboarding_screen.dart';
+import '../../providers/worker_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../customer/screens/onboarding_screen.dart';
 
 class WorkerAccountScreen extends StatelessWidget {
   const WorkerAccountScreen({super.key});
@@ -10,6 +10,7 @@ class WorkerAccountScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final workerProvider = context.watch<WorkerProvider>();
+    final user = workerProvider.currentUser;
     final worker = workerProvider.currentWorker;
 
     return Scaffold(
@@ -66,7 +67,7 @@ class WorkerAccountScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            worker?.name ?? 'Worker',
+                            user?.name ?? 'Worker',
                             style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
@@ -74,7 +75,7 @@ class WorkerAccountScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            worker?.mobile ?? '',
+                            user?.phone ?? '',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey.shade600,
@@ -169,7 +170,7 @@ class WorkerAccountScreen extends StatelessWidget {
               _buildInfoTile(
                 Icons.person_outline,
                 'Full Name',
-                worker?.name ?? 'Not set',
+                user?.name ?? 'Not set',
                 () {
                   // TODO: Navigate to edit name
                 },
@@ -178,7 +179,7 @@ class WorkerAccountScreen extends StatelessWidget {
               _buildInfoTile(
                 Icons.phone_outlined,
                 'Mobile Number',
-                worker?.mobile ?? 'Not set',
+                user?.phone ?? 'Not set',
                 () {
                   // TODO: Navigate to edit mobile
                 },
@@ -187,7 +188,7 @@ class WorkerAccountScreen extends StatelessWidget {
               _buildInfoTile(
                 Icons.email_outlined,
                 'Email',
-                worker?.email ?? 'Not set',
+                user?.email ?? 'Not set',
                 () {
                   // TODO: Navigate to edit email
                 },
@@ -196,7 +197,7 @@ class WorkerAccountScreen extends StatelessWidget {
               _buildInfoTile(
                 Icons.location_on_outlined,
                 'Address',
-                worker?.address ?? 'Not set',
+                'Not set', // TODO: Add address to user model
                 () {
                   // TODO: Navigate to edit address
                 },

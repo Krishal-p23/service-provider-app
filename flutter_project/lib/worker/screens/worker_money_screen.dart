@@ -654,9 +654,10 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
   Widget build(BuildContext context) {
     final workerProvider = context.watch<WorkerProvider>();
     final worker = workerProvider.currentWorker;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(

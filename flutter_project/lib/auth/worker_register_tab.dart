@@ -76,7 +76,7 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
 
       try {
         final workerProvider = context.read<WorkerProvider>();
-        final result = await workerProvider.register(
+        await workerProvider.register(
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
           phone: _phoneController.text.trim(),

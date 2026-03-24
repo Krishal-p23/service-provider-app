@@ -94,7 +94,7 @@ class _RegisterTabState extends State<RegisterTab> {
 
     try {
       final userProvider = context.read<UserProvider>();
-      final response = await userProvider.register(
+      await userProvider.register(
         name: _usernameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
