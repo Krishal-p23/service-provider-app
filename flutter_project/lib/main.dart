@@ -11,7 +11,8 @@ import 'package:flutter_project/customer/screens/edit_profile_screen.dart';
 import 'package:flutter_project/customer/screens/reviews_screen.dart';
 import 'package:flutter_project/customer/screens/all_services_screen.dart';
 import 'package:flutter_project/customer/screens/main_screen.dart';
-import 'package:flutter_project/worker/worker_dashboard.dart';
+import 'package:flutter_project/worker/worker_home.dart';
+import 'package:flutter_project/worker/providers/job_provider.dart';
 import 'package:flutter_project/customer/providers/booking_provider.dart';
 import 'package:flutter_project/customer/providers/service_provider.dart';
 import 'package:flutter_project/customer/providers/wallet_provider.dart';
@@ -30,6 +31,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ServiceProvider()),
         ChangeNotifierProvider(create: (_) => WalletProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
+        ChangeNotifierProvider(create: (_) => JobProvider()),
       ],
       child: HomeServicesApp(),
     ),
@@ -64,7 +66,7 @@ class HomeServicesApp extends StatelessWidget {
               },
             ),
             '/customer-home': (context) => const MainScreen(),
-            '/worker-dashboard': (context) => const WorkerDashboard(),
+            '/worker-dashboard': (context) => const WorkerHome(),
             '/edit-profile': (context) => const EditProfileScreen(),
             '/reviews': (context) => const ReviewsScreen(),
             '/all-services': (context) => const AllServicesScreen(),

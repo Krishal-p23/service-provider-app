@@ -67,7 +67,7 @@ class ApiService {
   Map<String, String> get _headers {
     final headers = {'Content-Type': 'application/json'};
     if (_accessToken != null) {
-      headers['Authorization'] = 'Bearer $_accessToken';
+      headers['Authorization'] = 'Token $_accessToken';
     }
     return headers;
   }
@@ -167,9 +167,10 @@ class ApiService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // Backend currently returns profile-like data, not JWT tokens.
-        // Keep a lightweight local session marker for provider checks.
-        await _saveTokens('local_session', '');
+        final token = (data['data']?['token'] ?? '').toString();
+        if (token.isNotEmpty) {
+          await _saveTokens(token, '');
+        }
       }
 
       return {
@@ -187,15 +188,18 @@ class ApiService {
   }
 
   /// Get logged-in user profile
-  /// POST /api/accounts/me/
+  /// GET /api/accounts/me/
   Future<Map<String, dynamic>> getProfile() async {
     try {
-      final response = await http.post(
+      final response = await http.get(
         Uri.parse('$baseUrl/accounts/me/'),
         headers: _headers,
       );
 
-      final data = jsonDecode(response.body);
+      final raw = jsonDecode(response.body);
+      final data = raw is Map<String, dynamic>
+          ? (raw['data'] is Map<String, dynamic> ? raw['data'] : raw)
+          : raw;
 
       return {
         'success': response.statusCode == 200,

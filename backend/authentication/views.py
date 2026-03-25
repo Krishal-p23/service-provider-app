@@ -36,9 +36,13 @@ class LoginApi(APIView):
         
         if user:
             token, _ = Token.objects.get_or_create(user=user)
+            user_data = UserSerializer(user).data
             return Response({
                 'status': 200,
-                'data': {'token': token.key},
+                'data': {
+                    **user_data,
+                    'token': token.key,
+                },
                 'message': 'Login successful',
             }, status=status.HTTP_200_OK)
        
@@ -91,3 +95,15 @@ class VerifyOTPApi(APIView):
             'message': 'OTP verification failed',
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MeApi(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response({
+            'status': 200,
+            'data': serializer.data,
+            'message': 'Profile fetched successfully',
+        }, status=status.HTTP_200_OK)

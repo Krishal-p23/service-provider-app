@@ -78,37 +78,10 @@
 //   }
 // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // import 'package:flutter/material.dart';
 // import 'screens/worker_money_screen.dart';
 // import 'screens/scheduled_jobs_hub_screen.dart';
 // import 'package:flutter_project/worker/screens/worker_account_screen.dart';
-
 
 // class WorkerHome extends StatefulWidget {
 //   const WorkerHome({super.key});
@@ -179,12 +152,6 @@
 //     );
 //   }
 // }
-
-
-
-
-
-
 
 // import 'package:flutter/material.dart';
 // import 'package:provider/provider.dart';
@@ -270,7 +237,7 @@
 //   @override
 //   Widget build(BuildContext context) {
 //     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
 //     return Scaffold(
 //       body: _screens[_currentIndex],
 //       bottomNavigationBar: Container(
@@ -322,13 +289,6 @@
 //     );
 //   }
 // }
-
-
-
-
-
-
-
 
 // import 'package:flutter/material.dart';
 // import 'screens/worker_money_screen.dart';
@@ -410,37 +370,10 @@
 //   }
 // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // import 'package:flutter/material.dart';
 // import 'screens/worker_money_screen.dart';
 // import 'screens/scheduled_jobs_hub_screen_new.dart';
 // import 'package:flutter_project/worker/screens/worker_account_screen.dart';
-
 
 // class WorkerHome extends StatefulWidget {
 //   const WorkerHome({super.key});
@@ -512,16 +445,7 @@
 //   }
 // }
 
-
-
-
-
-
-
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'providers/worker_theme_provider.dart';
-import 'utils/worker_theme.dart';
 import 'screens/worker_money_screen.dart';
 import 'screens/account_screen.dart';
 import 'screens/scheduled_jobs_hub_screen_new.dart';
@@ -531,17 +455,7 @@ class WorkerHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<WorkerThemeProvider>(
-      builder: (context, themeProvider, child) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: WorkerTheme.lightTheme,
-          darkTheme: WorkerTheme.darkTheme,
-          themeMode: themeProvider.materialThemeMode,
-          home: const _WorkerHomeContent(),
-        );
-      },
-    );
+    return const _WorkerHomeContent();
   }
 }
 
@@ -564,7 +478,7 @@ class _WorkerHomeContentState extends State<_WorkerHomeContent> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       body: _screens[_currentIndex],
       bottomNavigationBar: Container(
@@ -616,16 +530,3 @@ class _WorkerHomeContentState extends State<_WorkerHomeContent> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

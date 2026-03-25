@@ -595,7 +595,6 @@
 //   }
 // }
 
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
@@ -614,14 +613,7 @@ class WorkerMoneyScreen extends StatefulWidget {
 class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
   int _selectedMonthIndex = 5; // Feb is the 6th month (0-indexed)
 
-  final List<String> _months = [
-    'Sept',
-    'Oct',
-    'Nov',
-    'Dec',
-    'Jan',
-    'Feb',
-  ];
+  final List<String> _months = ['Sept', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb'];
 
   // Hardcoded demo earnings data per month (in rupees)
   final Map<String, double> _earningsData = {
@@ -654,6 +646,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
   Widget build(BuildContext context) {
     final workerProvider = context.watch<WorkerProvider>();
     final worker = workerProvider.currentWorker;
+    final user = workerProvider.currentUser;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -672,7 +665,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                     IconButton(
                       icon: const Icon(Icons.menu, size: 28),
                       onPressed: () {
-                        _showMenuDrawer(context, workerProvider, worker);
+                        _showMenuDrawer(context, workerProvider, worker, user);
                       },
                     ),
                     Row(
@@ -697,14 +690,20 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              Icon(Icons.credit_card,
-                                  size: 18, color: Colors.grey.shade600),
+                              Icon(
+                                Icons.credit_card,
+                                size: 18,
+                                color: Colors.grey.shade600,
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.notifications_outlined, size: 28),
+                          icon: const Icon(
+                            Icons.notifications_outlined,
+                            size: 28,
+                          ),
                           onPressed: () {
                             Navigator.push(
                               context,
@@ -722,14 +721,14 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
               ),
 
               // Money Title - BOLD
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
                   'Money',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: isDark ? Colors.white : Colors.black87,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -768,20 +767,22 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                             children: [
                               Text(
                                 '₹${_currentEarnings.toStringAsFixed(0)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 40,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  color: isDark ? Colors.white : Colors.black87,
                                   letterSpacing: -1,
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              const Text(
+                              Text(
                                 'Earned this month',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
-                                  color: Colors.black54,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
                                 ),
                               ),
                             ],
@@ -823,11 +824,11 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                                       colors: isSelected
                                           ? [
                                               Colors.green.shade700,
-                                              Colors.green.shade600
+                                              Colors.green.shade600,
                                             ]
                                           : [
                                               Colors.green.shade300,
-                                              Colors.green.shade200
+                                              Colors.green.shade200,
                                             ],
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
@@ -838,8 +839,9 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                                     boxShadow: isSelected
                                         ? [
                                             BoxShadow(
-                                              color: Colors.green
-                                                  .withOpacity(0.4),
+                                              color: Colors.green.withOpacity(
+                                                0.4,
+                                              ),
                                               blurRadius: 8,
                                               offset: const Offset(0, 4),
                                             ),
@@ -1043,8 +1045,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            const PendingDeductionsScreen(),
+                        builder: (context) => const PendingDeductionsScreen(),
                       ),
                     );
                   },
@@ -1126,133 +1127,152 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
   }
 
   void _showMenuDrawer(
-      BuildContext context, WorkerProvider workerProvider, worker) {
+    BuildContext context,
+    WorkerProvider workerProvider,
+    worker,
+    user,
+  ) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
+      builder: (context) {
+        final maxHeight = MediaQuery.of(context).size.height * 0.9;
+
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor:
-                        const Color(0xFF1976D2).withOpacity(0.15),
-                    child: const Icon(
-                      Icons.person,
-                      color: Color(0xFF1976D2),
-                      size: 32,
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
                       children: [
-                        Text(
-                          worker?.name ?? 'Worker',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: const Color(
+                            0xFF1976D2,
+                          ).withOpacity(0.15),
+                          child: const Icon(
+                            Icons.person,
+                            color: Color(0xFF1976D2),
+                            size: 32,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          worker?.mobile ?? '',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user?.name ?? 'Worker',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                user?.phone ?? '',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1),
+                  _buildMenuItem(Icons.dashboard_outlined, 'Dashboard', () {
+                    Navigator.pop(context);
+                  }),
+                  _buildMenuItem(Icons.work_outline, 'My Jobs', () {
+                    Navigator.pop(context);
+                  }),
+                  _buildMenuItem(Icons.schedule_outlined, 'Schedule', () {
+                    Navigator.pop(context);
+                  }),
+                  _buildMenuItem(Icons.star_outline, 'Reviews', () {
+                    Navigator.pop(context);
+                  }),
+                  const Divider(height: 1),
+                  _buildMenuItem(Icons.settings_outlined, 'Settings', () {
+                    Navigator.pop(context);
+                  }),
+                  _buildMenuItem(Icons.help_outline, 'Help & Support', () {
+                    Navigator.pop(context);
+                  }),
+                  ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.red),
+                    title: const Text(
+                      'Logout',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      final shouldLogout = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Logout'),
+                          content: const Text(
+                            'Are you sure you want to logout?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red,
+                              ),
+                              child: const Text('Logout'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (shouldLogout == true && context.mounted) {
+                        await workerProvider.logout();
+                        if (context.mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const OnboardingScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            const Divider(height: 1),
-            _buildMenuItem(Icons.dashboard_outlined, 'Dashboard', () {
-              Navigator.pop(context);
-            }),
-            _buildMenuItem(Icons.work_outline, 'My Jobs', () {
-              Navigator.pop(context);
-            }),
-            _buildMenuItem(Icons.schedule_outlined, 'Schedule', () {
-              Navigator.pop(context);
-            }),
-            _buildMenuItem(Icons.star_outline, 'Reviews', () {
-              Navigator.pop(context);
-            }),
-            const Divider(height: 1),
-            _buildMenuItem(Icons.settings_outlined, 'Settings', () {
-              Navigator.pop(context);
-            }),
-            _buildMenuItem(Icons.help_outline, 'Help & Support', () {
-              Navigator.pop(context);
-            }),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title:
-                  const Text('Logout', style: TextStyle(color: Colors.red)),
-              onTap: () async {
-                Navigator.pop(context);
-                final shouldLogout = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        child: const Text('Logout'),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (shouldLogout == true && context.mounted) {
-                  await workerProvider.logout();
-                  if (context.mounted) {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const OnboardingScreen(),
-                      ),
-                      (route) => false,
-                    );
-                  }
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1261,10 +1281,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
       leading: Icon(icon, size: 24),
       title: Text(
         title,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       ),
       onTap: onTap,
     );
