@@ -4,8 +4,6 @@ import '../models/service.dart';
 import '../models/service_category.dart';
 // import '../models/worker_service.dart';
 import '../models/review.dart';
-import '../models/user.dart';
-import '../models/user_location.dart';
 import '../utils/mock_data.dart';
 import 'dart:math' show cos, sqrt, asin;
 

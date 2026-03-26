@@ -26,6 +26,9 @@ SECRET_KEY = 'django-insecure-k-%py7jlowpxcow*!de$l!uhv(s#az=jt4(610c!m0y-_$7@5#
 DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.0.2.2']  # 10.0.2.2 for Android emulator
+if DEBUG:
+    # Allow LAN/USB testing hosts during local development.
+    ALLOWED_HOSTS = ['*']
 
 # CORS Settings for Flutter
 CORS_ALLOWED_ORIGINS = [

@@ -840,7 +840,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
       // Create booking
       await bookingProvider.createBooking(
-        userId: currentUser.id!,
+        userId: currentUser.id,
         workerId: widget.workerId,
         serviceId: widget.serviceId,
         scheduledDate: scheduledDate,
@@ -891,7 +891,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         worker != null ? MockDatabase.getUserById(worker.userId) : null;
     final currentUser = userProvider.currentUser;
     final userLocation = currentUser != null
-        ? MockDatabase.getUserLocation(currentUser.id!)
+        ? MockDatabase.getUserLocation(currentUser.id)
         : null;
 
     if (service == null || worker == null) {

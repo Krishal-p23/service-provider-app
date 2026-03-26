@@ -120,8 +120,9 @@ class MockDatabase {
     int maxId = 0;
     for (var item in list) {
       int? itemId;
-      if (item is User) itemId = item.id;
-      else if (item is Worker) itemId = item.id;
+      if (item is User) {
+        itemId = item.id;
+      } else if (item is Worker) itemId = item.id;
       else if (item is Booking) itemId = item.id;
       else if (item is Payment) itemId = item.id;
       else if (item is Review) itemId = item.id;

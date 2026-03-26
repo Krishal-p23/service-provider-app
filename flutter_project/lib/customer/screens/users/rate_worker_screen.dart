@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/service_provider.dart';
-import '../../providers/booking_provider.dart';
 import '../../utils/mock_data.dart';
 import 'package:flutter_project/customer/screens/users/booking_status_screen.dart';
 

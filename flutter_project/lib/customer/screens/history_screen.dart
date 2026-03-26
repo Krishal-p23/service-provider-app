@@ -687,7 +687,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
 
     // Get all bookings
-    var allBookings = bookingProvider.getUserBookings(currentUser.id!);
+    var allBookings = bookingProvider.getUserBookings(currentUser.id);
 
     // Apply status filter
     if (_selectedStatus != 'All') {

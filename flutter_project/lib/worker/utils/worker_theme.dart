@@ -1,21 +1,13 @@
 import 'package:flutter/material.dart';
 
-class AppTheme {
+class WorkerTheme {
   // ============================================================================
-  // PRIMARY BRAND COLORS (Customer - Green/Teal)
+  // PRIMARY BRAND COLORS - WORKER BLUE IDENTITY
   // ============================================================================
-  static const Color primaryColor = Color(0xFF00897B);
-  static const Color primaryDark = Color(0xFF00695C);
-  static const Color primaryLight = Color(0xFF4DB6AC);
-  static const Color accent = Color(0xFF26A69A);
-
-  // ============================================================================
-  // WORKER BRAND COLORS (Blue)
-  // ============================================================================
-  static const Color workerPrimaryColor = Color(0xFF1976D2);
-  static const Color workerPrimaryDark = Color(0xFF1565C0);
-  static const Color workerPrimaryLight = Color(0xFF42A5F5);
-  static const Color workerAccent = Color(0xFF64B5F6);
+  static const Color primaryColor = Color(0xFF1976D2);
+  static const Color primaryDark = Color(0xFF1565C0);
+  static const Color primaryLight = Color(0xFF42A5F5);
+  static const Color accent = Color(0xFF2196F3);
 
   // ============================================================================
   // SEMANTIC COLORS
@@ -71,12 +63,12 @@ class AppTheme {
     brightness: Brightness.light,
     primaryColor: primaryColor,
     scaffoldBackgroundColor: lightBackground,
-
+    
     colorScheme: const ColorScheme.light(
       primary: primaryColor,
       primaryContainer: primaryLight,
       secondary: accent,
-      secondaryContainer: Color(0xFFB2DFDB),
+      secondaryContainer: Color(0xFFBBDEFB),
       surface: lightSurface,
       error: errorColor,
       onPrimary: Colors.white,
@@ -89,16 +81,19 @@ class AppTheme {
     // APP BAR THEME
     // ============================================================================
     appBarTheme: const AppBarTheme(
-      backgroundColor: lightSurface,
-      foregroundColor: lightTextPrimary,
-      elevation: cardElevationLow,
+      backgroundColor: primaryColor,
+      foregroundColor: Colors.white,
+      elevation: 0,
       centerTitle: false,
       titleTextStyle: TextStyle(
-        color: lightTextPrimary,
+        color: Colors.white,
         fontSize: 20,
         fontWeight: FontWeight.w600,
       ),
-      iconTheme: IconThemeData(color: lightTextPrimary, size: 24),
+      iconTheme: IconThemeData(
+        color: Colors.white,
+        size: 24,
+      ),
     ),
 
     // ============================================================================
@@ -180,7 +175,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(borderRadiusMedium),
         ),
         elevation: cardElevationMedium,
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
 
@@ -198,7 +196,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(borderRadiusMedium),
         ),
         side: const BorderSide(color: primaryColor, width: 1.5),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
 
@@ -212,21 +213,27 @@ class AppTheme {
           horizontal: spacingLarge,
           vertical: spacingSmall,
         ),
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
 
     // ============================================================================
     // ICON THEME
     // ============================================================================
-    iconTheme: const IconThemeData(color: lightTextPrimary, size: 24),
+    iconTheme: const IconThemeData(
+      color: lightTextPrimary,
+      size: 24,
+    ),
 
     // ============================================================================
     // CHIP THEME
     // ============================================================================
     chipTheme: ChipThemeData(
       backgroundColor: lightBackground,
-      selectedColor: primaryLight,
+      selectedColor: primaryColor,
       disabledColor: lightDivider,
       labelStyle: const TextStyle(color: lightTextPrimary),
       secondaryLabelStyle: const TextStyle(color: lightTextSecondary),
@@ -270,7 +277,7 @@ class AppTheme {
         fontWeight: FontWeight.bold,
         color: lightTextPrimary,
       ),
-
+      
       // Headlines
       headlineLarge: TextStyle(
         fontSize: 22,
@@ -287,7 +294,7 @@ class AppTheme {
         fontWeight: FontWeight.w600,
         color: lightTextPrimary,
       ),
-
+      
       // Titles
       titleLarge: TextStyle(
         fontSize: 18,
@@ -304,7 +311,7 @@ class AppTheme {
         fontWeight: FontWeight.w600,
         color: lightTextPrimary,
       ),
-
+      
       // Body
       bodyLarge: TextStyle(
         fontSize: 16,
@@ -324,7 +331,7 @@ class AppTheme {
         color: lightTextSecondary,
         height: 1.5,
       ),
-
+      
       // Labels
       labelLarge: TextStyle(
         fontSize: 14,
@@ -367,7 +374,7 @@ class AppTheme {
     // SNACK BAR THEME
     // ============================================================================
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: darkSurface,
+      backgroundColor: darkSurfaceVariant,
       contentTextStyle: const TextStyle(color: Colors.white),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
@@ -384,18 +391,18 @@ class AppTheme {
     brightness: Brightness.dark,
     primaryColor: primaryLight,
     scaffoldBackgroundColor: darkBackground,
-
+    
     colorScheme: const ColorScheme.dark(
       primary: primaryLight,
       primaryContainer: primaryDark,
       secondary: accent,
-      secondaryContainer: Color(0xFF00695C),
+      secondaryContainer: Color(0xFF1E3A5F),
       surface: darkSurface,
       error: errorColor,
-      onPrimary: darkTextPrimary,
-      onSecondary: darkTextPrimary,
+      onPrimary: Colors.black,
+      onSecondary: Colors.black,
       onSurface: darkTextPrimary,
-      onError: darkTextPrimary,
+      onError: Colors.white,
     ),
 
     // ============================================================================
@@ -404,14 +411,17 @@ class AppTheme {
     appBarTheme: const AppBarTheme(
       backgroundColor: darkSurface,
       foregroundColor: darkTextPrimary,
-      elevation: cardElevationLow,
+      elevation: 0,
       centerTitle: false,
       titleTextStyle: TextStyle(
         color: darkTextPrimary,
         fontSize: 20,
         fontWeight: FontWeight.w600,
       ),
-      iconTheme: IconThemeData(color: darkTextPrimary, size: 24),
+      iconTheme: IconThemeData(
+        color: darkTextPrimary,
+        size: 24,
+      ),
     ),
 
     // ============================================================================
@@ -484,7 +494,7 @@ class AppTheme {
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: primaryLight,
-        foregroundColor: lightTextPrimary,
+        foregroundColor: Colors.black,
         padding: const EdgeInsets.symmetric(
           horizontal: spacingXLarge,
           vertical: spacingMedium,
@@ -493,7 +503,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(borderRadiusMedium),
         ),
         elevation: cardElevationMedium,
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
 
@@ -511,7 +524,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(borderRadiusMedium),
         ),
         side: const BorderSide(color: primaryLight, width: 1.5),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
 
@@ -525,14 +541,20 @@ class AppTheme {
           horizontal: spacingLarge,
           vertical: spacingSmall,
         ),
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
 
     // ============================================================================
     // ICON THEME (DARK)
     // ============================================================================
-    iconTheme: const IconThemeData(color: darkTextPrimary, size: 24),
+    iconTheme: const IconThemeData(
+      color: darkTextPrimary,
+      size: 24,
+    ),
 
     // ============================================================================
     // CHIP THEME (DARK)
@@ -583,7 +605,7 @@ class AppTheme {
         fontWeight: FontWeight.bold,
         color: darkTextPrimary,
       ),
-
+      
       // Headlines
       headlineLarge: TextStyle(
         fontSize: 22,
@@ -600,7 +622,7 @@ class AppTheme {
         fontWeight: FontWeight.w600,
         color: darkTextPrimary,
       ),
-
+      
       // Titles
       titleLarge: TextStyle(
         fontSize: 18,
@@ -617,7 +639,7 @@ class AppTheme {
         fontWeight: FontWeight.w600,
         color: darkTextPrimary,
       ),
-
+      
       // Body
       bodyLarge: TextStyle(
         fontSize: 16,
@@ -637,7 +659,7 @@ class AppTheme {
         color: darkTextSecondary,
         height: 1.5,
       ),
-
+      
       // Labels
       labelLarge: TextStyle(
         fontSize: 14,
@@ -692,29 +714,28 @@ class AppTheme {
   // ============================================================================
   // HELPER METHODS
   // ============================================================================
-
+  
   /// Returns appropriate text color based on theme brightness
   static Color getTextColor(BuildContext context, {bool secondary = false}) {
     final brightness = Theme.of(context).brightness;
     if (secondary) {
-      return brightness == Brightness.dark
-          ? darkTextSecondary
-          : lightTextSecondary;
+      return brightness == Brightness.dark ? darkTextSecondary : lightTextSecondary;
     }
     return brightness == Brightness.dark ? darkTextPrimary : lightTextPrimary;
   }
 
   /// Returns appropriate surface color based on theme brightness
   static Color getSurfaceColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? darkSurface
-        : lightSurface;
+    return Theme.of(context).brightness == Brightness.dark ? darkSurface : lightSurface;
   }
 
   /// Returns appropriate divider color based on theme brightness
   static Color getDividerColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? darkDivider
-        : lightDivider;
+    return Theme.of(context).brightness == Brightness.dark ? darkDivider : lightDivider;
+  }
+
+  /// Returns appropriate background color based on theme brightness
+  static Color getBackgroundColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark ? darkBackground : lightBackground;
   }
 }

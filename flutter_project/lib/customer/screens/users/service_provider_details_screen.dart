@@ -406,7 +406,7 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
     }
 
     final workerDetails =
-        serviceProvider.getWorkerDetails(workerId, currentUser.id!);
+        serviceProvider.getWorkerDetails(workerId, currentUser.id);
 
     if (workerDetails == null) {
       return Scaffold(

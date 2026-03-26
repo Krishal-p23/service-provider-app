@@ -128,9 +128,14 @@ class ApiService {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // Backend currently returns profile-like data, not JWT tokens.
-        // Keep a lightweight local session marker for provider checks.
-        await _saveTokens('local_session', '');
+        // Backend doesn't issue JWT yet. Use user id as a lightweight local token
+        // so profile endpoints can resolve the current user.
+        final userId = data['data']?['id'];
+        if (userId != null) {
+          await _saveTokens(userId.toString(), '');
+        } else {
+          await _saveTokens('local_session', '');
+        }
       }
 
       return {
@@ -156,7 +161,12 @@ class ApiService {
         headers: _headers,
       );
 
-      final data = jsonDecode(response.body);
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
 
       return {
         'success': response.statusCode == 200,
@@ -192,7 +202,12 @@ class ApiService {
         body: jsonEncode(body),
       );
 
-      final data = jsonDecode(response.body);
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
 
       return {
         'success': response.statusCode == 200,
@@ -362,6 +377,30 @@ class ApiService {
       return {'success': false, 'statusCode': response.statusCode, 'data': []};
     } catch (e) {
       return {'success': false, 'statusCode': 500, 'data': []};
+    }
+  }
+
+  /// Get worker list
+  /// GET /api/accounts/workers/
+  Future<Map<String, dynamic>> getWorkers() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/accounts/workers/'),
+        headers: _headers,
+      );
+
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic> && payload['data'] is List
+          ? payload['data'] as List
+          : <dynamic>[];
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <dynamic>[]};
     }
   }
 

@@ -257,7 +257,7 @@ class _WorkerRegisterTabState extends State<WorkerRegisterTab> {
                 vertical: AppTheme.spacingXSmall,
               ),
               child: DropdownButtonFormField<String>(
-                value: _selectedServiceType,
+                initialValue: _selectedServiceType,
                 decoration: InputDecoration(
                   labelText: 'Service Type',
                   prefixIcon: Icon(Icons.build, color: widget.roleColor),

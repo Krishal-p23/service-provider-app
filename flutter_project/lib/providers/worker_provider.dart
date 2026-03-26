@@ -14,10 +14,17 @@ class WorkerProvider extends ChangeNotifier {
   String? _error;
 
   User? get currentUser => _currentUser;
+  Worker? get currentWorker => _workerProfile;
   Worker? get workerProfile => _workerProfile;
   bool get isLoggedIn => _currentUser != null && _workerProfile != null;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  // Placeholder stats until worker jobs/payments endpoints are integrated.
+  int get todayJobsCount => 0;
+  int get weekJobsCount => 0;
+  double get totalEarnings => 0;
+  double get averageRating => 0;
 
   /// Initialize provider and check if worker is already logged in
   Future<void> initialize() async {
@@ -102,6 +109,7 @@ class WorkerProvider extends ChangeNotifier {
           isAvailable: true,
         );
         _error = null;
+        await fetchProfile();
         notifyListeners();
         return true;
       } else {
@@ -128,9 +136,10 @@ class WorkerProvider extends ChangeNotifier {
 
       if (result['success']) {
         final userData = result['data'];
+        final role = (userData['role'] ?? '').toString().toLowerCase();
 
         // Verify role is WORKER
-        if (userData['role'] == 'WORKER') {
+        if (role == 'worker') {
           _currentUser = User.fromJson(userData);
 
           // TODO: When backend provides worker details, parse them here
@@ -156,6 +165,68 @@ class WorkerProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Profile fetch error: $e';
       notifyListeners();
+    }
+  }
+
+  /// Update logged-in worker user profile in backend.
+  Future<bool> updateUser(Map<String, dynamic> userData) async {
+    if (_currentUser == null) {
+      _error = 'User not logged in';
+      notifyListeners();
+      return false;
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.updateProfile(
+        userId: _currentUser!.id,
+        name: userData['name']?.toString(),
+        email: userData['email']?.toString(),
+        phone: userData['phone']?.toString(),
+      );
+
+      _isLoading = false;
+
+      if (result['success']) {
+        final updated = result['data'] as Map<String, dynamic>;
+        _currentUser = User.fromJson(updated);
+        _error = null;
+        notifyListeners();
+        return true;
+      }
+
+      final failureData = result['data'];
+      _error = failureData is Map<String, dynamic>
+          ? (failureData['message'] ??
+                    failureData['error'] ??
+                    'Failed to update profile')
+                .toString()
+          : 'Failed to update profile';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Profile update error: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Fetch workers list from backend users table.
+  Future<List<User>> fetchWorkers() async {
+    try {
+      final result = await _apiService.getWorkers();
+      if (!result['success']) {
+        return <User>[];
+      }
+
+      final list = result['data'] as List<dynamic>;
+      return list.whereType<Map<String, dynamic>>().map(User.fromJson).toList();
+    } catch (_) {
+      return <User>[];
     }
   }
 

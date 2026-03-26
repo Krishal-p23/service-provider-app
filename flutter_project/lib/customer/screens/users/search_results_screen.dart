@@ -47,7 +47,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
     // Get filtered workers
     final workersData = serviceProvider.filterWorkers(
-      userId: currentUser.id!,
+      userId: currentUser.id,
       serviceId: widget.categoryId,
       sortBy: _sortBy,
       minRating: _minRating,

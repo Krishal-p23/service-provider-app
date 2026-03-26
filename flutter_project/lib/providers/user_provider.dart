@@ -300,9 +300,10 @@ class UserProvider extends ChangeNotifier {
 
       if (result['success']) {
         final userData = result['data'];
+        final role = (userData['role'] ?? '').toString().toLowerCase();
 
         // Verify role is USER
-        if (userData['role'] == 'USER') {
+        if (role == 'customer' || role == 'user') {
           _currentUser = User.fromJson(userData);
           _error = null;
         } else {

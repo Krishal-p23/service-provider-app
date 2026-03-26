@@ -264,9 +264,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/service_provider.dart';
-import '../../theme/theme_provider.dart';
 import '../../theme/app_theme.dart';
-import '../utils/location_permission_helper.dart';
 import '../services/location_service.dart';
 
 class CategoryGrid extends StatelessWidget {

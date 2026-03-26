@@ -145,7 +145,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   _selectedPaymentMethod = method['id'];
                 });
               },
-            )).toList(),
+            )),
             
             const SizedBox(height: 24),
             

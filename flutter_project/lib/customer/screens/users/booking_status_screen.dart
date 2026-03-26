@@ -80,9 +80,9 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
       );
     }
 
-    final upcomingBookings = bookingProvider.getUpcomingBookings(currentUser.id!);
-    final ongoingBookings = bookingProvider.getOngoingBookings(currentUser.id!);
-    final completedBookings = bookingProvider.getCompletedBookings(currentUser.id!);
+    final upcomingBookings = bookingProvider.getUpcomingBookings(currentUser.id);
+    final ongoingBookings = bookingProvider.getOngoingBookings(currentUser.id);
+    final completedBookings = bookingProvider.getCompletedBookings(currentUser.id);
 
     return Scaffold(
       appBar: AppBar(
@@ -122,7 +122,7 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
             ),
             const SizedBox(height: 20),
             Text(
-              'No ${type} bookings',
+              'No $type bookings',
               style: Theme.of(context).textTheme.displaySmall,
             ),
           ],

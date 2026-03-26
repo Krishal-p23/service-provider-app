@@ -363,14 +363,11 @@
 
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../widgets/address_bar.dart';
 import '../widgets/quick_action_tiles.dart';
 import '../widgets/promotional_cards.dart';
 import '../widgets/trust_strip.dart';
 import '../widgets/category_grid.dart';
-import '../providers/service_provider.dart';
-import '../../providers/user_provider.dart';
 import '../delegates/service_search_delegate.dart';
 import '../../theme/app_theme.dart';
 import 'users/search_results_screen.dart';

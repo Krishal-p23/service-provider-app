@@ -139,7 +139,7 @@ class AccountScreen extends StatelessWidget {
                         ),
                       ),
                       Switch(
-                        activeColor: theme.primaryColor,
+                        activeThumbColor: theme.primaryColor,
                         value: themeProvider.themeMode == AppThemeMode.dark,
                         onChanged: (value) {
                           themeProvider.setThemeMode(
