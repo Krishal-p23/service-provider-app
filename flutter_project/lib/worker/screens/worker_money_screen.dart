@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
 import '../../customer/screens/onboarding_screen.dart';
+import '../../customer/services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'worker_notifications_screen.dart';
 import 'bank_transfers_screen.dart';
@@ -20,36 +21,87 @@ class WorkerMoneyScreen extends StatefulWidget {
 }
 
 class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
-  int _selectedMonthIndex = 5; // Feb is the 6th month (0-indexed)
+  int _selectedMonthIndex = 0;
+  bool _isLoadingEarnings = true;
+  final ApiService _apiService = ApiService();
+  List<Map<String, dynamic>> _monthsData = <Map<String, dynamic>>[];
+  double _upcomingTransfer = 0;
+  double _pendingDeductions = 0;
+  List<Map<String, dynamic>> _deductionsBreakdown = <Map<String, dynamic>>[];
 
-  final List<String> _months = ['Sept', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb'];
+  @override
+  void initState() {
+    super.initState();
+    _loadEarningsSummary();
+  }
 
-  // Hardcoded demo earnings data per month (in rupees)
-  final Map<String, double> _earningsData = {
-    'Sept': 3200,
-    'Oct': 5400,
-    'Nov': 1800,
-    'Dec': 6100,
-    'Jan': 4300,
-    'Feb': 2750,
-  };
+  Future<void> _loadEarningsSummary() async {
+    setState(() {
+      _isLoadingEarnings = true;
+    });
+
+    try {
+      await _apiService.initialize();
+      final result = await _apiService.getWorkerEarningsSummary(months: 6);
+
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>;
+        final rawMonths = data['months'] as List<dynamic>? ?? <dynamic>[];
+        final parsedMonths = rawMonths
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (item) => {
+                'label': item['label']?.toString() ?? '',
+                'earnings': ((item['earnings'] ?? 0) as num).toDouble(),
+              },
+            )
+            .toList();
+
+        setState(() {
+          _monthsData = parsedMonths;
+          _selectedMonthIndex = _monthsData.isNotEmpty
+              ? _monthsData.length - 1
+              : 0;
+          _upcomingTransfer = ((data['upcoming_transfer'] ?? 0) as num)
+              .toDouble();
+          _pendingDeductions = ((data['pending_deductions'] ?? 0) as num)
+              .toDouble();
+          _deductionsBreakdown =
+              (data['deductions_breakdown'] as List<dynamic>? ?? <dynamic>[])
+                  .whereType<Map<String, dynamic>>()
+                  .toList();
+        });
+      }
+    } catch (_) {
+      // Keep fallback empty state if API is unavailable.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingEarnings = false;
+        });
+      }
+    }
+  }
 
   // Calculate chart data (normalized to 100px max height)
   List<double> get _chartData {
-    final maxEarning = _earningsData.values.reduce((a, b) => a > b ? a : b);
-    return _months
-        .map((month) => (_earningsData[month]! / maxEarning) * 80)
+    if (_monthsData.isEmpty) return <double>[];
+    final maxEarning = _monthsData
+        .map((item) => (item['earnings'] as double))
+        .reduce((a, b) => a > b ? a : b);
+    final divisor = maxEarning <= 0 ? 1.0 : maxEarning;
+    return _monthsData
+        .map((item) => ((item['earnings'] as double) / divisor) * 80)
         .toList();
   }
 
   // Get current month's earnings
-  double get _currentEarnings => _earningsData[_months[_selectedMonthIndex]]!;
-
-  // Upcoming transfer amount (Feb earnings)
-  double get _upcomingTransfer => _earningsData['Feb']!;
-
-  // Pending deductions
-  final double _pendingDeductions = 450;
+  double get _currentEarnings {
+    if (_monthsData.isEmpty || _selectedMonthIndex >= _monthsData.length) {
+      return 0;
+    }
+    return (_monthsData[_selectedMonthIndex]['earnings'] as double);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -232,53 +284,72 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                       // Bar chart
                       SizedBox(
                         height: 100,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: List.generate(_months.length, (index) {
-                            final isSelected = index == _selectedMonthIndex;
-                            final height = _chartData[index];
-                            return Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  width: 36,
-                                  height: height,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: isSelected
-                                          ? [
-                                              AppTheme.workerPrimaryDark,
-                                              AppTheme.workerPrimaryColor,
-                                            ]
-                                          : [
-                                              AppTheme.workerPrimaryLight,
-                                              const Color(0xFF90CAF9),
-                                            ],
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                    ),
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(6),
-                                    ),
-                                    boxShadow: isSelected
-                                        ? [
-                                            BoxShadow(
-                                              color: AppTheme.workerPrimaryColor
-                                                  .withOpacity(0.4),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ]
-                                        : [],
+                        child: _isLoadingEarnings
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                              ],
-                            );
-                          }),
-                        ),
+                              )
+                            : Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: List.generate(_monthsData.length, (
+                                  index,
+                                ) {
+                                  final isSelected =
+                                      index == _selectedMonthIndex;
+                                  final height = _chartData[index];
+                                  return Column(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        width: 36,
+                                        height: height,
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: isSelected
+                                                ? [
+                                                    AppTheme.workerPrimaryDark,
+                                                    AppTheme.workerPrimaryColor,
+                                                  ]
+                                                : [
+                                                    AppTheme.workerPrimaryLight,
+                                                    const Color(0xFF90CAF9),
+                                                  ],
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                          ),
+                                          borderRadius:
+                                              const BorderRadius.vertical(
+                                                top: Radius.circular(6),
+                                              ),
+                                          boxShadow: isSelected
+                                              ? [
+                                                  BoxShadow(
+                                                    color: AppTheme
+                                                        .workerPrimaryColor
+                                                        .withOpacity(0.4),
+                                                    blurRadius: 8,
+                                                    offset: const Offset(0, 4),
+                                                  ),
+                                                ]
+                                              : [],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                  );
+                                }),
+                              ),
                       ),
 
                       const SizedBox(height: 16),
@@ -286,7 +357,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                       // Month selector
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: List.generate(_months.length, (index) {
+                        children: List.generate(_monthsData.length, (index) {
                           final isSelected = index == _selectedMonthIndex;
                           return GestureDetector(
                             onTap: () {
@@ -297,7 +368,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  _months[index],
+                                  _monthsData[index]['label'] as String,
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: isSelected
@@ -355,7 +426,10 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const BankTransfersScreen(),
+                            builder: (context) => BankTransfersScreen(
+                              upcomingTransferAmount: _upcomingTransfer,
+                              monthlyTransfers: _monthsData,
+                            ),
                           ),
                         );
                       },
@@ -382,7 +456,10 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const BankTransfersScreen(),
+                        builder: (context) => BankTransfersScreen(
+                          upcomingTransferAmount: _upcomingTransfer,
+                          monthlyTransfers: _monthsData,
+                        ),
                       ),
                     );
                   },
@@ -442,7 +519,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '03 – 05 Feb',
+                                'Current cycle',
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -475,7 +552,10 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const PendingDeductionsScreen(),
+                        builder: (context) => PendingDeductionsScreen(
+                          totalPending: _pendingDeductions,
+                          deductions: _deductionsBreakdown,
+                        ),
                       ),
                     );
                   },
@@ -638,19 +718,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                   ),
                   const SizedBox(height: 20),
                   const Divider(height: 1),
-                  _buildMenuItem(Icons.dashboard_outlined, 'Dashboard', () {
-                    Navigator.pop(context);
-                  }),
                   _buildMenuItem(Icons.work_outline, 'My Jobs', () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ScheduledJobsHubScreen(),
-                      ),
-                    );
-                  }),
-                  _buildMenuItem(Icons.schedule_outlined, 'Schedule', () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,

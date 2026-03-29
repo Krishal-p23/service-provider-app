@@ -952,6 +952,38 @@ class ApiService {
     }
   }
 
+  /// Get worker earnings summary (month-wise graph + deductions)
+  /// GET /api/workers/earnings-summary/?months=6
+  Future<Map<String, dynamic>> getWorkerEarningsSummary({
+    int months = 6,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '$baseUrl/workers/earnings-summary/',
+      ).replace(queryParameters: {'months': months.toString()});
+
+      final response = await http.get(uri, headers: _headers);
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
   /// Logout
   Future<void> logout() async {
     await clearTokens();

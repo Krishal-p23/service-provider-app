@@ -206,35 +206,14 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
 class PendingDeductionsScreen extends StatelessWidget {
-  const PendingDeductionsScreen({super.key});
+  final double totalPending;
+  final List<Map<String, dynamic>> deductions;
 
-  // Hardcoded pending deductions data
-  static final List<Map<String, dynamic>> _deductions = [
-    {
-      'title': 'Platform Commission',
-      'amount': 275.0,
-      'date': 'Feb 01, 2026',
-      'description': 'Service fee for bookings in January',
-      'icon': Icons.business_center,
-      'color': Colors.blue,
-    },
-    {
-      'title': 'Quality Penalty',
-      'amount': 175.0,
-      'date': 'Jan 28, 2026',
-      'description': 'Late arrival for booking #12345',
-      'icon': Icons.warning_amber_rounded,
-      'color': Colors.orange,
-    },
-  ];
-
-  // Calculate total deductions
-  static double get _totalDeductions {
-    return _deductions.fold(
-      0,
-      (sum, deduction) => sum + (deduction['amount'] as double),
-    );
-  }
+  const PendingDeductionsScreen({
+    super.key,
+    required this.totalPending,
+    required this.deductions,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -325,7 +304,7 @@ class PendingDeductionsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '₹${_totalDeductions.toStringAsFixed(0)}',
+                            '₹${totalPending.toStringAsFixed(0)}',
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
@@ -388,17 +367,18 @@ class PendingDeductionsScreen extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Deductions List
-          ..._deductions.map(
+          ...deductions.map(
             (deduction) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _buildDeductionCard(
                 context: context,
                 title: deduction['title'],
-                amount: deduction['amount'],
-                date: deduction['date'],
-                description: deduction['description'],
-                icon: deduction['icon'],
-                color: deduction['color'],
+                amount: (deduction['amount'] as num?)?.toDouble() ?? 0,
+                date: deduction['date']?.toString() ?? 'Current cycle',
+                description:
+                    deduction['description']?.toString() ?? 'Auto-calculated',
+                icon: Icons.account_balance_wallet_outlined,
+                color: Colors.orange,
               ),
             ),
           ),

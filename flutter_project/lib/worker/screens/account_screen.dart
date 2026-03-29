@@ -283,7 +283,10 @@ class WorkerAccountScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const BankTransfersScreen(),
+                      builder: (context) => const BankTransfersScreen(
+                        upcomingTransferAmount: 0,
+                        monthlyTransfers: <Map<String, dynamic>>[],
+                      ),
                     ),
                   );
                 },

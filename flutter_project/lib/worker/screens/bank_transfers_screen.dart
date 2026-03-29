@@ -1,54 +1,23 @@
-
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
 class BankTransfersScreen extends StatelessWidget {
-  const BankTransfersScreen({super.key});
+  final double upcomingTransferAmount;
+  final List<Map<String, dynamic>> monthlyTransfers;
 
-  // Hardcoded past transfers data
-  static final List<Map<String, dynamic>> _pastTransfers = [
-    {
-      'date': '27 – 29 Jan',
-      'amount': 4300.0,
-      'status': 'Completed',
-      'statusColor': Colors.green,
-      'icon': Icons.check_circle,
-    },
-    {
-      'date': '23 – 25 Dec',
-      'amount': 6100.0,
-      'status': 'Completed',
-      'statusColor': Colors.green,
-      'icon': Icons.check_circle,
-    },
-    {
-      'date': '25 – 27 Nov',
-      'amount': 1800.0,
-      'status': 'Completed',
-      'statusColor': Colors.green,
-      'icon': Icons.check_circle,
-    },
-    {
-      'date': '28 – 30 Oct',
-      'amount': 5400.0,
-      'status': 'Completed',
-      'statusColor': Colors.green,
-      'icon': Icons.check_circle,
-    },
-    {
-      'date': '23 – 25 Sept',
-      'amount': 3200.0,
-      'status': 'Completed',
-      'statusColor': Colors.green,
-      'icon': Icons.check_circle,
-    },
-  ];
+  const BankTransfersScreen({
+    super.key,
+    required this.upcomingTransferAmount,
+    required this.monthlyTransfers,
+  });
 
-  // Calculate total transfers
-  static double get _totalTransfers {
-    return _pastTransfers.fold(
+  double get _totalTransfers {
+    return monthlyTransfers.fold(
       0,
-      (sum, transfer) => sum + (transfer['amount'] as double),
+      (sum, transfer) =>
+          sum +
+          (((transfer['earnings'] ?? transfer['amount'] ?? 0) as num)
+              .toDouble()),
     );
   }
 
@@ -159,8 +128,8 @@ class BankTransfersScreen extends StatelessWidget {
           // Upcoming Transfer Card
           _buildTransferCard(
             context: context,
-            date: '03 - 05 Feb',
-            amount: 2750.0,
+            date: 'Current cycle',
+            amount: upcomingTransferAmount,
             status: 'Upcoming',
             statusColor: Colors.orange,
             icon: Icons.schedule,
@@ -180,16 +149,18 @@ class BankTransfersScreen extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Past Transfers List
-          ..._pastTransfers.map(
+          ...monthlyTransfers.reversed.map(
             (transfer) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _buildTransferCard(
                 context: context,
-                date: transfer['date'],
-                amount: transfer['amount'],
-                status: transfer['status'],
-                statusColor: transfer['statusColor'],
-                icon: transfer['icon'],
+                date: transfer['label']?.toString() ?? 'Month',
+                amount:
+                    ((transfer['earnings'] ?? transfer['amount'] ?? 0) as num)
+                        .toDouble(),
+                status: 'Completed',
+                statusColor: Colors.green,
+                icon: Icons.check_circle,
               ),
             ),
           ),

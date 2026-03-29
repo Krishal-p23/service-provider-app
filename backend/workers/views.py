@@ -6,6 +6,8 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from datetime import datetime, timedelta
 
+ACTIVE_JOB_STATUSES = ("pending", "confirmed", "in_progress", "completed")
+
 # Create your views here.
 
 @csrf_exempt
@@ -55,6 +57,13 @@ def get_current_user_id(request):
     
     print(f"❌ DEBUG: No user_id found. Auth header: {auth_header[:50]}")
     return None
+
+
+def _get_worker_id_by_user_id(user_id):
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT id FROM workers WHERE user_id = %s", [user_id])
+        row = cursor.fetchone()
+    return row[0] if row else None
 
 
 @csrf_exempt
@@ -297,54 +306,71 @@ def stats(request):
                 "code": "UNAUTHORIZED"
             }, status=401)
         
+        worker_id = _get_worker_id_by_user_id(user_id)
+        if not worker_id:
+            return JsonResponse({
+                "status": "success",
+                "data": {
+                    "total_earnings": 0,
+                    "today_jobs_count": 0,
+                    "average_rating": 0,
+                    "total_reviews": 0,
+                    "completed_jobs": 0,
+                }
+            }, status=200)
+
+        today = datetime.now().date()
+
         with connection.cursor() as cursor:
-            # Get worker_id
-            cursor.execute("SELECT id FROM workers WHERE user_id = %s", [user_id])
-            worker_row = cursor.fetchone()
-            if not worker_row:
-                return JsonResponse({
-                    "status": "success",
-                    "data": {
-                        "total_earnings": 0,
-                        "today_jobs_count": 0,
-                        "average_rating": 0,
-                        "total_reviews": 0,
-                        "completed_jobs": 0
-                    }
-                }, status=200)
-            
-            worker_id = worker_row[0]
-            today = datetime.now().date()
-            
             # Total earnings from completed bookings
-            cursor.execute("""
-                SELECT COALESCE(SUM(amount), 0) FROM bookings 
-                WHERE worker_id = %s AND status = 'Completed'
-            """, [worker_id])
-            total_earnings = float(cursor.fetchone()[0])
-            
-            # Today's jobs count
-            cursor.execute("""
-                SELECT COUNT(*) FROM bookings 
-                WHERE worker_id = %s AND DATE(scheduled_time) = %s
-            """, [worker_id, today])
-            today_jobs_count = cursor.fetchone()[0]
-            
-            # Average rating
-            cursor.execute("""
-                SELECT COALESCE(AVG(rating), 0), COUNT(*) FROM reviews 
+            cursor.execute(
+                """
+                SELECT COALESCE(SUM(total_amount), 0)
+                FROM bookings
                 WHERE worker_id = %s
-            """, [worker_id])
+                  AND LOWER(status) = 'completed'
+                """,
+                [worker_id],
+            )
+            total_earnings = float(cursor.fetchone()[0] or 0)
+
+            # Today's jobs count (all active/relevant statuses)
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM bookings
+                WHERE worker_id = %s
+                  AND DATE(scheduled_date) = %s
+                  AND LOWER(status) = ANY(%s)
+                """,
+                [worker_id, today, list(ACTIVE_JOB_STATUSES)],
+            )
+            today_jobs_count = int(cursor.fetchone()[0] or 0)
+
+            # Average rating and review count
+            cursor.execute(
+                """
+                SELECT COALESCE(AVG(rating), 0), COUNT(*)
+                FROM reviews
+                WHERE worker_id = %s
+                """,
+                [worker_id],
+            )
             avg_rating_row = cursor.fetchone()
-            average_rating = float(avg_rating_row[0])
-            total_reviews = avg_rating_row[1]
-            
+            average_rating = float(avg_rating_row[0] or 0)
+            total_reviews = int(avg_rating_row[1] or 0)
+
             # Completed jobs count
-            cursor.execute("""
-                SELECT COUNT(*) FROM bookings 
-                WHERE worker_id = %s AND status = 'Completed'
-            """, [worker_id])
-            completed_jobs = cursor.fetchone()[0]
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM bookings
+                WHERE worker_id = %s
+                  AND LOWER(status) = 'completed'
+                """,
+                [worker_id],
+            )
+            completed_jobs = int(cursor.fetchone()[0] or 0)
         
         return JsonResponse({
             "status": "success",
@@ -365,3 +391,157 @@ def stats(request):
             "code": "STATS_ERROR",
             "details": str(e)
         }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def earnings_summary(request):
+    """
+    GET /api/workers/earnings-summary/?months=6
+    Returns month-wise real earnings, upcoming transfer and pending deductions.
+    """
+    try:
+        user_id = get_current_user_id(request)
+        if not user_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Unauthorized. User ID not found",
+                    "code": "UNAUTHORIZED",
+                },
+                status=401,
+            )
+
+        worker_id = _get_worker_id_by_user_id(user_id)
+        if not worker_id:
+            return JsonResponse(
+                {
+                    "status": "success",
+                    "data": {
+                        "months": [],
+                        "current_month_earnings": 0,
+                        "upcoming_transfer": 0,
+                        "pending_deductions": 0,
+                        "deductions_breakdown": [],
+                    },
+                },
+                status=200,
+            )
+
+        raw_months = request.GET.get("months", "6")
+        try:
+            months_count = max(1, min(12, int(raw_months)))
+        except ValueError:
+            months_count = 6
+
+        now = datetime.now()
+        month_start = datetime(now.year, now.month, 1)
+        start_month = month_start - timedelta(days=32 * (months_count - 1))
+        start_month = datetime(start_month.year, start_month.month, 1)
+
+        with connection.cursor() as cursor:
+            # Keep SQL database-agnostic (SQLite/Postgres) by aggregating months in Python.
+            cursor.execute(
+                """
+                SELECT scheduled_date, total_amount
+                FROM bookings
+                WHERE worker_id = %s
+                  AND scheduled_date >= %s
+                  AND LOWER(status) = 'completed'
+                ORDER BY scheduled_date ASC
+                """,
+                [worker_id, start_month],
+            )
+            rows = cursor.fetchall()
+
+            monthly_map = {}
+            for scheduled_date, total_amount in rows:
+                dt = scheduled_date
+                if isinstance(dt, str):
+                    dt = datetime.fromisoformat(dt)
+                key = (dt.year, dt.month)
+                monthly_map[key] = float(monthly_map.get(key, 0)) + float(total_amount or 0)
+
+            months = []
+            cursor_month = start_month
+            for _ in range(months_count):
+                key = (cursor_month.year, cursor_month.month)
+                months.append(
+                    {
+                        "label": cursor_month.strftime("%b"),
+                        "year": cursor_month.year,
+                        "month": cursor_month.month,
+                        "earnings": float(monthly_map.get(key, 0)),
+                    }
+                )
+
+                next_month = cursor_month.month + 1
+                next_year = cursor_month.year
+                if next_month == 13:
+                    next_month = 1
+                    next_year += 1
+                cursor_month = datetime(next_year, next_month, 1)
+
+            current_month_earnings = months[-1]["earnings"] if months else 0
+
+            # Worker gets 98% of completed earnings; admin keeps 2% platform fee.
+            commission_rate = 0.02
+            commission_amount = round(current_month_earnings * commission_rate, 2)
+            upcoming_transfer = round(current_month_earnings - commission_amount, 2)
+
+            # Keep cancellation count for visibility (does not reduce payout).
+            next_month = month_start.month + 1
+            next_month_year = month_start.year
+            if next_month == 13:
+                next_month = 1
+                next_month_year += 1
+            next_month_start = datetime(next_month_year, next_month, 1)
+
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM bookings
+                WHERE worker_id = %s
+                  AND scheduled_date >= %s
+                  AND scheduled_date < %s
+                  AND LOWER(status) = 'cancelled'
+                """,
+                [worker_id, month_start, next_month_start],
+            )
+            cancelled_count = int(cursor.fetchone()[0] or 0)
+
+            pending_deductions = commission_amount
+
+            deductions_breakdown = [
+                {
+                    "title": "Platform Commission",
+                    "amount": commission_amount,
+                    "description": "2% admin fee on this month completed earnings",
+                },
+            ]
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "data": {
+                    "months": months,
+                    "current_month_earnings": current_month_earnings,
+                    "upcoming_transfer": upcoming_transfer,
+                    "pending_deductions": pending_deductions,
+                    "deductions_breakdown": deductions_breakdown,
+                    "cancelled_count_current_month": cancelled_count,
+                },
+            },
+            status=200,
+        )
+    except Exception as e:
+        print(f"Error fetching worker earnings summary: {e}")
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to fetch worker earnings summary",
+                "code": "EARNINGS_SUMMARY_ERROR",
+                "details": str(e),
+            },
+            status=500,
+        )
