@@ -86,13 +86,41 @@ class BookingProvider with ChangeNotifier {
     );
 
     if (result['success'] != true) {
-      throw Exception('Failed to create booking');
+      final data = result['data'];
+      final message = data is Map<String, dynamic>
+          ? (data['message'] ?? data['error'] ?? 'Failed to create booking')
+                .toString()
+          : 'Failed to create booking';
+      throw Exception(message);
     }
 
     final booking = Booking.fromJson(result['data'] as Map<String, dynamic>);
     _bookings = [booking, ..._bookings];
     notifyListeners();
     return booking;
+  }
+
+  Future<Set<int>> getWorkerUnavailableHours({
+    required int workerId,
+    required DateTime date,
+  }) async {
+    await _apiService.initialize();
+    final result = await _apiService.getWorkerAvailability(
+      workerId: workerId,
+      date: date,
+    );
+
+    if (result['success'] != true) {
+      return <int>{};
+    }
+
+    final data = result['data'] as Map<String, dynamic>;
+    final hours = (data['unavailable_hours'] as List<dynamic>? ?? <dynamic>[])
+        .map((item) => item is int ? item : int.tryParse(item.toString()) ?? -1)
+        .where((item) => item >= 0 && item <= 23)
+        .toSet();
+
+    return hours;
   }
 
   // Update booking status

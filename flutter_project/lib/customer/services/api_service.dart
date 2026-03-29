@@ -649,10 +649,10 @@ class ApiService {
       );
 
       final payload = jsonDecode(response.body);
-      final data =
-          payload is Map<String, dynamic> &&
-              payload['data'] is Map<String, dynamic>
-          ? payload['data'] as Map<String, dynamic>
+      final data = payload is Map<String, dynamic>
+          ? (payload['data'] is Map<String, dynamic>
+                ? payload['data'] as Map<String, dynamic>
+                : payload)
           : <String, dynamic>{};
 
       return {
@@ -704,6 +704,36 @@ class ApiService {
         headers: _headers,
       );
 
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <String, dynamic>{}};
+    }
+  }
+
+  /// Get worker availability for a specific date
+  /// GET /api/bookings/availability/?worker_id=&date=YYYY-MM-DD
+  Future<Map<String, dynamic>> getWorkerAvailability({
+    required int workerId,
+    required DateTime date,
+  }) async {
+    try {
+      final dateString = date.toIso8601String().split('T').first;
+      final uri = Uri.parse('$baseUrl/bookings/availability/').replace(
+        queryParameters: {'worker_id': workerId.toString(), 'date': dateString},
+      );
+
+      final response = await http.get(uri, headers: _headers);
       final payload = jsonDecode(response.body);
       final data =
           payload is Map<String, dynamic> &&
