@@ -1346,6 +1346,75 @@ class ApiService {
     }
   }
 
+  /// Initiate job OTP - generate and send OTP to customer
+  /// POST /api/bookings/{booking_id}/initiate-otp/
+  Future<Map<String, dynamic>> initiateJobOTP({required int bookingId}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/bookings/$bookingId/initiate-otp/'),
+            headers: _headers,
+            body: jsonEncode({'booking_id': bookingId}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Verify job OTP and activate job
+  /// POST /api/bookings/{booking_id}/verify-otp/
+  Future<Map<String, dynamic>> verifyJobOTP({
+    required int bookingId,
+    required String otp,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/bookings/$bookingId/verify-otp/'),
+            headers: _headers,
+            body: jsonEncode({'booking_id': bookingId, 'otp': otp}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
   /// Logout
   Future<void> logout() async {
     await clearTokens();

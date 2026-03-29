@@ -5,12 +5,18 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/job.dart';
 import '../providers/job_provider.dart';
+import '../../customer/services/api_service.dart';
 import '../utils/worker_theme.dart';
 
 class JobOTPVerificationScreen extends StatefulWidget {
   final Job job;
+  final int bookingId;
 
-  const JobOTPVerificationScreen({super.key, required this.job});
+  const JobOTPVerificationScreen({
+    super.key,
+    required this.job,
+    required this.bookingId,
+  });
 
   @override
   State<JobOTPVerificationScreen> createState() =>
@@ -18,10 +24,12 @@ class JobOTPVerificationScreen extends StatefulWidget {
 }
 
 class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
-  final List<TextEditingController> _otpControllers =
-      List.generate(4, (index) => TextEditingController());
-  final List<FocusNode> _focusNodes =
-      List.generate(4, (index) => FocusNode());
+  final List<TextEditingController> _otpControllers = List.generate(
+    4,
+    (index) => TextEditingController(),
+  );
+  final List<FocusNode> _focusNodes = List.generate(4, (index) => FocusNode());
+  final ApiService _apiService = ApiService();
 
   bool _isVerifying = false;
   String? _errorMessage;
@@ -67,17 +75,22 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
       _errorMessage = null;
     });
 
-    // Simulate OTP verification (in real app, this would be an API call)
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      await _apiService.initialize();
+      final result = await _apiService.verifyJobOTP(
+        bookingId: widget.bookingId,
+        otp: otp,
+      );
 
-    // For demo purposes, accept "1234" as valid OTP
-    if (otp == '1234') {
-      if (mounted) {
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        // Update local job provider
         final jobProvider = Provider.of<JobProvider>(context, listen: false);
         jobProvider.activateJob(widget.job);
 
         // Navigate back to scheduled jobs screen
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true); // Return true to indicate success
 
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -93,11 +106,17 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+      } else {
+        setState(() {
+          _isVerifying = false;
+          _errorMessage =
+              result['data']?['message'] ?? 'Invalid or expired OTP';
+        });
       }
-    } else {
+    } catch (e) {
       setState(() {
         _isVerifying = false;
-        _errorMessage = 'Invalid OTP. Try "1234" for demo.';
+        _errorMessage = 'Network error. Please try again.';
       });
     }
   }
@@ -209,8 +228,11 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.work_outline,
-                          size: 20, color: colorScheme.primary),
+                      Icon(
+                        Icons.work_outline,
+                        size: 20,
+                        color: colorScheme.primary,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -227,9 +249,11 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.person_outline,
-                          size: 18,
-                          color: colorScheme.onSurface.withOpacity(0.55)),
+                      Icon(
+                        Icons.person_outline,
+                        size: 18,
+                        color: colorScheme.onSurface.withOpacity(0.55),
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         widget.job.customerName,
@@ -280,8 +304,10 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
                       // Focused border — primary blue matching worker theme
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide:
-                            BorderSide(color: colorScheme.primary, width: 2),
+                        borderSide: BorderSide(
+                          color: colorScheme.primary,
+                          width: 2,
+                        ),
                       ),
                       // Error border
                       errorBorder: OutlineInputBorder(
@@ -290,8 +316,10 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
                       ),
                       focusedErrorBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide:
-                            BorderSide(color: colorScheme.error, width: 2),
+                        borderSide: BorderSide(
+                          color: colorScheme.error,
+                          width: 2,
+                        ),
                       ),
                     ),
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -309,16 +337,21 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
             // ── Error message ──────────────────────────────────────────────
             if (_errorMessage != null)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: colorScheme.error.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline,
-                        color: colorScheme.error, size: 20),
+                    Icon(
+                      Icons.error_outline,
+                      color: colorScheme.error,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -345,8 +378,9 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorScheme.primary,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor:
-                      colorScheme.primary.withOpacity(0.45),
+                  disabledBackgroundColor: colorScheme.primary.withOpacity(
+                    0.45,
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -359,8 +393,9 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : const Text(
@@ -387,12 +422,15 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline,
-                      color: colorScheme.primary, size: 20),
+                  Icon(
+                    Icons.info_outline,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Demo: Use OTP "1234" to activate',
+                      'OTP is generated and sent to customer via backend. Check backend API response for demo OTP.',
                       style: TextStyle(
                         fontSize: 13,
                         color: colorScheme.primary,

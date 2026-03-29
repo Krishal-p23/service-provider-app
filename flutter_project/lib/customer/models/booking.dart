@@ -7,6 +7,8 @@ class Booking {
   final String status;
   final double totalAmount;
   final DateTime createdAt;
+  final String? activationOtp;
+  final DateTime? otpExpiresAt;
 
   Booking({
     required this.id,
@@ -17,6 +19,8 @@ class Booking {
     required this.status,
     required this.totalAmount,
     DateTime? createdAt,
+    this.activationOtp,
+    this.otpExpiresAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Booking copyWith({
@@ -28,6 +32,8 @@ class Booking {
     String? status,
     double? totalAmount,
     DateTime? createdAt,
+    String? activationOtp,
+    DateTime? otpExpiresAt,
   }) {
     return Booking(
       id: id ?? this.id,
@@ -38,6 +44,8 @@ class Booking {
       status: status ?? this.status,
       totalAmount: totalAmount ?? this.totalAmount,
       createdAt: createdAt ?? this.createdAt,
+      activationOtp: activationOtp ?? this.activationOtp,
+      otpExpiresAt: otpExpiresAt ?? this.otpExpiresAt,
     );
   }
 
@@ -51,6 +59,8 @@ class Booking {
       'status': status,
       'total_amount': totalAmount,
       'created_at': createdAt.toIso8601String(),
+      'activation_otp': activationOtp,
+      'otp_expires_at': otpExpiresAt?.toIso8601String(),
     };
   }
 
@@ -68,11 +78,16 @@ class Booking {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
+      activationOtp: json['activation_otp']?.toString(),
+      otpExpiresAt: json['otp_expires_at'] != null
+          ? DateTime.parse(json['otp_expires_at'])
+          : null,
     );
   }
 
   @override
-  String toString() => 'Booking(id: $id, status: $status, totalAmount: $totalAmount)';
+  String toString() =>
+      'Booking(id: $id, status: $status, totalAmount: $totalAmount)';
 
   @override
   bool operator ==(Object other) {

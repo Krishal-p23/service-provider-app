@@ -14,7 +14,9 @@ import 'help_support_screen.dart';
 import 'scheduled_jobs_hub_screen.dart';
 
 class WorkerMoneyScreen extends StatefulWidget {
-  const WorkerMoneyScreen({super.key});
+  const WorkerMoneyScreen({super.key, this.onNavigateToTab});
+
+  final ValueChanged<int>? onNavigateToTab;
 
   @override
   State<WorkerMoneyScreen> createState() => _WorkerMoneyScreenState();
@@ -47,7 +49,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
       if (result['success'] == true) {
         final data = result['data'] as Map<String, dynamic>;
         final rawMonths = data['months'] as List<dynamic>? ?? <dynamic>[];
-        final parsedMonths = rawMonths
+        List<Map<String, dynamic>> parsedMonths = rawMonths
             .whereType<Map<String, dynamic>>()
             .map(
               (item) => {
@@ -57,13 +59,57 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
             )
             .toList();
 
+        double upcomingTransfer = ((data['upcoming_transfer'] ?? 0) as num)
+            .toDouble();
+        final hasAnyTransfer =
+            parsedMonths.any((m) => ((m['earnings'] ?? 0) as num) > 0) ||
+            upcomingTransfer > 0;
+
+        // Keep Money tab consistent with Account > Bank Transfers when summary is all zero.
+        if (!hasAnyTransfer) {
+          final pastResult = await _apiService.getWorkerPastServices(
+            limit: 200,
+          );
+          if (pastResult['success'] == true) {
+            final pastData = pastResult['data'] as Map<String, dynamic>;
+            final services =
+                (pastData['services'] as List<dynamic>? ?? <dynamic>[])
+                    .whereType<Map<String, dynamic>>()
+                    .toList();
+
+            final monthMap = <String, double>{};
+            for (final service in services) {
+              final rawTime = service['scheduled_time']?.toString() ?? '';
+              DateTime? dt;
+              try {
+                dt = DateTime.parse(rawTime);
+              } catch (_) {
+                dt = null;
+              }
+              if (dt == null) continue;
+
+              final label = _monthLabel(dt.month);
+              final amount = ((service['worker_amount'] ?? 0) as num)
+                  .toDouble();
+              monthMap[label] = (monthMap[label] ?? 0) + amount;
+            }
+
+            if (monthMap.isNotEmpty) {
+              parsedMonths = monthMap.entries
+                  .map((e) => {'label': e.key, 'earnings': e.value})
+                  .toList();
+              final currentLabel = _monthLabel(DateTime.now().month);
+              upcomingTransfer = monthMap[currentLabel] ?? 0;
+            }
+          }
+        }
+
         setState(() {
           _monthsData = parsedMonths;
           _selectedMonthIndex = _monthsData.isNotEmpty
               ? _monthsData.length - 1
               : 0;
-          _upcomingTransfer = ((data['upcoming_transfer'] ?? 0) as num)
-              .toDouble();
+          _upcomingTransfer = upcomingTransfer;
           _pendingDeductions = ((data['pending_deductions'] ?? 0) as num)
               .toDouble();
           _deductionsBreakdown =
@@ -101,6 +147,15 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
       return 0;
     }
     return (_monthsData[_selectedMonthIndex]['earnings'] as double);
+  }
+
+  String get _earningsSubtitle {
+    if (_monthsData.isEmpty || _selectedMonthIndex >= _monthsData.length) {
+      return 'Earned this month';
+    }
+    final label = _monthsData[_selectedMonthIndex]['label']?.toString() ?? '';
+    if (label.isEmpty) return 'Earned this month';
+    return 'Earned in $label';
   }
 
   @override
@@ -720,6 +775,10 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                   const Divider(height: 1),
                   _buildMenuItem(Icons.work_outline, 'My Jobs', () {
                     Navigator.pop(context);
+                    if (widget.onNavigateToTab != null) {
+                      widget.onNavigateToTab!(1);
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -738,6 +797,10 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                   }),
                   _buildMenuItem(Icons.account_circle_outlined, 'Account', () {
                     Navigator.pop(context);
+                    if (widget.onNavigateToTab != null) {
+                      widget.onNavigateToTab!(2);
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -828,5 +891,23 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
       ),
       onTap: onTap,
     );
+  }
+
+  String _monthLabel(int month) {
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return monthNames[(month - 1).clamp(0, 11)];
   }
 }

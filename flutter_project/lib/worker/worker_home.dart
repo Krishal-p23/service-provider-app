@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'screens/worker_money_screen.dart';
 import 'screens/account_screen.dart';
@@ -24,18 +22,31 @@ class _WorkerHomeContent extends StatefulWidget {
 class _WorkerHomeContentState extends State<_WorkerHomeContent> {
   int _currentIndex = 1; // Start on Scheduled Jobs tab (index 1)
 
-  final List<Widget> _screens = const [
-    WorkerMoneyScreen(),
-    ScheduledJobsHubScreenNew(),
-    WorkerAccountScreen(),
-  ];
+  Widget _screenForIndex(int index) {
+    switch (index) {
+      case 0:
+        return WorkerMoneyScreen(
+          onNavigateToTab: (tabIndex) {
+            if (!mounted) return;
+            setState(() {
+              _currentIndex = tabIndex;
+            });
+          },
+        );
+      case 1:
+        return const ScheduledJobsHubScreenNew();
+      case 2:
+      default:
+        return const WorkerAccountScreen();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: _screenForIndex(_currentIndex),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E1E1E) : Colors.white,

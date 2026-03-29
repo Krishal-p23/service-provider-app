@@ -5,6 +5,8 @@ from .views import (
 	update_booking_status,
 	booking_detail,
 	worker_availability,
+	initiate_job_otp,
+	verify_job_otp_endpoint,
 )
 
 app_name = 'bookings'
@@ -15,4 +17,6 @@ urlpatterns = [
 	path('availability/', worker_availability, name='worker_availability'),
 	path('<int:booking_id>/', booking_detail, name='booking_detail'),
 	path('<int:booking_id>/status/', update_booking_status, name='update_booking_status'),
+	path('<int:booking_id>/initiate-otp/', initiate_job_otp, name='initiate_job_otp'),
+	path('<int:booking_id>/verify-otp/', verify_job_otp_endpoint, name='verify_job_otp'),
 ]

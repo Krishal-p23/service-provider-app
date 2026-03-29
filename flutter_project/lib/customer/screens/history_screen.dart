@@ -896,6 +896,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ],
             ),
+            if ((booking.status == 'pending' ||
+                    booking.status == 'confirmed') &&
+                booking.activationOtp != null &&
+                booking.activationOtp.toString().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.blue.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.lock_outline,
+                      color: Colors.blue.shade400,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Activation OTP: ${booking.activationOtp}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.blue.shade300,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (canCancel) ...[
               const SizedBox(height: 12),
               SizedBox(

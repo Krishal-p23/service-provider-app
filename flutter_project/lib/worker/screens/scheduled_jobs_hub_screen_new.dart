@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../customer/services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../models/job.dart';
 import '../providers/job_provider.dart';
@@ -470,12 +471,45 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
     );
   }
 
-  void _handleActivate(BuildContext context, JobProvider jobProvider, Job job) {
-    // Navigate to OTP verification screen
+  Future<void> _handleActivate(
+    BuildContext context,
+    JobProvider jobProvider,
+    Job job,
+  ) async {
+    final bookingId = int.tryParse(job.id);
+    if (bookingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid booking id. Cannot start OTP verification.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final apiService = ApiService();
+    await apiService.initialize();
+    final initiateResult = await apiService.initiateJobOTP(
+      bookingId: bookingId,
+    );
+
+    if (!context.mounted) return;
+
+    if (initiateResult['success'] != true) {
+      final message =
+          initiateResult['data']?['message']?.toString() ??
+          'Failed to generate OTP. Please try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => JobOTPVerificationScreen(job: job),
+        builder: (context) =>
+            JobOTPVerificationScreen(job: job, bookingId: bookingId),
       ),
     );
   }

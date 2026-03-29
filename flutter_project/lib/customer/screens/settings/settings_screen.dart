@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../theme/theme_provider.dart';
 import '../../../theme/app_theme.dart';
+import '../static/privacy_policy_screen.dart';
+import '../static/terms_conditions_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -38,11 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await userProvider.logout();
 
       if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/',
-          (route) => false,
-        );
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
       }
     }
   }
@@ -79,9 +77,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (context) => const Center(
-              child: CircularProgressIndicator(),
-            ),
+            builder: (context) =>
+                const Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -103,18 +100,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
 
           // Navigate to onboarding
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/',
-            (route) => false,
-          );
+          Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
         } else if (mounted) {
           // Show error message
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                userProvider.error ?? 'Failed to delete account',
-              ),
+              content: Text(userProvider.error ?? 'Failed to delete account'),
               backgroundColor: AppTheme.errorColor,
             ),
           );
@@ -129,9 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
           Padding(
@@ -207,10 +196,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Privacy Policy'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              // Navigate to privacy policy screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Privacy Policy screen - Coming soon'),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PrivacyPolicyScreen(),
                 ),
               );
             },
@@ -223,10 +212,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Terms & Conditions'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              // Navigate to terms screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Terms & Conditions screen - Coming soon'),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TermsConditionsScreen(),
                 ),
               );
             },
@@ -236,11 +225,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('About Us'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              // Navigate to about screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('About Us screen - Coming soon'),
-                ),
+              showAboutDialog(
+                context: context,
+                applicationName: 'Service Provider App',
+                applicationVersion: '1.0.0',
+                children: const [
+                  Text('Customer app for booking and managing services.'),
+                ],
               );
             },
           ),
@@ -266,16 +257,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _logout(context),
           ),
           ListTile(
-            leading: const Icon(Icons.delete_forever, color: AppTheme.errorColor),
+            leading: const Icon(
+              Icons.delete_forever,
+              color: AppTheme.errorColor,
+            ),
             title: const Text('Delete Account'),
             onTap: () => _deleteAccount(context),
           ),
           const SizedBox(height: AppTheme.spacingXXLarge),
           Center(
-            child: Text(
-              'Version 1.0.0',
-              style: theme.textTheme.bodySmall,
-            ),
+            child: Text('Version 1.0.0', style: theme.textTheme.bodySmall),
           ),
           const SizedBox(height: AppTheme.spacingXXLarge),
         ],
