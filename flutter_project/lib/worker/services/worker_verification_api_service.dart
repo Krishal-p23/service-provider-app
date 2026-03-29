@@ -53,12 +53,6 @@ class WorkerVerificationApiService {
     String? imageBackPath,
   }) async {
     try {
-      print(
-        '[VerificationAPI] Starting upload: type=$documentType, number=$documentNumber',
-      );
-      print('[VerificationAPI] Image path: $imagePath');
-      print('[VerificationAPI] API Base URL: $baseUrl');
-
       final formData = dio_lib.FormData.fromMap({
         'document_type': documentType,
         'document_number': documentNumber,
@@ -67,8 +61,6 @@ class WorkerVerificationApiService {
           filename: 'document_front.jpg',
         ),
       });
-
-      print('[VerificationAPI] FormData created, file added');
 
       // Add back side image if provided
       if (imageBackPath != null && imageBackPath.isNotEmpty) {
@@ -81,12 +73,7 @@ class WorkerVerificationApiService {
             ),
           ),
         );
-        print('[VerificationAPI] Back side image added');
       }
-
-      print(
-        '[VerificationAPI] Sending POST request to $baseUrl/workers/documents/upload/',
-      );
 
       final response = await _dio.post(
         '$baseUrl/workers/documents/upload/',
@@ -97,9 +84,6 @@ class WorkerVerificationApiService {
           sendTimeout: const Duration(seconds: 30),
         ),
       );
-
-      print('[VerificationAPI] Response status: ${response.statusCode}');
-      print('[VerificationAPI] Response data: ${response.data}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {
@@ -115,12 +99,8 @@ class WorkerVerificationApiService {
         };
       }
     } on dio_lib.DioException catch (e) {
-      print('[VerificationAPI] DioException: ${e.toString()}');
-      print('[VerificationAPI] Error type: ${e.type}');
-      print('[VerificationAPI] Response: ${e.response?.data}');
       return {'success': false, 'error': _handleDioError(e)};
     } catch (e) {
-      print('[VerificationAPI] Unexpected error: ${e.toString()}');
       return {'success': false, 'error': 'Unexpected error: ${e.toString()}'};
     }
   }

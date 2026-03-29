@@ -1,11 +1,18 @@
-# from django.urls import path
-# from .views import demo_api, get_users, register, login
+from django.urls import path
+from .views import (
+	balance,
+	transactions,
+	add_money,
+	deduct_money,
+	process_refund,
+)
 
-# app_name = 'authentication'
+app_name = 'payments'
 
-# urlpatterns = [
-#     path('demo/', demo_api, name='demo_api'),
-#     path('users/', get_users, name='get_users'),
-#     path('register/', register, name='register'),
-#     path('login/', login, name='login'),
-# ]
+urlpatterns = [
+	path('balance/<int:user_id>/', balance, name='wallet_balance'),
+	path('transactions/<int:user_id>/', transactions, name='wallet_transactions'),
+	path('add/', add_money, name='wallet_add'),
+	path('deduct/', deduct_money, name='wallet_deduct'),
+	path('refund/', process_refund, name='wallet_refund'),
+]

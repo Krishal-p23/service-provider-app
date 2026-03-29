@@ -17,6 +17,7 @@ import 'package:flutter_project/customer/providers/booking_provider.dart';
 import 'package:flutter_project/customer/providers/service_provider.dart';
 import 'package:flutter_project/customer/providers/wallet_provider.dart';
 import 'package:flutter_project/customer/providers/language_provider.dart';
+import 'package:flutter_project/customer/services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,12 +78,68 @@ class HomeServicesApp extends StatelessWidget {
   }
 }
 
-class AppInitializer extends StatelessWidget {
+class AppInitializer extends StatefulWidget {
   const AppInitializer({super.key});
 
   @override
+  State<AppInitializer> createState() => _AppInitializerState();
+}
+
+class _AppInitializerState extends State<AppInitializer> {
+  late Future<String> _initialRouteFuture;
+  bool _navigated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialRouteFuture = _resolveInitialRoute();
+  }
+
+  Future<String> _resolveInitialRoute() async {
+    final userProvider = context.read<UserProvider>();
+    final workerProvider = context.read<WorkerProvider>();
+
+    await ApiService().initialize();
+
+    await userProvider.initialize();
+    if (userProvider.isLoggedIn) {
+      return '/customer-home';
+    }
+
+    await workerProvider.initialize();
+    if (workerProvider.isLoggedIn) {
+      return '/worker-dashboard';
+    }
+
+    return 'onboarding';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Always start on onboarding screen - no session persistence
-    return const OnboardingScreen();
+    return FutureBuilder<String>(
+      future: _initialRouteFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final route = snapshot.data ?? 'onboarding';
+        if (route == 'onboarding') {
+          return const OnboardingScreen();
+        }
+
+        if (!_navigated) {
+          _navigated = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.of(context).pushReplacementNamed(route);
+          });
+        }
+
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      },
+    );
   }
 }

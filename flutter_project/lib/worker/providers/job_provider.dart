@@ -37,8 +37,6 @@ class JobProvider extends ChangeNotifier {
 
   /// Convert API job data to Job model
   Job _jobFromApi(Map<String, dynamic> data) {
-    print('🔵 DEBUG: Parsing job data: $data');
-
     try {
       final scheduledTime = DateTime.parse(
         data['scheduled_time'] ?? DateTime.now().toIso8601String(),
@@ -56,7 +54,6 @@ class JobProvider extends ChangeNotifier {
         description: data['description'] ?? data['category_name'] ?? '',
       );
     } catch (e) {
-      print('❌ ERROR parsing job: $e');
       throw Exception('Failed to parse job: $e');
     }
   }

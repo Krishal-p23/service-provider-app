@@ -17,6 +17,7 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Future<_WalletViewData>? _walletFuture;
 
   @override
   void initState() {
@@ -52,7 +53,10 @@ class _WalletScreenState extends State<WalletScreen>
               Icon(
                 Icons.account_balance_wallet_outlined,
                 size: 80,
-                color: AppTheme.getTextColor(context, secondary: true).withOpacity(0.3),
+                color: AppTheme.getTextColor(
+                  context,
+                  secondary: true,
+                ).withOpacity(0.3),
               ),
               const SizedBox(height: 20),
               Text(
@@ -77,14 +81,7 @@ class _WalletScreenState extends State<WalletScreen>
     }
 
     final int userId = currentUser.id;
-    final double balance = walletProvider.getUserBalance(userId);
-    final List<WalletTransaction> allTransactions = walletProvider.getUserTransactions(userId);
-    final List<WalletTransaction> creditTransactions = walletProvider.getCreditTransactions(userId);
-    final List<WalletTransaction> debitTransactions = walletProvider.getDebitTransactions(userId);
-
-    double totalReceived = creditTransactions.fold(0.0, (sum, t) => sum + t.amount);
-    double totalSpent = debitTransactions.fold(0.0, (sum, t) => sum + t.amount);
-    double totalRefunded = walletProvider.getRefundTransactions(userId).fold(0.0, (sum, t) => sum + t.amount);
+    _walletFuture ??= _loadWalletData(walletProvider, userId);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -94,140 +91,245 @@ class _WalletScreenState extends State<WalletScreen>
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
       ),
-      body: Column(
-        children: [
-          // Balance Card
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.primaryColor, AppTheme.primaryDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primaryColor.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Total Balance',
-                      style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.account_balance_wallet, color: Colors.white, size: 16),
-                          SizedBox(width: 4),
-                          Text('Active', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
+      body: FutureBuilder<_WalletViewData>(
+        future: _walletFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final data = snapshot.data ?? _WalletViewData.empty();
+
+          return Column(
+            children: [
+              // Balance Card
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primaryColor, AppTheme.primaryDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  '₹${balance.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total Balance',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.account_balance_wallet,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Active',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '₹${data.balance.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildQuickActionButton(
+                            context,
+                            icon: Icons.add_circle_outline,
+                            label: 'Add Money',
+                            onTap: () =>
+                                _showAddMoneyBottomSheet(context, userId),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildQuickActionButton(
+                            context,
+                            icon: Icons.send_outlined,
+                            label: 'Send',
+                            onTap: () {},
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 20),
-                Row(
+              ),
+
+              // Quick Stats
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
                   children: [
                     Expanded(
-                      child: _buildQuickActionButton(
+                      child: _buildStatCard(
                         context,
-                        icon: Icons.add_circle_outline,
-                        label: 'Add Money',
-                        onTap: () => _showAddMoneyBottomSheet(context, userId),
+                        icon: Icons.arrow_downward,
+                        iconColor: AppTheme.successColor,
+                        label: 'Received',
+                        amount: data.totalReceived,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _buildQuickActionButton(
+                      child: _buildStatCard(
                         context,
-                        icon: Icons.send_outlined,
-                        label: 'Send',
-                        onTap: () {},
+                        icon: Icons.arrow_upward,
+                        iconColor: AppTheme.errorColor,
+                        label: 'Spent',
+                        amount: data.totalSpent,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatCard(
+                        context,
+                        icon: Icons.replay,
+                        iconColor: AppTheme.infoColor,
+                        label: 'Refunds',
+                        amount: data.totalRefunded,
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-
-          // Quick Stats
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(child: _buildStatCard(context, icon: Icons.arrow_downward, iconColor: AppTheme.successColor, label: 'Received', amount: totalReceived)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildStatCard(context, icon: Icons.arrow_upward, iconColor: AppTheme.errorColor, label: 'Spent', amount: totalSpent)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildStatCard(context, icon: Icons.replay, iconColor: AppTheme.infoColor, label: 'Refunds', amount: totalRefunded)),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Tabs
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: AppTheme.getSurfaceColor(context),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.getDividerColor(context)),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicator: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
               ),
-              labelColor: AppTheme.primaryColor,
-              unselectedLabelColor: AppTheme.getTextColor(context, secondary: true),
-              tabs: const [Tab(text: 'All'), Tab(text: 'Credit'), Tab(text: 'Debit')],
-            ),
-          ),
 
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildTransactionList(allTransactions),
-                _buildTransactionList(creditTransactions),
-                _buildTransactionList(debitTransactions),
-              ],
-            ),
-          ),
-        ],
+              // Tabs
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: AppTheme.getSurfaceColor(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.getDividerColor(context)),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  labelColor: AppTheme.primaryColor,
+                  unselectedLabelColor: AppTheme.getTextColor(
+                    context,
+                    secondary: true,
+                  ),
+                  tabs: const [
+                    Tab(text: 'All'),
+                    Tab(text: 'Credit'),
+                    Tab(text: 'Debit'),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildTransactionList(data.allTransactions),
+                    _buildTransactionList(data.creditTransactions),
+                    _buildTransactionList(data.debitTransactions),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildQuickActionButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {
+  Future<_WalletViewData> _loadWalletData(
+    WalletProvider walletProvider,
+    int userId,
+  ) async {
+    final balance = await walletProvider.getUserBalance(userId);
+    final allTransactions = await walletProvider.getUserTransactions(userId);
+    final creditTransactions = await walletProvider.getCreditTransactions(
+      userId,
+    );
+    final debitTransactions = await walletProvider.getDebitTransactions(userId);
+    final refundTransactions = await walletProvider.getRefundTransactions(
+      userId,
+    );
+
+    final totalReceived = creditTransactions.fold(
+      0.0,
+      (sum, t) => sum + t.amount,
+    );
+    final totalSpent = debitTransactions.fold(0.0, (sum, t) => sum + t.amount);
+    final totalRefunded = refundTransactions.fold(
+      0.0,
+      (sum, t) => sum + t.amount,
+    );
+
+    return _WalletViewData(
+      balance: balance,
+      allTransactions: allTransactions,
+      creditTransactions: creditTransactions,
+      debitTransactions: debitTransactions,
+      totalReceived: totalReceived,
+      totalSpent: totalSpent,
+      totalRefunded: totalRefunded,
+    );
+  }
+
+  Widget _buildQuickActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     return Material(
       color: Colors.white.withOpacity(0.2),
       borderRadius: BorderRadius.circular(12),
@@ -241,7 +343,14 @@ class _WalletScreenState extends State<WalletScreen>
             children: [
               Icon(icon, color: Colors.white, size: 20),
               const SizedBox(width: 8),
-              Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
@@ -249,7 +358,13 @@ class _WalletScreenState extends State<WalletScreen>
     );
   }
 
-  Widget _buildStatCard(BuildContext context, {required IconData icon, required Color iconColor, required String label, required double amount}) {
+  Widget _buildStatCard(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required double amount,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -262,13 +377,30 @@ class _WalletScreenState extends State<WalletScreen>
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(height: 8),
-          Text(label, style: TextStyle(color: AppTheme.getTextColor(context, secondary: true), fontSize: 11, fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: TextStyle(
+              color: AppTheme.getTextColor(context, secondary: true),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text('₹${amount.toStringAsFixed(0)}', style: TextStyle(color: AppTheme.getTextColor(context), fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(
+            '₹${amount.toStringAsFixed(0)}',
+            style: TextStyle(
+              color: AppTheme.getTextColor(context),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -280,9 +412,21 @@ class _WalletScreenState extends State<WalletScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.receipt_long_outlined, size: 64, color: AppTheme.getTextColor(context, secondary: true).withOpacity(0.3)),
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 64,
+              color: AppTheme.getTextColor(
+                context,
+                secondary: true,
+              ).withOpacity(0.3),
+            ),
             const SizedBox(height: 16),
-            Text('No transactions yet', style: TextStyle(color: AppTheme.getTextColor(context, secondary: true))),
+            Text(
+              'No transactions yet',
+              style: TextStyle(
+                color: AppTheme.getTextColor(context, secondary: true),
+              ),
+            ),
           ],
         ),
       );
@@ -304,9 +448,18 @@ class _WalletScreenState extends State<WalletScreen>
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(dateKey, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.getTextColor(context, secondary: true))),
+              child: Text(
+                dateKey,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.getTextColor(context, secondary: true),
+                ),
+              ),
             ),
-            ...groupedTransactions[dateKey]!.map((t) => WalletTransactionCard(transaction: t)),
+            ...groupedTransactions[dateKey]!.map(
+              (t) => WalletTransactionCard(transaction: t),
+            ),
           ],
         );
       },
@@ -323,7 +476,9 @@ class _WalletScreenState extends State<WalletScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         decoration: BoxDecoration(
           color: AppTheme.getSurfaceColor(context),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -337,23 +492,57 @@ class _WalletScreenState extends State<WalletScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Add Money to Wallet', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.getTextColor(context))),
-                  IconButton(icon: Icon(Icons.close, color: AppTheme.getTextColor(context)), onPressed: () => Navigator.pop(context)),
+                  Text(
+                    'Add Money to Wallet',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextColor(context),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close,
+                      color: AppTheme.getTextColor(context),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ],
               ),
               const SizedBox(height: 24),
               TextField(
                 controller: amountController,
                 keyboardType: TextInputType.number,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.getTextColor(context)),
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.getTextColor(context),
+                ),
                 decoration: InputDecoration(
                   prefixIcon: Padding(
                     padding: const EdgeInsets.only(left: 16, top: 14),
-                    child: Text('₹', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.getTextColor(context))),
+                    child: Text(
+                      '₹',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getTextColor(context),
+                      ),
+                    ),
                   ),
                   hintText: 'Enter amount',
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppTheme.getDividerColor(context))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppTheme.getDividerColor(context),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 2,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -364,9 +553,21 @@ class _WalletScreenState extends State<WalletScreen>
                   return InkWell(
                     onTap: () => amountController.text = amount.toString(),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                      child: Text('₹$amount', style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '₹$amount',
+                        style: const TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   );
                 }).toList(),
@@ -378,23 +579,72 @@ class _WalletScreenState extends State<WalletScreen>
                   onPressed: () async {
                     final amount = double.tryParse(amountController.text);
                     if (amount != null && amount > 0) {
-                      await Provider.of<WalletProvider>(context, listen: false).addMoney(userId: userId, amount: amount, description: 'Money added to wallet');
-                      if (context.mounted) Navigator.pop(context);
+                      final walletProvider = Provider.of<WalletProvider>(
+                        context,
+                        listen: false,
+                      );
+                      await walletProvider.addMoney(
+                        userId: userId,
+                        amount: amount,
+                        description: 'Money added to wallet',
+                      );
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      setState(() {
+                        _walletFuture = _loadWalletData(walletProvider, userId);
+                      });
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Add Money', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'Add Money',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WalletViewData {
+  final double balance;
+  final List<WalletTransaction> allTransactions;
+  final List<WalletTransaction> creditTransactions;
+  final List<WalletTransaction> debitTransactions;
+  final double totalReceived;
+  final double totalSpent;
+  final double totalRefunded;
+
+  _WalletViewData({
+    required this.balance,
+    required this.allTransactions,
+    required this.creditTransactions,
+    required this.debitTransactions,
+    required this.totalReceived,
+    required this.totalSpent,
+    required this.totalRefunded,
+  });
+
+  factory _WalletViewData.empty() {
+    return _WalletViewData(
+      balance: 0,
+      allTransactions: const <WalletTransaction>[],
+      creditTransactions: const <WalletTransaction>[],
+      debitTransactions: const <WalletTransaction>[],
+      totalReceived: 0,
+      totalSpent: 0,
+      totalRefunded: 0,
     );
   }
 }

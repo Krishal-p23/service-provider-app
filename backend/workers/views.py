@@ -66,6 +66,495 @@ def _get_worker_id_by_user_id(user_id):
     return row[0] if row else None
 
 
+def _ensure_worker_bank_details_table():
+    """Create worker_bank_details table if missing (SQLite/Postgres)."""
+    vendor = connection.vendor
+    with connection.cursor() as cursor:
+        if vendor == "postgresql":
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS worker_bank_details (
+                    id SERIAL PRIMARY KEY,
+                    worker_id INTEGER NOT NULL UNIQUE REFERENCES workers(id) ON DELETE CASCADE,
+                    account_holder_name VARCHAR(120) NOT NULL,
+                    bank_name VARCHAR(120) NOT NULL,
+                    account_number VARCHAR(40) NOT NULL,
+                    ifsc_code VARCHAR(20) NOT NULL,
+                    upi_id VARCHAR(120) NULL,
+                    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+
+
+def _ensure_worker_notifications_table():
+    """Create worker_notifications table if missing (SQLite/Postgres)."""
+    vendor = connection.vendor
+    with connection.cursor() as cursor:
+        if vendor == "postgresql":
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS worker_notifications (
+                    id SERIAL PRIMARY KEY,
+                    worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+                    notif_type VARCHAR(40) NOT NULL,
+                    title VARCHAR(180) NOT NULL,
+                    message TEXT NOT NULL,
+                    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+        else:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS worker_notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    worker_id INTEGER NOT NULL,
+                    notif_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    is_read BOOLEAN NOT NULL DEFAULT 0,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+
+def _seed_worker_notifications(worker_id):
+    """Seed first set of notifications from real DB events if none exist."""
+    admin_fee_rate = 0.02
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT COUNT(*) FROM worker_notifications WHERE worker_id = %s",
+            [worker_id],
+        )
+        existing_count = int(cursor.fetchone()[0] or 0)
+        if existing_count > 0:
+            return
+
+        # Latest completed booking -> payment/earnings notification.
+        cursor.execute(
+            """
+            SELECT b.total_amount, b.scheduled_date
+            FROM bookings b
+            WHERE b.worker_id = %s
+              AND LOWER(b.status) = 'completed'
+            ORDER BY b.scheduled_date DESC
+            LIMIT 1
+            """,
+            [worker_id],
+        )
+        completed = cursor.fetchone()
+        if completed:
+            gross = float(completed[0] or 0)
+            net = round(gross - (gross * admin_fee_rate), 2)
+            cursor.execute(
+                """
+                INSERT INTO worker_notifications (worker_id, notif_type, title, message, is_read)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                [
+                    worker_id,
+                    "payment",
+                    "Payment Processed",
+                    f"Your completed job earning of Rs{int(net)} is ready for transfer.",
+                    False,
+                ],
+            )
+
+        # Latest active booking -> job notification.
+        cursor.execute(
+            """
+            SELECT s.service_name
+            FROM bookings b
+            JOIN services s ON b.service_id = s.id
+            WHERE b.worker_id = %s
+              AND LOWER(b.status) IN ('pending', 'confirmed', 'in_progress')
+            ORDER BY b.scheduled_date DESC
+            LIMIT 1
+            """,
+            [worker_id],
+        )
+        active = cursor.fetchone()
+        if active:
+            cursor.execute(
+                """
+                INSERT INTO worker_notifications (worker_id, notif_type, title, message, is_read)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                [
+                    worker_id,
+                    "job",
+                    "New Job Available",
+                    f"A {active[0]} request matches your profile.",
+                    False,
+                ],
+            )
+
+        # Latest review notification.
+        cursor.execute(
+            """
+            SELECT rating
+            FROM reviews
+            WHERE worker_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            [worker_id],
+        )
+        latest_review = cursor.fetchone()
+        if latest_review:
+            rating = float(latest_review[0] or 0)
+            cursor.execute(
+                """
+                INSERT INTO worker_notifications (worker_id, notif_type, title, message, is_read)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                [
+                    worker_id,
+                    "review",
+                    "New Review",
+                    f"You received a {rating:.1f}-star review from a customer.",
+                    True,
+                ],
+            )
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def notifications(request):
+    """
+    GET /api/workers/notifications/
+    Returns worker notifications from database.
+    """
+    try:
+        user_id = get_current_user_id(request)
+        if not user_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Unauthorized. User ID not found",
+                    "code": "UNAUTHORIZED",
+                },
+                status=401,
+            )
+
+        worker_id = _get_worker_id_by_user_id(user_id)
+        if not worker_id:
+            return JsonResponse(
+                {"status": "success", "data": {"notifications": [], "count": 0}},
+                status=200,
+            )
+
+        _ensure_worker_notifications_table()
+        _seed_worker_notifications(worker_id)
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, notif_type, title, message, is_read, created_at
+                FROM worker_notifications
+                WHERE worker_id = %s
+                ORDER BY created_at DESC
+                LIMIT 100
+                """,
+                [worker_id],
+            )
+            rows = cursor.fetchall()
+
+        items = []
+        unread_count = 0
+        for row in rows:
+            is_read = bool(row[4])
+            if not is_read:
+                unread_count += 1
+            created_at = row[5]
+            items.append(
+                {
+                    "id": int(row[0]),
+                    "type": row[1],
+                    "title": row[2],
+                    "message": row[3],
+                    "is_read": is_read,
+                    "created_at": created_at.isoformat()
+                    if isinstance(created_at, datetime)
+                    else str(created_at),
+                }
+            )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "data": {
+                    "notifications": items,
+                    "count": len(items),
+                    "unread_count": unread_count,
+                },
+            },
+            status=200,
+        )
+
+    except Exception as e:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to fetch worker notifications",
+                "code": "NOTIFICATIONS_ERROR",
+                "details": str(e),
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def notifications_mark_all_read(request):
+    """
+    POST /api/workers/notifications/mark-all-read/
+    Marks all worker notifications as read.
+    """
+    try:
+        user_id = get_current_user_id(request)
+        if not user_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Unauthorized. User ID not found",
+                    "code": "UNAUTHORIZED",
+                },
+                status=401,
+            )
+
+        worker_id = _get_worker_id_by_user_id(user_id)
+        if not worker_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Worker profile not found",
+                    "code": "WORKER_NOT_FOUND",
+                },
+                status=404,
+            )
+
+        _ensure_worker_notifications_table()
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE worker_notifications
+                SET is_read = TRUE
+                WHERE worker_id = %s
+                """,
+                [worker_id],
+            )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": "All notifications marked as read",
+            },
+            status=200,
+        )
+
+    except Exception as e:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to mark notifications as read",
+                "code": "NOTIFICATIONS_MARK_READ_ERROR",
+                "details": str(e),
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def bank_details(request):
+    """
+    GET /api/workers/bank-details/
+    POST /api/workers/bank-details/
+    Persist and fetch worker bank account details.
+    """
+    try:
+        user_id = get_current_user_id(request)
+        if not user_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Unauthorized. User ID not found",
+                    "code": "UNAUTHORIZED",
+                },
+                status=401,
+            )
+
+        worker_id = _get_worker_id_by_user_id(user_id)
+        if not worker_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Worker profile not found",
+                    "code": "WORKER_NOT_FOUND",
+                },
+                status=404,
+            )
+
+        _ensure_worker_bank_details_table()
+
+        if request.method == "GET":
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT account_holder_name, bank_name, account_number, ifsc_code, upi_id, is_verified
+                    FROM worker_bank_details
+                    WHERE worker_id = %s
+                    """,
+                    [worker_id],
+                )
+                row = cursor.fetchone()
+
+            if not row:
+                return JsonResponse(
+                    {
+                        "status": "success",
+                        "data": {
+                            "exists": False,
+                            "account_holder_name": "",
+                            "bank_name": "",
+                            "account_number": "",
+                            "ifsc_code": "",
+                            "upi_id": "",
+                            "is_verified": False,
+                        },
+                    },
+                    status=200,
+                )
+
+            account_number = str(row[2] or "")
+            masked_account_number = (
+                f"{'*' * max(0, len(account_number) - 4)}{account_number[-4:]}"
+                if account_number
+                else ""
+            )
+
+            return JsonResponse(
+                {
+                    "status": "success",
+                    "data": {
+                        "exists": True,
+                        "account_holder_name": row[0] or "",
+                        "bank_name": row[1] or "",
+                        "account_number": account_number,
+                        "masked_account_number": masked_account_number,
+                        "ifsc_code": row[3] or "",
+                        "upi_id": row[4] or "",
+                        "is_verified": bool(row[5]),
+                    },
+                },
+                status=200,
+            )
+
+        payload = json.loads(request.body or "{}")
+        account_holder_name = str(payload.get("account_holder_name", "")).strip()
+        bank_name = str(payload.get("bank_name", "")).strip()
+        account_number = str(payload.get("account_number", "")).strip()
+        ifsc_code = str(payload.get("ifsc_code", "")).strip().upper()
+        upi_id = str(payload.get("upi_id", "")).strip()
+
+        if not account_holder_name or not bank_name or not account_number or not ifsc_code:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "account_holder_name, bank_name, account_number and ifsc_code are required",
+                    "code": "VALIDATION_ERROR",
+                },
+                status=400,
+            )
+
+        vendor = connection.vendor
+        with connection.cursor() as cursor:
+            if vendor == "postgresql":
+                cursor.execute(
+                    """
+                    INSERT INTO worker_bank_details (
+                        worker_id, account_holder_name, bank_name, account_number, ifsc_code, upi_id, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (worker_id)
+                    DO UPDATE SET
+                        account_holder_name = EXCLUDED.account_holder_name,
+                        bank_name = EXCLUDED.bank_name,
+                        account_number = EXCLUDED.account_number,
+                        ifsc_code = EXCLUDED.ifsc_code,
+                        upi_id = EXCLUDED.upi_id,
+                        updated_at = NOW()
+                    """,
+                    [
+                        worker_id,
+                        account_holder_name,
+                        bank_name,
+                        account_number,
+                        ifsc_code,
+                        upi_id or None,
+                    ],
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO worker_bank_details (
+                        worker_id, account_holder_name, bank_name, account_number, ifsc_code, upi_id, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT(worker_id)
+                    DO UPDATE SET
+                        account_holder_name = excluded.account_holder_name,
+                        bank_name = excluded.bank_name,
+                        account_number = excluded.account_number,
+                        ifsc_code = excluded.ifsc_code,
+                        upi_id = excluded.upi_id,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    [
+                        worker_id,
+                        account_holder_name,
+                        bank_name,
+                        account_number,
+                        ifsc_code,
+                        upi_id or None,
+                    ],
+                )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": "Bank details saved successfully",
+                "data": {
+                    "account_holder_name": account_holder_name,
+                    "bank_name": bank_name,
+                    "account_number": account_number,
+                    "ifsc_code": ifsc_code,
+                    "upi_id": upi_id,
+                    "is_verified": False,
+                },
+            },
+            status=200,
+        )
+
+    except Exception as e:
+        print(f"Error handling worker bank details: {e}")
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to process bank details",
+                "code": "BANK_DETAILS_ERROR",
+                "details": str(e),
+            },
+            status=500,
+        )
+
+
 @csrf_exempt
 @require_http_methods(["GET"])
 def profile(request):
@@ -292,6 +781,116 @@ def jobs(request):
 
 @csrf_exempt
 @require_http_methods(["GET"])
+def past_services(request):
+    """
+    GET /api/workers/past-services/?limit=50
+    Fetch completed jobs history used by Past Services screen and payouts view.
+    """
+    try:
+        user_id = get_current_user_id(request)
+        if not user_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Unauthorized. User ID not found",
+                    "code": "UNAUTHORIZED",
+                },
+                status=401,
+            )
+
+        worker_id = _get_worker_id_by_user_id(user_id)
+        if not worker_id:
+            return JsonResponse(
+                {"status": "success", "data": {"services": [], "count": 0}},
+                status=200,
+            )
+
+        raw_limit = request.GET.get("limit", "50")
+        try:
+            limit = max(1, min(200, int(raw_limit)))
+        except ValueError:
+            limit = 50
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    b.id,
+                    s.service_name,
+                    u.name,
+                    u.phone,
+                    b.scheduled_date,
+                    b.total_amount,
+                    b.status,
+                    COALESCE(p.payment_status, 'unknown') AS payment_status
+                FROM bookings b
+                JOIN services s ON b.service_id = s.id
+                JOIN users u ON b.user_id = u.id
+                LEFT JOIN payments p ON p.booking_id = b.id
+                WHERE b.worker_id = %s
+                  AND LOWER(b.status) = 'completed'
+                ORDER BY b.scheduled_date DESC
+                LIMIT %s
+                """,
+                [worker_id, limit],
+            )
+
+            rows = cursor.fetchall()
+
+        admin_fee_rate = 0.02
+        services = []
+        for row in rows:
+            gross_amount = float(row[5] or 0)
+            admin_fee = round(gross_amount * admin_fee_rate, 2)
+            worker_amount = round(gross_amount - admin_fee, 2)
+
+            scheduled_at = row[4]
+            if isinstance(scheduled_at, datetime):
+                scheduled_iso = scheduled_at.isoformat()
+            else:
+                scheduled_iso = str(scheduled_at)
+
+            services.append(
+                {
+                    "booking_id": row[0],
+                    "service_name": row[1],
+                    "customer_name": row[2],
+                    "customer_phone": row[3],
+                    "scheduled_time": scheduled_iso,
+                    "status": row[6],
+                    "payment_status": row[7],
+                    "gross_amount": gross_amount,
+                    "admin_fee": admin_fee,
+                    "worker_amount": worker_amount,
+                }
+            )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "data": {
+                    "services": services,
+                    "count": len(services),
+                },
+            },
+            status=200,
+        )
+
+    except Exception as e:
+        print(f"Error fetching worker past services: {e}")
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to fetch worker past services",
+                "code": "PAST_SERVICES_ERROR",
+                "details": str(e),
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
 def stats(request):
     """
     GET /api/workers/stats/
@@ -435,7 +1034,29 @@ def earnings_summary(request):
             months_count = 6
 
         now = datetime.now()
-        month_start = datetime(now.year, now.month, 1)
+        month_anchor = datetime(now.year, now.month, 1)
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT MAX(scheduled_date)
+                FROM bookings
+                WHERE worker_id = %s
+                  AND LOWER(status) = 'completed'
+                """,
+                [worker_id],
+            )
+            latest_completed = cursor.fetchone()[0]
+
+        if latest_completed:
+            latest_dt = latest_completed
+            if isinstance(latest_dt, str):
+                latest_dt = datetime.fromisoformat(latest_dt)
+            latest_month = datetime(latest_dt.year, latest_dt.month, 1)
+            if latest_month > month_anchor:
+                month_anchor = latest_month
+
+        month_start = month_anchor
         start_month = month_start - timedelta(days=32 * (months_count - 1))
         start_month = datetime(start_month.year, start_month.month, 1)
 
@@ -462,16 +1083,23 @@ def earnings_summary(request):
                 key = (dt.year, dt.month)
                 monthly_map[key] = float(monthly_map.get(key, 0)) + float(total_amount or 0)
 
+            admin_fee_rate = 0.02
             months = []
             cursor_month = start_month
             for _ in range(months_count):
                 key = (cursor_month.year, cursor_month.month)
+                gross_earnings = float(monthly_map.get(key, 0))
+                admin_fee = round(gross_earnings * admin_fee_rate, 2)
+                worker_earnings = round(gross_earnings - admin_fee, 2)
                 months.append(
                     {
                         "label": cursor_month.strftime("%b"),
                         "year": cursor_month.year,
                         "month": cursor_month.month,
-                        "earnings": float(monthly_map.get(key, 0)),
+                        # Keep `earnings` as worker net amount for Flutter compatibility.
+                        "earnings": worker_earnings,
+                        "gross_earnings": gross_earnings,
+                        "admin_fee": admin_fee,
                     }
                 )
 
@@ -483,11 +1111,8 @@ def earnings_summary(request):
                 cursor_month = datetime(next_year, next_month, 1)
 
             current_month_earnings = months[-1]["earnings"] if months else 0
-
-            # Worker gets 98% of completed earnings; admin keeps 2% platform fee.
-            commission_rate = 0.02
-            commission_amount = round(current_month_earnings * commission_rate, 2)
-            upcoming_transfer = round(current_month_earnings - commission_amount, 2)
+            current_month_admin_fee = months[-1]["admin_fee"] if months else 0
+            upcoming_transfer = current_month_earnings
 
             # Keep cancellation count for visibility (does not reduce payout).
             next_month = month_start.month + 1
@@ -510,12 +1135,12 @@ def earnings_summary(request):
             )
             cancelled_count = int(cursor.fetchone()[0] or 0)
 
-            pending_deductions = commission_amount
+            pending_deductions = current_month_admin_fee
 
             deductions_breakdown = [
                 {
                     "title": "Platform Commission",
-                    "amount": commission_amount,
+                    "amount": current_month_admin_fee,
                     "description": "2% admin fee on this month completed earnings",
                 },
             ]

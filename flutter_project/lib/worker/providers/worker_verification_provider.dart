@@ -98,10 +98,6 @@ class WorkerVerificationProvider extends ChangeNotifier {
     required String imagePath,
   }) async {
     try {
-      print(
-        '[VerificationProvider] Starting upload: docType=$documentType, govId=$govId, imagePath=$imagePath',
-      );
-
       await _authService.initialize();
       final token = _authService.accessToken;
 
@@ -111,15 +107,12 @@ class WorkerVerificationProvider extends ChangeNotifier {
         return false;
       }
 
-      print('[VerificationProvider] Calling API to upload document...');
       final result = await _apiService.uploadDocument(
         token: token,
         documentType: documentType,
         documentNumber: govId,
         imagePath: imagePath,
       );
-
-      print('[VerificationProvider] API Response: $result');
 
       if (result['success'] == true) {
         // Upload succeeds first as pending; verification may happen later.
@@ -129,19 +122,15 @@ class WorkerVerificationProvider extends ChangeNotifier {
         _isVerified = false;
         _isPending = true;
         _lastError = null;
-
-        print('[VerificationProvider] Upload successful! Pending review.');
         notifyListeners();
         return true;
       } else {
         _lastError = result['error'] ?? 'Failed to upload document';
-        print('[VerificationProvider] Upload failed: $_lastError');
         notifyListeners();
         return false;
       }
     } catch (e) {
       _lastError = 'Error: ${e.toString()}';
-      print('[VerificationProvider] Exception caught: $_lastError');
       notifyListeners();
       return false;
     }

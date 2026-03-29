@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../customer/services/api_service.dart';
 import '../../customer/screens/onboarding_screen.dart';
 import 'edit_profile_screen.dart';
 import 'verification_screen.dart';
 import 'bank_transfers_screen.dart';
+import 'bank_details_screen.dart';
 import 'past_services_screen.dart';
 import 'my_reviews_screen.dart';
 import 'privacy_policy_screen.dart';
@@ -15,6 +17,111 @@ import 'settings_screen.dart';
 
 class WorkerAccountScreen extends StatelessWidget {
   const WorkerAccountScreen({super.key});
+
+  Future<void> _openBankTransfers(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final apiService = ApiService();
+
+    try {
+      await apiService.initialize();
+      final result = await apiService.getWorkerEarningsSummary(months: 6);
+      if (!context.mounted) return;
+
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>;
+        final rawMonths = data['months'] as List<dynamic>? ?? <dynamic>[];
+        List<Map<String, dynamic>> monthlyTransfers = rawMonths
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (item) => {
+                'label': item['label']?.toString() ?? '',
+                'earnings': ((item['earnings'] ?? 0) as num).toDouble(),
+              },
+            )
+            .toList();
+
+        double upcomingTransfer = ((data['upcoming_transfer'] ?? 0) as num)
+            .toDouble();
+
+        final hasAnyTransfer =
+            monthlyTransfers.any((m) => ((m['earnings'] ?? 0) as num) > 0) ||
+            upcomingTransfer > 0;
+
+        // Fallback: if summary is all-zero but past services exist, derive month totals from past services.
+        if (!hasAnyTransfer) {
+          final pastResult = await apiService.getWorkerPastServices(limit: 200);
+          if (pastResult['success'] == true) {
+            final pastData = pastResult['data'] as Map<String, dynamic>;
+            final services =
+                (pastData['services'] as List<dynamic>? ?? <dynamic>[])
+                    .whereType<Map<String, dynamic>>()
+                    .toList();
+
+            final monthMap = <String, double>{};
+            for (final service in services) {
+              final rawTime = service['scheduled_time']?.toString() ?? '';
+              DateTime? dt;
+              try {
+                dt = DateTime.parse(rawTime);
+              } catch (_) {
+                dt = null;
+              }
+              if (dt == null) continue;
+              final label = _monthLabel(dt.month);
+              final amount = ((service['worker_amount'] ?? 0) as num)
+                  .toDouble();
+              monthMap[label] = (monthMap[label] ?? 0) + amount;
+            }
+
+            if (monthMap.isNotEmpty) {
+              monthlyTransfers = monthMap.entries
+                  .map((e) => {'label': e.key, 'earnings': e.value})
+                  .toList();
+              final currentLabel = _monthLabel(DateTime.now().month);
+              upcomingTransfer = monthMap[currentLabel] ?? 0;
+            }
+          }
+        }
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BankTransfersScreen(
+              upcomingTransferAmount: upcomingTransfer,
+              monthlyTransfers: monthlyTransfers,
+            ),
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Could not load bank transfer data')),
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not load bank transfer data')),
+      );
+    }
+  }
+
+  String _monthLabel(int month) {
+    const labels = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return labels[month - 1];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -283,13 +390,17 @@ class WorkerAccountScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const BankTransfersScreen(
-                        upcomingTransferAmount: 0,
-                        monthlyTransfers: <Map<String, dynamic>>[],
-                      ),
+                      builder: (context) => const BankDetailsScreen(),
                     ),
                   );
                 },
+              ),
+
+              _buildActionTile(
+                Icons.payments_outlined,
+                'Bank Transfers',
+                'View upcoming and past transfers',
+                () => _openBankTransfers(context),
               ),
 
               _buildActionTile(

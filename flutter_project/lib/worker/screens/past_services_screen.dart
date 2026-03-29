@@ -1,50 +1,90 @@
 import 'package:flutter/material.dart';
+import '../../customer/services/api_service.dart';
 
-class PastServicesScreen extends StatelessWidget {
+class PastServicesScreen extends StatefulWidget {
   const PastServicesScreen({super.key});
+
+  @override
+  State<PastServicesScreen> createState() => _PastServicesScreenState();
+}
+
+class _PastServicesScreenState extends State<PastServicesScreen> {
+  final ApiService _apiService = ApiService();
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _services = <Map<String, dynamic>>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPastServices();
+  }
+
+  Future<void> _loadPastServices() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _apiService.initialize();
+      final result = await _apiService.getWorkerPastServices(limit: 100);
+
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>;
+        final rawServices = data['services'] as List<dynamic>? ?? <dynamic>[];
+
+        setState(() {
+          _services = rawServices
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (item) => {
+                  'title': item['service_name']?.toString() ?? 'Service',
+                  'customer': item['customer_name']?.toString() ?? 'Customer',
+                  'date': _formatDate(item['scheduled_time']?.toString() ?? ''),
+                  // Show worker net earnings in history cards.
+                  'amount': ((item['worker_amount'] ?? 0) as num).toDouble(),
+                  'status': item['status']?.toString() ?? 'Completed',
+                },
+              )
+              .toList();
+        });
+      }
+    } catch (_) {
+      // Keep empty state on failure.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatDate(String isoDate) {
+    try {
+      final dt = DateTime.parse(isoDate).toLocal();
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+    } catch (_) {
+      return isoDate;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Mock past services data
-    final services = [
-      {
-        'title': 'AC Repair',
-        'customer': 'Rajesh Kumar',
-        'date': 'Jan 25, 2026',
-        'amount': 1500.0,
-        'status': 'Completed',
-      },
-      {
-        'title': 'Plumbing Service',
-        'customer': 'Priya Sharma',
-        'date': 'Jan 20, 2026',
-        'amount': 800.0,
-        'status': 'Completed',
-      },
-      {
-        'title': 'Electrical Work',
-        'customer': 'Amit Patel',
-        'date': 'Jan 15, 2026',
-        'amount': 600.0,
-        'status': 'Completed',
-      },
-      {
-        'title': 'Painting Service',
-        'customer': 'Sneha Reddy',
-        'date': 'Jan 10, 2026',
-        'amount': 3500.0,
-        'status': 'Completed',
-      },
-      {
-        'title': 'Washing Machine Repair',
-        'customer': 'Vikram Singh',
-        'date': 'Jan 5, 2026',
-        'amount': 1200.0,
-        'status': 'Completed',
-      },
-    ];
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
@@ -61,7 +101,9 @@ class PastServicesScreen extends StatelessWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: services.isEmpty
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _services.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -83,19 +125,16 @@ class PastServicesScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     'Your completed services will appear here',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade500,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
                   ),
                 ],
               ),
             )
           : ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: services.length,
+              itemCount: _services.length,
               itemBuilder: (context, index) {
-                final service = services[index];
+                final service = _services[index];
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
@@ -138,8 +177,11 @@ class PastServicesScreen extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.person_outline,
-                                size: 14, color: Colors.grey.shade600),
+                            Icon(
+                              Icons.person_outline,
+                              size: 14,
+                              color: Colors.grey.shade600,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               service['customer'] as String,
@@ -153,8 +195,11 @@ class PastServicesScreen extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.calendar_today,
-                                size: 14, color: Colors.grey.shade600),
+                            Icon(
+                              Icons.calendar_today,
+                              size: 14,
+                              color: Colors.grey.shade600,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               service['date'] as String,
@@ -170,7 +215,9 @@ class PastServicesScreen extends StatelessWidget {
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green.shade50,
                                 borderRadius: BorderRadius.circular(6),

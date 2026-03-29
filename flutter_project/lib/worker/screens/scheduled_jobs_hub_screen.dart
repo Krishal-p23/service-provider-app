@@ -1,11 +1,62 @@
 import 'package:flutter/material.dart';
+import '../../customer/services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'scheduled_jobs_day_screen.dart';
 import 'scheduled_jobs_week_screen.dart';
 import 'scheduled_jobs_month_screen.dart';
 
-class ScheduledJobsHubScreen extends StatelessWidget {
+class ScheduledJobsHubScreen extends StatefulWidget {
   const ScheduledJobsHubScreen({super.key});
+
+  @override
+  State<ScheduledJobsHubScreen> createState() => _ScheduledJobsHubScreenState();
+}
+
+class _ScheduledJobsHubScreenState extends State<ScheduledJobsHubScreen> {
+  final ApiService _apiService = ApiService();
+  bool _isLoadingCounts = true;
+  int _dayCount = 0;
+  int _weekCount = 0;
+  int _monthCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCounts();
+  }
+
+  Future<void> _loadCounts() async {
+    setState(() {
+      _isLoadingCounts = true;
+    });
+
+    try {
+      await _apiService.initialize();
+      final day = await _apiService.getWorkerJobs(filter: 'day');
+      final week = await _apiService.getWorkerJobs(filter: 'week');
+      final month = await _apiService.getWorkerJobs(filter: 'month');
+
+      if (!mounted) return;
+
+      setState(() {
+        _dayCount =
+            ((day['data'] as Map<String, dynamic>?)?['job_count'] ?? 0) as int;
+        _weekCount =
+            ((week['data'] as Map<String, dynamic>?)?['job_count'] ?? 0) as int;
+        _monthCount =
+            ((month['data'] as Map<String, dynamic>?)?['job_count'] ?? 0)
+                as int;
+      });
+    } catch (_) {
+      // Keep zero fallback counts.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingCounts = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +94,7 @@ class ScheduledJobsHubScreen extends StatelessWidget {
                     context: context,
                     title: 'Jobs for the Day',
                     subtitle: 'View today\'s scheduled jobs',
-                    jobCount: '3 jobs',
+                    jobCount: _isLoadingCounts ? '...' : '$_dayCount jobs',
                     icon: Icons.today,
                     color: AppTheme.workerPrimaryColor,
                     onTap: () {
@@ -60,7 +111,7 @@ class ScheduledJobsHubScreen extends StatelessWidget {
                     context: context,
                     title: 'Jobs for the Week',
                     subtitle: 'View this week\'s scheduled jobs',
-                    jobCount: '8 jobs',
+                    jobCount: _isLoadingCounts ? '...' : '$_weekCount jobs',
                     icon: Icons.calendar_view_week,
                     color: AppTheme.workerPrimaryColor,
                     onTap: () {
@@ -77,7 +128,7 @@ class ScheduledJobsHubScreen extends StatelessWidget {
                     context: context,
                     title: 'Jobs for the Month',
                     subtitle: 'View this month\'s scheduled jobs',
-                    jobCount: '15 jobs',
+                    jobCount: _isLoadingCounts ? '...' : '$_monthCount jobs',
                     icon: Icons.calendar_month,
                     color: AppTheme.workerPrimaryColor,
                     onTap: () {

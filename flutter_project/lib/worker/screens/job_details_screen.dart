@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/job.dart';
+import '../../theme/app_theme.dart';
 
 class JobDetailsScreen extends StatelessWidget {
   final Job job;
@@ -11,20 +12,26 @@ class JobDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
     final timeFormat = DateFormat('h:mm a');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = AppTheme.getTextColor(context);
+    final textSecondary = AppTheme.getTextColor(context, secondary: true);
+    final surface = AppTheme.getSurfaceColor(context);
+    final divider = AppTheme.getDividerColor(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Job Details',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
+            color: textPrimary,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: surface,
         elevation: 0,
-        foregroundColor: Colors.black,
+        foregroundColor: textPrimary,
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert),
@@ -53,7 +60,10 @@ class JobDetailsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
@@ -81,10 +91,7 @@ class JobDetailsScreen extends StatelessWidget {
                     children: [
                       const Text(
                         'Amount:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.white70),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -109,15 +116,17 @@ class JobDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Schedule',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: textPrimary,
                     ),
                   ),
                   const SizedBox(height: 16),
                   _buildInfoRow(
+                    context: context,
                     icon: Icons.calendar_today,
                     iconColor: const Color(0xFF1976D2),
                     label: 'Date',
@@ -125,6 +134,7 @@ class JobDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _buildInfoRow(
+                    context: context,
                     icon: Icons.access_time,
                     iconColor: const Color(0xFF1976D2),
                     label: 'Time',
@@ -132,6 +142,7 @@ class JobDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _buildInfoRow(
+                    context: context,
                     icon: Icons.timer,
                     iconColor: const Color(0xFF1976D2),
                     label: 'Duration',
@@ -142,7 +153,7 @@ class JobDetailsScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 24),
-            const Divider(height: 1),
+            Divider(height: 1, color: divider),
             const SizedBox(height: 24),
 
             // Customer details
@@ -151,15 +162,17 @@ class JobDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Customer Details',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: textPrimary,
                     ),
                   ),
                   const SizedBox(height: 16),
                   _buildInfoRow(
+                    context: context,
                     icon: Icons.person,
                     iconColor: Colors.green,
                     label: 'Name',
@@ -167,6 +180,7 @@ class JobDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _buildInfoRow(
+                    context: context,
                     icon: Icons.location_on,
                     iconColor: Colors.green,
                     label: 'Address',
@@ -177,7 +191,7 @@ class JobDetailsScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 24),
-            const Divider(height: 1),
+            Divider(height: 1, color: divider),
             const SizedBox(height: 24),
 
             // Job description
@@ -186,11 +200,12 @@ class JobDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Job Description',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: textPrimary,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -198,16 +213,18 @@ class JobDetailsScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: isDark
+                          ? const Color(0xFF1E1E1E)
+                          : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(color: divider),
                     ),
                     child: Text(
                       job.description,
                       style: TextStyle(
                         fontSize: 15,
                         height: 1.5,
-                        color: Colors.grey.shade800,
+                        color: textPrimary,
                       ),
                     ),
                   ),
@@ -216,7 +233,7 @@ class JobDetailsScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 24),
-            const Divider(height: 1),
+            Divider(height: 1, color: divider),
             const SizedBox(height: 24),
 
             // Status
@@ -225,16 +242,20 @@ class JobDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Status',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: textPrimary,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: _getStatusColor(job.status).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
@@ -319,11 +340,15 @@ class JobDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildInfoRow({
+    required BuildContext context,
     required IconData icon,
     required Color iconColor,
     required String label,
     required String value,
   }) {
+    final textPrimary = AppTheme.getTextColor(context);
+    final textSecondary = AppTheme.getTextColor(context, secondary: true);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -340,19 +365,14 @@ class JobDetailsScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-              ),
+              Text(label, style: TextStyle(fontSize: 12, color: textSecondary)),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
+                  color: textPrimary,
                 ),
               ),
             ],

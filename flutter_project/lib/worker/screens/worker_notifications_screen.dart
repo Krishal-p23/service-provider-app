@@ -1,208 +1,150 @@
-// import 'package:flutter/material.dart';
-
-// class WorkerNotificationsScreen extends StatelessWidget {
-//   const WorkerNotificationsScreen({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.white,
-//       appBar: AppBar(
-//         title: const Text(
-//           'Notifications',
-//           style: TextStyle(
-//             fontWeight: FontWeight.bold,
-//             fontSize: 20,
-//           ),
-//         ),
-//         backgroundColor: Colors.white,
-//         elevation: 0,
-//         foregroundColor: Colors.black,
-//         actions: [
-//           TextButton(
-//             onPressed: () {
-//               // Mark all as read
-//             },
-//             child: const Text(
-//               'Mark all read',
-//               style: TextStyle(
-//                 color: Color(0xFF1976D2),
-//                 fontWeight: FontWeight.w600,
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//       body: ListView(
-//         padding: const EdgeInsets.all(16),
-//         children: [
-//           // Mock Notifications
-//           _buildNotificationCard(
-//             icon: Icons.account_balance_wallet,
-//             iconColor: Colors.green,
-//             title: 'Payment Processed',
-//             message: 'Your earnings for this week have been processed',
-//             time: '2 hours ago',
-//             isUnread: true,
-//           ),
-
-//           const SizedBox(height: 12),
-
-//           _buildNotificationCard(
-//             icon: Icons.work,
-//             iconColor: Colors.blue,
-//             title: 'New Job Available',
-//             message: 'A new job request matches your skills',
-//             time: '5 hours ago',
-//             isUnread: true,
-//           ),
-
-//           const SizedBox(height: 12),
-
-//           _buildNotificationCard(
-//             icon: Icons.star,
-//             iconColor: Colors.amber,
-//             title: 'New Review',
-//             message: 'You received a 5-star review from a customer',
-//             time: '1 day ago',
-//             isUnread: false,
-//           ),
-
-//           const SizedBox(height: 12),
-
-//           _buildNotificationCard(
-//             icon: Icons.info_outline,
-//             iconColor: Colors.orange,
-//             title: 'Platform Update',
-//             message: 'New features are now available in your dashboard',
-//             time: '2 days ago',
-//             isUnread: false,
-//           ),
-
-//           const SizedBox(height: 12),
-
-//           _buildNotificationCard(
-//             icon: Icons.verified,
-//             iconColor: Colors.green,
-//             title: 'Verification Complete',
-//             message: 'Your documents have been verified successfully',
-//             time: '3 days ago',
-//             isUnread: false,
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildNotificationCard({
-//     required IconData icon,
-//     required Color iconColor,
-//     required String title,
-//     required String message,
-//     required String time,
-//     required bool isUnread,
-//   }) {
-//     return Container(
-//       padding: const EdgeInsets.all(16),
-//       decoration: BoxDecoration(
-//         color: isUnread ? Colors.blue.shade50 : Colors.white,
-//         borderRadius: BorderRadius.circular(12),
-//         border: Border.all(
-//           color: isUnread ? Colors.blue.shade200 : Colors.grey.shade300,
-//         ),
-//       ),
-//       child: Row(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Container(
-//             padding: const EdgeInsets.all(10),
-//             decoration: BoxDecoration(
-//               color: iconColor.withOpacity(0.1),
-//               borderRadius: BorderRadius.circular(10),
-//             ),
-//             child: Icon(icon, color: iconColor, size: 24),
-//           ),
-//           const SizedBox(width: 16),
-//           Expanded(
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Row(
-//                   children: [
-//                     Expanded(
-//                       child: Text(
-//                         title,
-//                         style: TextStyle(
-//                           fontSize: 15,
-//                           fontWeight:
-//                               isUnread ? FontWeight.bold : FontWeight.w600,
-//                         ),
-//                       ),
-//                     ),
-//                     if (isUnread)
-//                       Container(
-//                         width: 8,
-//                         height: 8,
-//                         decoration: const BoxDecoration(
-//                           color: Color(0xFF1976D2),
-//                           shape: BoxShape.circle,
-//                         ),
-//                       ),
-//                   ],
-//                 ),
-//                 const SizedBox(height: 4),
-//                 Text(
-//                   message,
-//                   style: TextStyle(
-//                     fontSize: 14,
-//                     color: Colors.grey.shade700,
-//                   ),
-//                 ),
-//                 const SizedBox(height: 8),
-//                 Text(
-//                   time,
-//                   style: TextStyle(
-//                     fontSize: 12,
-//                     color: Colors.grey.shade500,
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-
-
 import 'package:flutter/material.dart';
+import '../../customer/services/api_service.dart';
+import '../../theme/app_theme.dart';
 
-class WorkerNotificationsScreen extends StatelessWidget {
+class WorkerNotificationsScreen extends StatefulWidget {
   const WorkerNotificationsScreen({super.key});
 
   @override
+  State<WorkerNotificationsScreen> createState() =>
+      _WorkerNotificationsScreenState();
+}
+
+class _WorkerNotificationsScreenState extends State<WorkerNotificationsScreen> {
+  final ApiService _apiService = ApiService();
+  bool _isLoading = true;
+  bool _isMarkingAllRead = false;
+  List<Map<String, dynamic>> _notifications = <Map<String, dynamic>>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _apiService.initialize();
+      final result = await _apiService.getWorkerNotifications();
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>;
+        final rows = (data['notifications'] as List<dynamic>? ?? <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        setState(() {
+          _notifications = rows;
+        });
+      }
+    } catch (_) {
+      // Keep empty list fallback.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    if (_isMarkingAllRead) return;
+
+    setState(() {
+      _isMarkingAllRead = true;
+    });
+
+    try {
+      final result = await _apiService.markAllWorkerNotificationsRead();
+      if (result['success'] == true && mounted) {
+        setState(() {
+          _notifications = _notifications
+              .map((n) => {...n, 'is_read': true})
+              .toList();
+        });
+      }
+    } catch (_) {
+      // No-op
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isMarkingAllRead = false;
+        });
+      }
+    }
+  }
+
+  String _formatTime(String raw) {
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 1) return 'just now';
+      if (diff.inHours < 1) return '${diff.inMinutes} minutes ago';
+      if (diff.inDays < 1) return '${diff.inHours} hours ago';
+      return '${diff.inDays} days ago';
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'payment':
+        return Icons.account_balance_wallet;
+      case 'job':
+        return Icons.work;
+      case 'review':
+        return Icons.star;
+      default:
+        return Icons.notifications;
+    }
+  }
+
+  Color _iconColorForType(String type) {
+    switch (type) {
+      case 'payment':
+        return Colors.green;
+      case 'job':
+        return Colors.blue;
+      case 'review':
+        return Colors.amber;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = AppTheme.getTextColor(context);
+    final textSecondary = AppTheme.getTextColor(context, secondary: true);
+    final surface = AppTheme.getSurfaceColor(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Notifications',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
+            color: textPrimary,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: surface,
         elevation: 0,
-        foregroundColor: Colors.black,
+        foregroundColor: isDark ? Colors.white : Colors.black,
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
         actions: [
           TextButton(
-            onPressed: () {
-              // Mark all as read
-            },
-            child: const Text(
-              'Mark all read',
+            onPressed: _notifications.isEmpty ? null : _markAllRead,
+            child: Text(
+              _isMarkingAllRead ? '...' : 'Mark all read',
               style: TextStyle(
                 color: Color(0xFF1976D2),
                 fontWeight: FontWeight.w600,
@@ -211,68 +153,38 @@ class WorkerNotificationsScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Mock Notifications
-          _buildNotificationCard(
-            icon: Icons.account_balance_wallet,
-            iconColor: Colors.green,
-            title: 'Payment Processed',
-            message: 'Your earnings for this week have been processed',
-            time: '2 hours ago',
-            isUnread: true,
-          ),
-
-          const SizedBox(height: 12),
-
-          _buildNotificationCard(
-            icon: Icons.work,
-            iconColor: Colors.blue,
-            title: 'New Job Available',
-            message: 'A new job request matches your skills',
-            time: '5 hours ago',
-            isUnread: true,
-          ),
-
-          const SizedBox(height: 12),
-
-          _buildNotificationCard(
-            icon: Icons.star,
-            iconColor: Colors.amber,
-            title: 'New Review',
-            message: 'You received a 5-star review from a customer',
-            time: '1 day ago',
-            isUnread: false,
-          ),
-
-          const SizedBox(height: 12),
-
-          _buildNotificationCard(
-            icon: Icons.info_outline,
-            iconColor: Colors.orange,
-            title: 'Platform Update',
-            message: 'New features are now available in your dashboard',
-            time: '2 days ago',
-            isUnread: false,
-          ),
-
-          const SizedBox(height: 12),
-
-          _buildNotificationCard(
-            icon: Icons.verified,
-            iconColor: Colors.green,
-            title: 'Verification Complete',
-            message: 'Your documents have been verified successfully',
-            time: '3 days ago',
-            isUnread: false,
-          ),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _notifications.isEmpty
+          ? Center(
+              child: Text(
+                'No notifications yet',
+                style: TextStyle(color: textSecondary, fontSize: 16),
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: _notifications.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final n = _notifications[index];
+                final type = n['type']?.toString() ?? 'info';
+                return _buildNotificationCard(
+                  context: context,
+                  icon: _iconForType(type),
+                  iconColor: _iconColorForType(type),
+                  title: n['title']?.toString() ?? 'Notification',
+                  message: n['message']?.toString() ?? '',
+                  time: _formatTime(n['created_at']?.toString() ?? ''),
+                  isUnread: !(n['is_read'] == true),
+                );
+              },
+            ),
     );
   }
 
   Widget _buildNotificationCard({
+    required BuildContext context,
     required IconData icon,
     required Color iconColor,
     required String title,
@@ -280,13 +192,21 @@ class WorkerNotificationsScreen extends StatelessWidget {
     required String time,
     required bool isUnread,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = AppTheme.getTextColor(context);
+    final textSecondary = AppTheme.getTextColor(context, secondary: true);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isUnread ? Colors.blue.shade50 : Colors.white,
+        color: isUnread
+            ? (isDark ? const Color(0xFF1E2A38) : Colors.blue.shade50)
+            : AppTheme.getSurfaceColor(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isUnread ? Colors.blue.shade200 : Colors.grey.shade300,
+          color: isUnread
+              ? (isDark ? const Color(0xFF2F4D6F) : Colors.blue.shade200)
+              : AppTheme.getDividerColor(context),
         ),
       ),
       child: Row(
@@ -312,8 +232,10 @@ class WorkerNotificationsScreen extends StatelessWidget {
                         title,
                         style: TextStyle(
                           fontSize: 15,
-                          fontWeight:
-                              isUnread ? FontWeight.bold : FontWeight.w600,
+                          color: textPrimary,
+                          fontWeight: isUnread
+                              ? FontWeight.bold
+                              : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -331,18 +253,12 @@ class WorkerNotificationsScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   message,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                  ),
+                  style: TextStyle(fontSize: 14, color: textPrimary),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   time,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
-                  ),
+                  style: TextStyle(fontSize: 12, color: textSecondary),
                 ),
               ],
             ),

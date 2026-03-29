@@ -390,7 +390,6 @@ class WorkerProvider extends ChangeNotifier {
       }
     } catch (e) {
       // Use default values if fetch fails
-      print('Failed to fetch worker stats: $e');
     }
   }
 
