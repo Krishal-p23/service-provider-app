@@ -34,8 +34,11 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
           padding: const EdgeInsets.all(16),
           child: Consumer<WorkerVerificationProvider>(
             builder: (context, verificationProvider, _) {
-              if (!verificationProvider.isVerified &&
-                  !verificationProvider.isPending) {
+              final hasSubmittedDocument =
+                  verificationProvider.governmentId.trim().isNotEmpty ||
+                  verificationProvider.idImagePath.trim().isNotEmpty;
+
+              if (!hasSubmittedDocument) {
                 return _buildNoDocumentState(context);
               }
 
