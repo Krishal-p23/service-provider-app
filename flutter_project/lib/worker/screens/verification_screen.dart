@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/worker_verification_provider.dart';
+import 'verification_status_screen.dart';
 import '../../theme/app_theme.dart';
+import '../../providers/worker_provider.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -16,7 +18,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _govIdController = TextEditingController();
   String? _selectedImagePath;
+  String? _selectedDocumentType = 'aadhar';
   bool _isSubmitting = false;
+
+  // Document type options and their display names
+  static const Map<String, String> documentTypeMap = {
+    'aadhar': 'Aadhar Card',
+    'pan': 'PAN Card',
+    'driving_license': 'Driving License',
+    'passport': 'Passport',
+    'voter_id': 'Voter ID',
+  };
 
   @override
   void dispose() {
@@ -66,9 +78,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
       });
 
       final verificationProvider = context.read<WorkerVerificationProvider>();
-      final success = await verificationProvider.submitVerification(
-        _govIdController.text,
-        _selectedImagePath!,
+      final success = await verificationProvider.submitVerificationViaAPI(
+        documentType: _selectedDocumentType!,
+        govId: _govIdController.text,
+        imagePath: _selectedImagePath!,
       );
 
       setState(() {
@@ -78,15 +91,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Verification submitted successfully!'),
+            content: Text('Document submitted successfully!'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context);
+
+        // Navigate to verification status screen
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const VerificationStatusScreen(),
+            ),
+          );
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to submit verification. Please try again.'),
+          SnackBar(
+            content: Text(
+              verificationProvider.lastError ??
+                  'Failed to submit verification. Please try again.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -119,7 +144,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Info Card
+                // Info Card - Now mentions demo verification
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -131,22 +156,36 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.info_outline,
                         color: AppTheme.workerPrimaryColor,
                         size: 24,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          'Verify your account to unlock all features and build trust with customers',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.getTextColor(
-                              context,
-                              secondary: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Verify your account',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.getTextColor(context),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Demo verification - Submit your ID to see instant verification result',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.getTextColor(
+                                  context,
+                                  secondary: true,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -154,6 +193,59 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ),
 
                 const SizedBox(height: 32),
+
+                // Document Type Dropdown
+                Text(
+                  'Select Document Type',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.getTextColor(context),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.getSurfaceColor(context).withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppTheme.getTextColor(
+                        context,
+                        secondary: true,
+                      ).withOpacity(0.3),
+                    ),
+                  ),
+                  child: DropdownButton<String>(
+                    value: _selectedDocumentType,
+                    isExpanded: true,
+                    underline: const SizedBox(),
+                    dropdownColor: AppTheme.getSurfaceColor(context),
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: AppTheme.workerPrimaryColor,
+                    ),
+                    items: documentTypeMap.entries.map((entry) {
+                      return DropdownMenuItem<String>(
+                        value: entry.key,
+                        child: Text(
+                          entry.value,
+                          style: TextStyle(
+                            color: AppTheme.getTextColor(context),
+                            fontSize: 15,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedDocumentType = value;
+                      });
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 24),
 
                 // Government ID Number Field
                 Text(
@@ -165,70 +257,88 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _govIdController,
-                  style: TextStyle(
-                    color: AppTheme.getTextColor(context),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Enter Aadhaar/PAN/Driving License number',
-                    hintStyle: TextStyle(
-                      color: AppTheme.getTextColor(context, secondary: true),
-                      fontSize: 14,
-                    ),
-                    prefixIcon: Icon(
-                      Icons.badge_outlined,
-                      size: 20,
-                      color: AppTheme.workerPrimaryColor,
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.getSurfaceColor(
-                      context,
-                    ).withOpacity(0.8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: AppTheme.getTextColor(
-                          context,
-                          secondary: true,
-                        ).withOpacity(0.3),
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: AppTheme.getTextColor(
-                          context,
-                          secondary: true,
-                        ).withOpacity(0.3),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: AppTheme.workerPrimaryColor,
-                        width: 2,
-                      ),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.red),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Government ID number is required';
+                Builder(
+                  builder: (context) {
+                    String hintText = 'Enter your Government ID number';
+                    if (_selectedDocumentType != null) {
+                      hintText = switch (_selectedDocumentType) {
+                        'aadhar' => 'Enter 12-digit Aadhaar number',
+                        'pan' => 'Enter 10-character PAN',
+                        'driving_license' => 'Enter Driving License number',
+                        'passport' => 'Enter Passport number',
+                        'voter_id' => 'Enter Voter ID number',
+                        _ => 'Enter your Government ID number',
+                      };
                     }
-                    if (value.length < 6) {
-                      return 'Please enter a valid ID number';
-                    }
-                    return null;
+                    return TextFormField(
+                      controller: _govIdController,
+                      style: TextStyle(
+                        color: AppTheme.getTextColor(context),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: hintText,
+                        hintStyle: TextStyle(
+                          color: AppTheme.getTextColor(
+                            context,
+                            secondary: true,
+                          ),
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.badge_outlined,
+                          size: 20,
+                          color: AppTheme.workerPrimaryColor,
+                        ),
+                        filled: true,
+                        fillColor: AppTheme.getSurfaceColor(
+                          context,
+                        ).withOpacity(0.8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: AppTheme.getTextColor(
+                              context,
+                              secondary: true,
+                            ).withOpacity(0.3),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: AppTheme.getTextColor(
+                              context,
+                              secondary: true,
+                            ).withOpacity(0.3),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: AppTheme.workerPrimaryColor,
+                            width: 2,
+                          ),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Colors.red),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Government ID number is required';
+                        }
+                        if (value.length < 6) {
+                          return 'Please enter a valid ID number';
+                        }
+                        return null;
+                      },
+                    );
                   },
                 ),
 
@@ -368,7 +478,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           ),
                           const SizedBox(width: 8),
                           const Text(
-                            'Guidelines',
+                            'Demo Verification',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -378,10 +488,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '• Upload clear, readable image of your ID\n'
-                        '• Ensure all details are visible\n'
-                        '• Accepted: Aadhaar, PAN, Driving License\n'
-                        '• Verification takes 24-48 hours',
+                        '• Upload any clear ID image\n'
+                        '• Verification is instant (demo mode)\n'
+                        '• Result will be random (verified/unverified)\n'
+                        '• Real eKYC will be enabled later',
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.5,

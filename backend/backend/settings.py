@@ -11,6 +11,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(Path(__file__).resolve().parent.parent / '.env')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -48,6 +53,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',  # Django REST Framework
+    'rest_framework.authtoken',  # Token authentication for REST API
     'corsheaders',  # For Flutter API calls
     'authentication',  # User authentication app
     'workers',  # Worker domain
@@ -108,6 +115,7 @@ DATABASES = {
 }
 
 
+
 # Password validation
 #         'HOST': 'localhost',
 #         'PORT': '5432',
@@ -150,3 +158,25 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Media files (User uploads - documents, images, etc.)
+# https://docs.djangoproject.com/en/6.0/topics/files/
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',  # Session auth for browser
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Temporarily allow all for debugging
+    ],
+}
+
+# Didit Identity Verification Settings
+# For eKYC (electronic Know-Your-Customer) and Aadhar verification
+DIDIT_ENABLED = os.getenv('DIDIT_ENABLED', 'False').lower() == 'true'
+DIDIT_API_KEY = os.getenv('DIDIT_API_KEY', '')
+DIDIT_API_BASE_URL = os.getenv('DIDIT_API_BASE_URL', 'https://api.didit.me/api')

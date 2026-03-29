@@ -1,4 +1,5 @@
 from django.db import models
+from .verification_models import WorkerDocumentVerification
 
 
 class Worker(models.Model):
