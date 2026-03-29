@@ -2,29 +2,111 @@ import 'package:flutter/foundation.dart';
 import '../models/worker.dart';
 import '../models/service.dart';
 import '../models/service_category.dart';
-// import '../models/worker_service.dart';
+import '../models/user.dart';
 import '../models/review.dart';
-import '../utils/mock_data.dart';
+import '../services/api_service.dart';
 import 'dart:math' show cos, sqrt, asin;
 
 class ServiceProvider with ChangeNotifier {
+  final ApiService _apiService = ApiService();
+
   List<ServiceCategory> _categories = [];
   List<Service> _services = [];
   List<Worker> _workers = [];
+  final Map<int, User> _workerUsers = {};
+  final Map<int, double> _workerRatings = {};
+  final Map<int, int> _workerReviewCounts = {};
+  final Map<int, int> _workerCompletedJobs = {};
+  final Map<int, List<int>> _workerServiceIds = {};
+  final Map<int, List<Review>> _workerReviews = {};
+
+  bool _isLoading = false;
+  String? _error;
 
   List<ServiceCategory> get categories => _categories;
   List<Service> get services => _services;
   List<Worker> get workers => _workers;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
   ServiceProvider() {
-    _loadData();
+    loadDataFromApi();
   }
 
-  void _loadData() {
-    _categories = MockDatabase.categories;
-    _services = MockDatabase.services;
-    _workers = MockDatabase.workers;
+  Future<void> loadDataFromApi() async {
+    _isLoading = true;
+    _error = null;
     notifyListeners();
+
+    try {
+      await _apiService.initialize();
+
+      final categoriesResponse = await _apiService.getServiceCategories();
+      final servicesResponse = await _apiService.getServices();
+      final workersResponse = await _apiService.getCustomerWorkers();
+
+      if (categoriesResponse['success'] == true) {
+        _categories = (categoriesResponse['data'] as List)
+            .map(
+              (item) => ServiceCategory.fromJson(item as Map<String, dynamic>),
+            )
+            .toList();
+      }
+
+      if (servicesResponse['success'] == true) {
+        _services = (servicesResponse['data'] as List)
+            .map((item) => Service.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+
+      if (workersResponse['success'] == true) {
+        _hydrateWorkers(workersResponse['data'] as List);
+      }
+
+      _error = null;
+    } catch (e) {
+      _error = 'Failed to load services/workers: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void _hydrateWorkers(List rawWorkers) {
+    _workers = [];
+    _workerUsers.clear();
+    _workerRatings.clear();
+    _workerReviewCounts.clear();
+    _workerCompletedJobs.clear();
+
+    for (final item in rawWorkers) {
+      final map = item as Map<String, dynamic>;
+      final workerJson =
+          map['worker'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final userJson =
+          map['user'] as Map<String, dynamic>? ?? <String, dynamic>{};
+
+      final worker = Worker.fromJson(workerJson);
+      _workers.add(worker);
+
+      _workerUsers[worker.id] = User.fromJson({
+        'id': userJson['id'] ?? worker.userId,
+        'name': userJson['name'] ?? 'Worker ${worker.id}',
+        'email': userJson['email'] ?? '',
+        'phone': userJson['phone'] ?? '',
+        'password_hash': '',
+        'role': userJson['role'] ?? 'worker',
+      });
+
+      _workerRatings[worker.id] = ((map['rating'] ?? 0.0) as num).toDouble();
+      _workerReviewCounts[worker.id] = (map['review_count'] ?? 0) as int;
+      _workerCompletedJobs[worker.id] = (map['completed_jobs'] ?? 0) as int;
+    }
+
+    // Build quick worker-service map from backend listing.
+    _workerServiceIds
+      ..clear()
+      ..addEntries(_workers.map((w) => MapEntry(w.id, <int>[])));
   }
 
   // Get all service categories
@@ -34,27 +116,29 @@ class ServiceProvider with ChangeNotifier {
 
   // Get services by category
   List<Service> getServicesByCategory(int categoryId) {
-    return MockDatabase.getServicesByCategoryId(categoryId);
+    return _services.where((s) => s.categoryId == categoryId).toList();
   }
 
   // Get available workers
   List<Worker> getAvailableWorkers() {
-    return MockDatabase.getAvailableWorkers();
+    return _workers.where((w) => w.isAvailable).toList();
   }
 
   // Get workers by service
   List<Worker> getWorkersByService(int serviceId) {
-    // Get worker IDs that provide this service
-    final workerServiceLinks = MockDatabase.workerServices
-        .where((ws) => ws.serviceId == serviceId)
-        .toList();
+    final explicitMatches = _workerServiceIds.entries
+        .where((entry) => entry.value.contains(serviceId))
+        .map((entry) => entry.key)
+        .toSet();
 
-    final workerIds = workerServiceLinks.map((ws) => ws.workerId).toSet();
+    if (explicitMatches.isNotEmpty) {
+      return _workers
+          .where((w) => explicitMatches.contains(w.id) && w.isAvailable)
+          .toList();
+    }
 
-    // Get workers
-    return _workers
-        .where((w) => workerIds.contains(w.id) && w.isAvailable)
-        .toList();
+    // If mapping isn't hydrated yet, keep list functional by returning available workers.
+    return getAvailableWorkers();
   }
 
   // Search workers by query
@@ -67,7 +151,7 @@ class ServiceProvider with ChangeNotifier {
       final bio = worker.bio?.toLowerCase() ?? '';
 
       // Get user details for worker
-      final user = MockDatabase.getUserById(worker.userId);
+      final user = _workerUsers[worker.id];
       final name = user?.name.toLowerCase() ?? '';
 
       return bio.contains(lowercaseQuery) || name.contains(lowercaseQuery);
@@ -94,28 +178,12 @@ class ServiceProvider with ChangeNotifier {
         : getAvailableWorkers();
 
     // Get user location
-    final userLocation = MockDatabase.getUserLocation(userId);
-    if (userLocation == null) {
-      // If no user location, return workers with 0 distance
-      return workerList
-          .map(
-            (w) => {
-              'worker': w,
-              'distance': 0.0,
-              'rating': MockDatabase.getWorkerAverageRating(w.id),
-            },
-          )
-          .toList();
-    }
-
-    // Calculate distances
+    // Location integration can be added later; for now use deterministic placeholder distances.
     List<Map<String, dynamic>> workersWithDistance = [];
 
     for (var worker in workerList) {
-      // For mock purposes, generate random distance (1-10 km)
-      // In real app, fetch worker location from database
       final distance = (worker.id % 10) + 1.0;
-      final rating = MockDatabase.getWorkerAverageRating(worker.id);
+      final rating = _workerRatings[worker.id] ?? 0.0;
 
       workersWithDistance.add({
         'worker': worker,
@@ -183,21 +251,19 @@ class ServiceProvider with ChangeNotifier {
 
   // Get worker details with user info
   Map<String, dynamic>? getWorkerDetails(int workerId, int userId) {
-    final worker = MockDatabase.getWorkerById(workerId);
+    Worker? worker;
+    try {
+      worker = _workers.firstWhere((w) => w.id == workerId);
+    } catch (_) {
+      worker = null;
+    }
     if (worker == null) return null;
 
-    final user = MockDatabase.getUserById(worker.userId);
-    final reviews = MockDatabase.getReviewsByWorkerId(workerId);
-    final rating = MockDatabase.getWorkerAverageRating(workerId);
-
-    // Get worker services
-    final workerServiceLinks = MockDatabase.workerServices
-        .where((ws) => ws.workerId == workerId)
-        .toList();
-    final serviceIds = workerServiceLinks.map((ws) => ws.serviceId).toSet();
-    final workerServices = _services
-        .where((s) => serviceIds.contains(s.id))
-        .toList();
+    final user = _workerUsers[workerId];
+    final reviews = _workerReviews[workerId] ?? <Review>[];
+    final rating = _workerRatings[workerId] ?? 0.0;
+    final reviewCount = _workerReviewCounts[workerId] ?? reviews.length;
+    final workerServices = _services;
 
     // Calculate distance
     double distance = (workerId % 10) + 1.0; // Mock distance
@@ -206,23 +272,125 @@ class ServiceProvider with ChangeNotifier {
       'worker': worker,
       'user': user,
       'rating': rating,
-      'reviewCount': reviews.length,
+      'reviewCount': reviewCount,
       'reviews': reviews,
       'services': workerServices,
       'distance': distance,
-      'completedJobs':
-          reviews.length, // Mock: using review count as completed jobs
+      'completedJobs': _workerCompletedJobs[workerId] ?? 0,
     };
+  }
+
+  Future<Map<String, dynamic>?> fetchWorkerDetails(
+    int workerId,
+    int userId,
+  ) async {
+    try {
+      final result = await _apiService.getWorkerDetails(workerId);
+      if (result['success'] != true) {
+        return getWorkerDetails(workerId, userId);
+      }
+
+      final data = result['data'] as Map<String, dynamic>;
+      final workerJson =
+          data['worker'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final userJson =
+          data['user'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final servicesJson = data['services'] as List? ?? <dynamic>[];
+      final reviewsJson = data['reviews'] as List? ?? <dynamic>[];
+
+      final worker = Worker.fromJson(workerJson);
+      final user = User.fromJson({
+        'id': userJson['id'] ?? worker.userId,
+        'name': userJson['name'] ?? 'Worker ${worker.id}',
+        'email': userJson['email'] ?? '',
+        'phone': userJson['phone'] ?? '',
+        'password_hash': '',
+        'role': userJson['role'] ?? 'worker',
+      });
+
+      final workerServices = servicesJson
+          .map((item) => Service.fromJson(item as Map<String, dynamic>))
+          .toList();
+      final reviews = reviewsJson
+          .map((item) => Review.fromJson(item as Map<String, dynamic>))
+          .toList();
+
+      _workerUsers[worker.id] = user;
+      _workerRatings[worker.id] = ((data['rating'] ?? 0.0) as num).toDouble();
+      _workerReviewCounts[worker.id] =
+          (data['review_count'] ?? reviews.length) as int;
+      _workerCompletedJobs[worker.id] = (data['completed_jobs'] ?? 0) as int;
+      _workerReviews[worker.id] = reviews;
+
+      final existingIndex = _workers.indexWhere((w) => w.id == worker.id);
+      if (existingIndex >= 0) {
+        _workers[existingIndex] = worker;
+      } else {
+        _workers.add(worker);
+      }
+
+      notifyListeners();
+
+      return {
+        'worker': worker,
+        'user': user,
+        'rating': _workerRatings[worker.id] ?? 0.0,
+        'reviewCount': _workerReviewCounts[worker.id] ?? reviews.length,
+        'reviews': reviews,
+        'services': workerServices,
+        'distance': ((data['distance'] ?? (worker.id % 10) + 1.0) as num)
+            .toDouble(),
+        'completedJobs': _workerCompletedJobs[worker.id] ?? 0,
+      };
+    } catch (_) {
+      return getWorkerDetails(workerId, userId);
+    }
   }
 
   // Get service by ID
   Service? getServiceById(int serviceId) {
-    return MockDatabase.getServiceById(serviceId);
+    try {
+      return _services.firstWhere((s) => s.id == serviceId);
+    } catch (_) {
+      return null;
+    }
   }
 
   // Get category by ID
   ServiceCategory? getCategoryById(int categoryId) {
-    return MockDatabase.getCategoryById(categoryId);
+    try {
+      return _categories.firstWhere((c) => c.id == categoryId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Worker? getWorkerById(int workerId) {
+    try {
+      return _workers.firstWhere((w) => w.id == workerId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  User? getWorkerUserByWorkerId(int workerId) {
+    return _workerUsers[workerId];
+  }
+
+  String getWorkerName(int workerId) {
+    return _workerUsers[workerId]?.name ?? 'Worker $workerId';
+  }
+
+  int getWorkerCompletedJobs(int workerId) {
+    return _workerCompletedJobs[workerId] ?? 0;
+  }
+
+  double getWorkerRating(int workerId) {
+    return _workerRatings[workerId] ?? 0.0;
+  }
+
+  List<Review> getWorkerReviews(int workerId) {
+    return _workerReviews[workerId] ?? <Review>[];
   }
 
   // Add review for worker
@@ -233,19 +401,28 @@ class ServiceProvider with ChangeNotifier {
     required int rating,
     String? comment,
   }) async {
-    final reviewId = MockDatabase.generateId(MockDatabase.reviews);
-
-    final review = Review(
-      id: reviewId,
+    await _apiService.initialize();
+    final response = await _apiService.createReview(
       bookingId: bookingId,
       userId: userId,
       workerId: workerId,
       rating: rating,
       comment: comment,
-      createdAt: DateTime.now(),
     );
 
-    MockDatabase.addReview(review);
+    if (response['success'] == true) {
+      final review = Review.fromJson(response['data'] as Map<String, dynamic>);
+      final existing = _workerReviews[workerId] ?? <Review>[];
+      _workerReviews[workerId] = [review, ...existing];
+      _workerReviewCounts[workerId] = (_workerReviewCounts[workerId] ?? 0) + 1;
+      final allRatings = _workerReviews[workerId]!
+          .map((r) => r.rating)
+          .toList();
+      if (allRatings.isNotEmpty) {
+        _workerRatings[workerId] =
+            allRatings.reduce((a, b) => a + b) / allRatings.length;
+      }
+    }
     notifyListeners();
   }
 }

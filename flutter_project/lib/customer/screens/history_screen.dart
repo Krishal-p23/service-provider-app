@@ -389,12 +389,11 @@
 //   }
 // }
 
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/booking_provider.dart';
+import '../providers/service_provider.dart';
 import '../../providers/user_provider.dart';
-import '../utils/mock_data.dart';
 import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -435,9 +434,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return Container(
           decoration: BoxDecoration(
             color: theme.scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(20),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: SafeArea(
             child: SingleChildScrollView(
@@ -473,24 +470,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: [
-                        'All',
-                        'Pending',
-                        'Confirmed',
-                        'In Progress',
-                        'Completed',
-                        'Cancelled',
-                      ].map((status) {
-                        return FilterChip(
-                          label: Text(status),
-                          selected: tempStatus == status,
-                          onSelected: (selected) {
-                            setModalState(() {
-                              tempStatus = status;
-                            });
-                          },
-                        );
-                      }).toList(),
+                      children:
+                          [
+                            'All',
+                            'Pending',
+                            'Confirmed',
+                            'In Progress',
+                            'Completed',
+                            'Cancelled',
+                          ].map((status) {
+                            return FilterChip(
+                              label: Text(status),
+                              selected: tempStatus == status,
+                              onSelected: (selected) {
+                                setModalState(() {
+                                  tempStatus = status;
+                                });
+                              },
+                            );
+                          }).toList(),
                     ),
                     const SizedBox(height: 20),
 
@@ -502,28 +500,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _buildRadioOption(
-                      'Recent First',
-                      'Recent',
-                      tempSort,
-                      (value) {
-                        setModalState(() {
-                          tempSort = value!;
-                        });
-                      },
-                      theme,
-                    ),
-                    _buildRadioOption(
-                      'Oldest First',
-                      'Old',
-                      tempSort,
-                      (value) {
-                        setModalState(() {
-                          tempSort = value!;
-                        });
-                      },
-                      theme,
-                    ),
+                    _buildRadioOption('Recent First', 'Recent', tempSort, (
+                      value,
+                    ) {
+                      setModalState(() {
+                        tempSort = value!;
+                      });
+                    }, theme),
+                    _buildRadioOption('Oldest First', 'Old', tempSort, (value) {
+                      setModalState(() {
+                        tempSort = value!;
+                      });
+                    }, theme),
                     const SizedBox(height: 20),
 
                     // Action Buttons
@@ -588,12 +576,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ),
+            Expanded(child: Text(title, style: theme.textTheme.bodyMedium)),
           ],
         ),
       ),
@@ -620,8 +603,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
 
     if (confirm == true && mounted) {
-      final bookingProvider =
-          Provider.of<BookingProvider>(context, listen: false);
+      final bookingProvider = Provider.of<BookingProvider>(
+        context,
+        listen: false,
+      );
       final success = await bookingProvider.cancelBooking(bookingId);
 
       if (!mounted) return;
@@ -648,6 +633,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final bookingProvider = context.watch<BookingProvider>();
+    final serviceProvider = context.watch<ServiceProvider>();
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final currentUser = userProvider.currentUser;
@@ -664,10 +650,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 color: theme.primaryColor.withValues(alpha: 0.3),
               ),
               const SizedBox(height: 20),
-              Text(
-                'No history available',
-                style: theme.textTheme.displaySmall,
-              ),
+              Text('No history available', style: theme.textTheme.displaySmall),
               const SizedBox(height: 8),
               Text(
                 'Please login to view your booking history',
@@ -692,18 +675,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
     // Apply status filter
     if (_selectedStatus != 'All') {
       String statusFilter = _selectedStatus.toLowerCase().replaceAll(' ', '_');
-      allBookings =
-          allBookings.where((b) => b.status == statusFilter).toList();
+      allBookings = allBookings.where((b) => b.status == statusFilter).toList();
     }
 
     // Apply search filter
     if (_searchController.text.isNotEmpty) {
       final searchQuery = _searchController.text.toLowerCase();
       allBookings = allBookings.where((booking) {
-        final worker = MockDatabase.getWorkerById(booking.workerId);
-        final workerUser =
-            worker != null ? MockDatabase.getUserById(worker.userId) : null;
-        final service = MockDatabase.getServiceById(booking.serviceId);
+        final workerUser = serviceProvider.getWorkerUserByWorkerId(
+          booking.workerId,
+        );
+        final service = serviceProvider.getServiceById(booking.serviceId);
 
         final workerName = workerUser?.name.toLowerCase() ?? '';
         final serviceName = service?.serviceName.toLowerCase() ?? '';
@@ -738,8 +720,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   onPressed: _showFilterSheet,
                 ),
                 filled: true,
-                fillColor:
-                    isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5),
+                fillColor: isDark
+                    ? const Color(0xFF2C2C2C)
+                    : const Color(0xFFF5F5F5),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -781,11 +764,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               itemCount: allBookings.length,
               itemBuilder: (context, index) {
                 final booking = allBookings[index];
-                final worker = MockDatabase.getWorkerById(booking.workerId);
-                final workerUser = worker != null
-                    ? MockDatabase.getUserById(worker.userId)
-                    : null;
-                final service = MockDatabase.getServiceById(booking.serviceId);
+                final worker = serviceProvider.getWorkerById(booking.workerId);
+                final workerUser = serviceProvider.getWorkerUserByWorkerId(
+                  booking.workerId,
+                );
+                final service = serviceProvider.getServiceById(
+                  booking.serviceId,
+                );
 
                 return _buildBookingCard(
                   context,
@@ -813,7 +798,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     Color statusColor = _getStatusColor(booking.status);
     String statusLabel = _getStatusLabel(booking.status);
-    bool canCancel = booking.status == 'pending' || booking.status == 'confirmed';
+    bool canCancel =
+        booking.status == 'pending' || booking.status == 'confirmed';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -827,8 +813,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-                  backgroundImage:
-                      workerPhoto != null ? NetworkImage(workerPhoto) : null,
+                  backgroundImage: workerPhoto != null
+                      ? NetworkImage(workerPhoto)
+                      : null,
                   child: workerPhoto == null
                       ? Icon(Icons.person, color: theme.primaryColor)
                       : null,
@@ -838,21 +825,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        serviceName,
-                        style: theme.textTheme.displaySmall,
-                      ),
+                      Text(serviceName, style: theme.textTheme.displaySmall),
                       const SizedBox(height: 4),
-                      Text(
-                        workerName,
-                        style: theme.textTheme.bodyMedium,
-                      ),
+                      Text(workerName, style: theme.textTheme.bodyMedium),
                     ],
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -873,16 +856,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
             const Divider(height: 24),
             Row(
               children: [
-                Icon(Icons.calendar_today,
-                    size: 16, color: theme.textTheme.bodyMedium?.color),
+                Icon(
+                  Icons.calendar_today,
+                  size: 16,
+                  color: theme.textTheme.bodyMedium?.color,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   dateFormat.format(booking.scheduledDate),
                   style: theme.textTheme.bodyMedium,
                 ),
                 const SizedBox(width: 16),
-                Icon(Icons.access_time,
-                    size: 16, color: theme.textTheme.bodyMedium?.color),
+                Icon(
+                  Icons.access_time,
+                  size: 16,
+                  color: theme.textTheme.bodyMedium?.color,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   timeFormat.format(booking.scheduledDate),

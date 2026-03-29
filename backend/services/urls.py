@@ -1,11 +1,11 @@
-# from django.urls import path
-# from .views import demo_api, get_users, register, login
+from django.urls import path
+from .views import service_categories, services_list, workers_list, worker_details
 
-# app_name = 'authentication'
+app_name = 'services'
 
-# urlpatterns = [
-#     path('demo/', demo_api, name='demo_api'),
-#     path('users/', get_users, name='get_users'),
-#     path('register/', register, name='register'),
-#     path('login/', login, name='login'),
-# ]
+urlpatterns = [
+	path('categories/', service_categories, name='service_categories'),
+	path('list/', services_list, name='services_list'),
+	path('workers/', workers_list, name='workers_list'),
+	path('workers/<int:worker_id>/', worker_details, name='worker_details'),
+]

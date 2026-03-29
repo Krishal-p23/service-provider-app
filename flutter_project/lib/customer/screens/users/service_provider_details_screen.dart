@@ -29,7 +29,7 @@
 //     }
 
 //     final workerDetails = serviceProvider.getWorkerDetails(workerId, currentUser.id!);
-    
+
 //     if (workerDetails == null) {
 //       return Scaffold(
 //         appBar: AppBar(title: const Text('Service Provider')),
@@ -78,7 +78,7 @@
 //                           : null,
 //                     ),
 //                     const SizedBox(height: 16),
-                    
+
 //                     // Name
 //                     Text(
 //                       user?.name ?? 'Worker ${worker.id}',
@@ -86,7 +86,7 @@
 //                       textAlign: TextAlign.center,
 //                     ),
 //                     const SizedBox(height: 8),
-                    
+
 //                     // Verified Badge
 //                     if (worker.isVerified)
 //                       Container(
@@ -118,7 +118,7 @@
 //                         ),
 //                       ),
 //                     const SizedBox(height: 20),
-                    
+
 //                     // Stats Row
 //                     Row(
 //                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -147,7 +147,7 @@
 //                 ),
 //               ),
 //             ),
-            
+
 //             // Bio Section
 //             if (worker.bio != null && worker.bio!.isNotEmpty) ...[
 //               Padding(
@@ -168,7 +168,7 @@
 //                 ),
 //               ),
 //             ],
-            
+
 //             // Experience
 //             if (worker.experienceYears != null) ...[
 //               Padding(
@@ -188,7 +188,7 @@
 //               ),
 //               const SizedBox(height: 16),
 //             ],
-            
+
 //             // Services Offered
 //             if (services.isNotEmpty) ...[
 //               Padding(
@@ -221,7 +221,7 @@
 //                 ),
 //               ),
 //             ],
-            
+
 //             // Reviews Section
 //             if (reviews.isNotEmpty) ...[
 //               Padding(
@@ -305,7 +305,7 @@
 //                 ),
 //               ),
 //             ],
-            
+
 //             const SizedBox(height: 80), // Bottom padding for button
 //           ],
 //         ),
@@ -354,7 +354,7 @@
 //   @override
 //   Widget build(BuildContext context) {
 //     final theme = Theme.of(context);
-    
+
 //     return Column(
 //       children: [
 //         Icon(icon, color: color, size: 28),
@@ -374,22 +374,17 @@
 //   }
 // }
 
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/service_provider.dart';
 import '../../../providers/user_provider.dart';
-import '../../utils/mock_data.dart';
 import 'booking_details_screen.dart';
 import 'package:intl/intl.dart';
 
 class ServiceProviderDetailsScreen extends StatelessWidget {
   final int workerId;
 
-  const ServiceProviderDetailsScreen({
-    super.key,
-    required this.workerId,
-  });
+  const ServiceProviderDetailsScreen({super.key, required this.workerId});
 
   @override
   Widget build(BuildContext context) {
@@ -405,8 +400,10 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
       );
     }
 
-    final workerDetails =
-        serviceProvider.getWorkerDetails(workerId, currentUser.id);
+    final workerDetails = serviceProvider.getWorkerDetails(
+      workerId,
+      currentUser.id,
+    );
 
     if (workerDetails == null) {
       return Scaffold(
@@ -425,9 +422,7 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
     final completedJobs = workerDetails['completedJobs'];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Service Provider'),
-      ),
+      appBar: AppBar(title: const Text('Service Provider')),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,8 +438,9 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                     // Profile Picture
                     CircleAvatar(
                       radius: 50,
-                      backgroundColor:
-                          theme.primaryColor.withValues(alpha: 0.1),
+                      backgroundColor: theme.primaryColor.withValues(
+                        alpha: 0.1,
+                      ),
                       backgroundImage: worker.profilePhoto != null
                           ? NetworkImage(worker.profilePhoto!)
                           : null,
@@ -534,15 +530,9 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'About',
-                      style: theme.textTheme.displaySmall,
-                    ),
+                    Text('About', style: theme.textTheme.displaySmall),
                     const SizedBox(height: 8),
-                    Text(
-                      worker.bio!,
-                      style: theme.textTheme.bodyMedium,
-                    ),
+                    Text(worker.bio!, style: theme.textTheme.bodyMedium),
                   ],
                 ),
               ),
@@ -580,22 +570,21 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                       style: theme.textTheme.displaySmall,
                     ),
                     const SizedBox(height: 12),
-                    ...services.map((service) => Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: Icon(
-                              Icons.build,
+                    ...services.map(
+                      (service) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: Icon(Icons.build, color: theme.primaryColor),
+                          title: Text(service.serviceName),
+                          trailing: Text(
+                            '₹${service.basePrice.toStringAsFixed(0)}',
+                            style: theme.textTheme.displaySmall?.copyWith(
                               color: theme.primaryColor,
                             ),
-                            title: Text(service.serviceName),
-                            trailing: Text(
-                              '₹${service.basePrice.toStringAsFixed(0)}',
-                              style: theme.textTheme.displaySmall?.copyWith(
-                                color: theme.primaryColor,
-                              ),
-                            ),
                           ),
-                        )),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -611,10 +600,7 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Reviews',
-                          style: theme.textTheme.displaySmall,
-                        ),
+                        Text('Reviews', style: theme.textTheme.displaySmall),
                         Text(
                           '$reviewCount reviews',
                           style: theme.textTheme.bodyMedium,
@@ -623,7 +609,7 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     ...reviews.take(3).map((review) {
-                      final reviewer = MockDatabase.getUserById(review.userId);
+                      final reviewerName = 'User ${review.userId}';
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: Padding(
@@ -638,12 +624,12 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                                     backgroundColor: theme.primaryColor
                                         .withValues(alpha: 0.1),
                                     child: Text(
-                                      reviewer?.name
-                                              .substring(0, 1)
-                                              .toUpperCase() ??
-                                          'U',
+                                      reviewerName
+                                          .substring(0, 1)
+                                          .toUpperCase(),
                                       style: TextStyle(
-                                          color: theme.primaryColor),
+                                        color: theme.primaryColor,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -653,15 +639,16 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          reviewer?.name ?? 'User',
+                                          reviewerName,
                                           style: theme.textTheme.bodyMedium
                                               ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                         ),
                                         Text(
-                                          DateFormat('MMM dd, yyyy')
-                                              .format(review.createdAt),
+                                          DateFormat(
+                                            'MMM dd, yyyy',
+                                          ).format(review.createdAt),
                                           style: theme.textTheme.bodySmall,
                                         ),
                                       ],
@@ -669,14 +656,15 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                                   ),
                                   Row(
                                     children: List.generate(
-                                        5,
-                                        (i) => Icon(
-                                              i < review.rating
-                                                  ? Icons.star
-                                                  : Icons.star_border,
-                                              size: 16,
-                                              color: Colors.amber,
-                                            )),
+                                      5,
+                                      (i) => Icon(
+                                        i < review.rating
+                                            ? Icons.star
+                                            : Icons.star_border,
+                                        size: 16,
+                                        color: Colors.amber,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -737,7 +725,8 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                    'This service provider is not available right now'),
+                                  'This service provider is not available right now',
+                                ),
                                 backgroundColor: Colors.orange,
                               ),
                             );
@@ -757,10 +746,7 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text(
-                    'Book Now',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  child: const Text('Book Now', style: TextStyle(fontSize: 16)),
                 ),
               ),
             ],
@@ -798,10 +784,7 @@ class _StatItem extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall,
-        ),
+        Text(label, style: theme.textTheme.bodySmall),
       ],
     );
   }

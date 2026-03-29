@@ -51,6 +51,11 @@ class ApiService {
     await prefs.setString('refresh_token', refresh);
   }
 
+  /// Save a lightweight local token using user id.
+  Future<void> setAccessTokenFromUserId(int userId) async {
+    await _saveTokens(userId.toString(), '');
+  }
+
   /// Clear tokens from storage
   Future<void> clearTokens() async {
     _accessToken = null;
@@ -96,6 +101,115 @@ class ApiService {
 
       return {
         'success': response.statusCode == 201,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Start OTP challenge for user/worker register or login
+  /// POST /api/accounts/auth/otp/start/
+  Future<Map<String, dynamic>> startAuthOtp({
+    required String action,
+    required String role,
+    required String email,
+    required String password,
+    String? name,
+    String? phone,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'action': action,
+        'role': role,
+        'email': email,
+        'password': password,
+      };
+
+      if (name != null && name.isNotEmpty) {
+        body['name'] = name;
+      }
+      if (phone != null && phone.isNotEmpty) {
+        body['phone'] = phone;
+      }
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/accounts/auth/otp/start/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      final data = jsonDecode(response.body);
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Verify OTP challenge for user/worker register or login
+  /// POST /api/accounts/auth/otp/verify/
+  Future<Map<String, dynamic>> verifyAuthOtp({
+    required String sessionId,
+    required String otp,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/accounts/auth/otp/verify/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'session_id': sessionId, 'otp': otp}),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final userId = data['data']?['id'];
+        if (userId != null) {
+          await _saveTokens(userId.toString(), '');
+        }
+      }
+
+      return {
+        'success': response.statusCode == 200 || response.statusCode == 201,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Resend OTP challenge
+  /// POST /api/accounts/auth/otp/resend/
+  Future<Map<String, dynamic>> resendAuthOtp({
+    required String sessionId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/accounts/auth/otp/resend/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'session_id': sessionId}),
+      );
+
+      final data = jsonDecode(response.body);
+      return {
+        'success': response.statusCode == 200,
         'statusCode': response.statusCode,
         'data': data,
       };
@@ -361,17 +475,312 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final payload = jsonDecode(response.body);
+        final data = payload is Map<String, dynamic> && payload['data'] is List
+            ? payload['data'] as List
+            : <dynamic>[];
         return {
           'success': true,
           'statusCode': response.statusCode,
-          'data': data is List ? data : [],
+          'data': data,
         };
       }
 
       return {'success': false, 'statusCode': response.statusCode, 'data': []};
     } catch (e) {
       return {'success': false, 'statusCode': 500, 'data': []};
+    }
+  }
+
+  /// Get service categories
+  /// GET /api/services/categories/
+  Future<Map<String, dynamic>> getServiceCategories() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/services/categories/'),
+        headers: _headers,
+      );
+
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic> && payload['data'] is List
+          ? payload['data'] as List
+          : <dynamic>[];
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <dynamic>[]};
+    }
+  }
+
+  /// Get service list
+  /// GET /api/services/list/?category_id=
+  Future<Map<String, dynamic>> getServices({int? categoryId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/services/list/').replace(
+        queryParameters: {
+          if (categoryId != null) 'category_id': categoryId.toString(),
+        },
+      );
+
+      final response = await http.get(uri, headers: _headers);
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic> && payload['data'] is List
+          ? payload['data'] as List
+          : <dynamic>[];
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <dynamic>[]};
+    }
+  }
+
+  /// Get workers for customer discovery
+  /// GET /api/services/workers/?service_id=&search=&min_rating=
+  Future<Map<String, dynamic>> getCustomerWorkers({
+    int? serviceId,
+    String? search,
+    double? minRating,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/services/workers/').replace(
+        queryParameters: {
+          if (serviceId != null) 'service_id': serviceId.toString(),
+          if (search != null && search.trim().isNotEmpty)
+            'search': search.trim(),
+          if (minRating != null) 'min_rating': minRating.toString(),
+        },
+      );
+
+      final response = await http.get(uri, headers: _headers);
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic> && payload['data'] is List
+          ? payload['data'] as List
+          : <dynamic>[];
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <dynamic>[]};
+    }
+  }
+
+  /// Get worker detail
+  /// GET /api/services/workers/{workerId}/
+  Future<Map<String, dynamic>> getWorkerDetails(int workerId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/services/workers/$workerId/'),
+        headers: _headers,
+      );
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <String, dynamic>{}};
+    }
+  }
+
+  /// Get bookings for user
+  /// GET /api/bookings/user/{userId}/
+  Future<Map<String, dynamic>> getUserBookings(int userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/bookings/user/$userId/'),
+        headers: _headers,
+      );
+
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic> && payload['data'] is List
+          ? payload['data'] as List
+          : <dynamic>[];
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <dynamic>[]};
+    }
+  }
+
+  /// Create booking
+  /// POST /api/bookings/create/
+  Future<Map<String, dynamic>> createBooking({
+    required int userId,
+    required int workerId,
+    required int serviceId,
+    required DateTime scheduledDate,
+    required double totalAmount,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/bookings/create/'),
+        headers: _headers,
+        body: jsonEncode({
+          'user_id': userId,
+          'worker_id': workerId,
+          'service_id': serviceId,
+          'scheduled_date': scheduledDate.toIso8601String(),
+          'status': 'pending',
+          'total_amount': totalAmount,
+        }),
+      );
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 201,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <String, dynamic>{}};
+    }
+  }
+
+  /// Update booking status
+  /// PATCH /api/bookings/{bookingId}/status/
+  Future<Map<String, dynamic>> updateBookingStatus(
+    int bookingId,
+    String status,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/bookings/$bookingId/status/'),
+        headers: _headers,
+        body: jsonEncode({'status': status}),
+      );
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <String, dynamic>{}};
+    }
+  }
+
+  /// Get booking by id
+  /// GET /api/bookings/{bookingId}/
+  Future<Map<String, dynamic>> getBookingById(int bookingId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/bookings/$bookingId/'),
+        headers: _headers,
+      );
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <String, dynamic>{}};
+    }
+  }
+
+  /// Get reviews for worker
+  /// GET /api/reviews/worker/{workerId}/
+  Future<Map<String, dynamic>> getWorkerReviews(int workerId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/reviews/worker/$workerId/'),
+        headers: _headers,
+      );
+
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic> && payload['data'] is List
+          ? payload['data'] as List
+          : <dynamic>[];
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <dynamic>[]};
+    }
+  }
+
+  /// Create review
+  /// POST /api/reviews/create/
+  Future<Map<String, dynamic>> createReview({
+    required int bookingId,
+    required int userId,
+    required int workerId,
+    required int rating,
+    String? comment,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/reviews/create/'),
+        headers: _headers,
+        body: jsonEncode({
+          'booking_id': bookingId,
+          'user_id': userId,
+          'worker_id': workerId,
+          'rating': rating,
+          'comment': comment ?? '',
+        }),
+      );
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 201,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <String, dynamic>{}};
     }
   }
 

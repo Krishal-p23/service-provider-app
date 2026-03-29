@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import 'otp_verification_screen.dart';
 
@@ -55,7 +57,7 @@ class _RegisterTabState extends State<RegisterTab> {
 
     // Regular expression: only allows a-z, A-Z, and underscore
     final validUsernameRegex = RegExp(r'^[a-zA-Z_]+$');
-    
+
     if (!validUsernameRegex.hasMatch(value)) {
       return 'Only English letters (a-z, A-Z) and underscore (_) are allowed';
     }
@@ -89,18 +91,38 @@ class _RegisterTabState extends State<RegisterTab> {
         _isLoading = true;
       });
 
-      // Navigate to OTP verification
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OTPVerificationScreen(
-            name: _usernameController.text.trim(),
-            email: _emailController.text.trim(),
-            phone: _phoneController.text.trim(),
-            password: _passwordController.text,
-          ),
-        ),
+      final userProvider = context.read<UserProvider>();
+      final result = await userProvider.requestRegisterOtp(
+        name: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
       );
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        final sessionId = (result['sessionId'] ?? '').toString();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OTPVerificationScreen(
+              sessionId: sessionId,
+              phone: _phoneController.text.trim(),
+              isLoginFlow: false,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              (result['message'] ?? 'Failed to send OTP').toString(),
+            ),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
 
       setState(() {
         _isLoading = false;
@@ -191,9 +213,13 @@ class _RegisterTabState extends State<RegisterTab> {
               ),
               keyboardType: TextInputType.phone,
               maxLength: 10,
-              buildCounter: (context,
-                      {required currentLength, required isFocused, maxLength}) =>
-                  null,
+              buildCounter:
+                  (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    maxLength,
+                  }) => null,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter your phone number';
@@ -282,9 +308,13 @@ class _RegisterTabState extends State<RegisterTab> {
               onPressed: _isLoading ? null : _handleRegister,
               style: ElevatedButton.styleFrom(
                 backgroundColor: widget.roleColor,
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingLarge),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppTheme.spacingLarge,
+                ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadiusMedium),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.borderRadiusMedium,
+                  ),
                 ),
               ),
               child: _isLoading

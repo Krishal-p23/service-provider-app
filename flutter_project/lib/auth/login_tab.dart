@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import 'otp_verification_screen.dart';
 
 class LoginTab extends StatefulWidget {
   final Color roleColor;
@@ -38,7 +39,7 @@ class _LoginTabState extends State<LoginTab> {
       });
 
       final userProvider = context.read<UserProvider>();
-      final success = await userProvider.login(
+      final result = await userProvider.requestLoginOtp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
@@ -47,11 +48,22 @@ class _LoginTabState extends State<LoginTab> {
         _isLoading = false;
       });
 
-      if (success && mounted) {
-        // Navigate to customer home - update route as needed
-        Navigator.pushReplacementNamed(context, '/customer-home');
+      if (result['success'] == true && mounted) {
+        final sessionId = (result['sessionId'] ?? '').toString();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OTPVerificationScreen(
+              sessionId: sessionId,
+              phone: _emailController.text.trim(),
+              isLoginFlow: true,
+            ),
+          ),
+        );
       } else if (mounted) {
-        final error = userProvider.error ?? 'Login failed';
+        final error =
+            (result['message'] ?? userProvider.error ?? 'Login failed')
+                .toString();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error), backgroundColor: AppTheme.errorColor),
         );

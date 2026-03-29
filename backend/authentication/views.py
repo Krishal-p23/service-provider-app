@@ -4,9 +4,494 @@ from django.db import connection
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
+import random
+import uuid
+from datetime import timedelta
+from django.utils import timezone
 from .auth_utils import hash_password, verify_password, validate_email, validate_phone, validate_password
 
 # Create your views here.
+
+OTP_EXPIRY_SECONDS = 300
+_OTP_SESSIONS = {}
+
+
+def _cleanup_expired_otp_sessions():
+    now = timezone.now()
+    expired_keys = [
+        key for key, value in _OTP_SESSIONS.items() if value["expires_at"] < now
+    ]
+    for key in expired_keys:
+        _OTP_SESSIONS.pop(key, None)
+
+
+def _generate_demo_otp():
+    return f"{random.randint(0, 999999):06d}"
+
+
+def _build_user_payload(user_tuple):
+    return {
+        "id": user_tuple[0],
+        "email": user_tuple[1],
+        "name": user_tuple[2],
+        "role": user_tuple[4],
+    }
+
+
+def _create_user_record(name, email, phone, password, role):
+    password_hash = hash_password(password)
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT id FROM users WHERE email = %s", [email])
+        if cursor.fetchone():
+            return None, JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Email already registered",
+                    "code": "EMAIL_EXISTS",
+                },
+                status=400,
+            )
+
+        cursor.execute(
+            """
+            INSERT INTO users (name, email, phone, password_hash, role, created_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            RETURNING id, email, name, password_hash, role
+            """,
+            [name, email, phone, password_hash, role],
+        )
+        user = cursor.fetchone()
+
+    return user, None
+
+
+def _validate_registration_payload(data):
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip()
+    phone = data.get("phone", "").strip()
+    password = data.get("password", "")
+    role = data.get("role", "customer").strip().lower()
+
+    if not all([name, email, phone, password]):
+        return None, JsonResponse(
+            {
+                "status": "error",
+                "message": "All fields are required",
+                "code": "MISSING_FIELDS",
+            },
+            status=400,
+        )
+
+    if role not in ["customer", "worker"]:
+        return None, JsonResponse(
+            {
+                "status": "error",
+                "message": "Role must be either customer or worker",
+                "code": "INVALID_ROLE",
+            },
+            status=400,
+        )
+
+    if not validate_email(email):
+        return None, JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid email format",
+                "code": "INVALID_EMAIL",
+            },
+            status=400,
+        )
+
+    if not validate_phone(phone):
+        return None, JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid phone number. Please enter a 10-digit number",
+                "code": "INVALID_PHONE",
+            },
+            status=400,
+        )
+
+    is_valid, msg = validate_password(password)
+    if not is_valid:
+        return None, JsonResponse(
+            {
+                "status": "error",
+                "message": msg,
+                "code": "WEAK_PASSWORD",
+            },
+            status=400,
+        )
+
+    return {
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "password": password,
+        "role": role,
+    }, None
+
+
+def _validate_login_payload(data):
+    email = data.get("email", "").strip()
+    password = data.get("password", "")
+    role = data.get("role", "").strip().lower()
+
+    if not email or not password:
+        return None, JsonResponse(
+            {
+                "status": "error",
+                "message": "Email and password are required",
+                "code": "MISSING_FIELDS",
+            },
+            status=400,
+        )
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT id, email, name, password_hash, role, phone FROM users WHERE email = %s",
+            [email],
+        )
+        user = cursor.fetchone()
+
+    if not user or not verify_password(password, user[3]):
+        return None, JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid email or password",
+                "code": "INVALID_CREDENTIALS",
+            },
+            status=401,
+        )
+
+    user_role = (user[4] or "").strip().lower()
+    if role and role != user_role:
+        return None, JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid role for this account",
+                "code": "ROLE_MISMATCH",
+            },
+            status=403,
+        )
+
+    return {
+        "id": user[0],
+        "email": user[1],
+        "name": user[2],
+        "password_hash": user[3],
+        "role": user[4],
+        "phone": user[5],
+    }, None
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def otp_start(request):
+    """
+    Start an OTP challenge for register/login.
+    Expected JSON payload:
+    {
+        "action": "register" | "login",
+        "role": "customer" | "worker",
+        "name": "...",        # register only
+        "email": "...",
+        "phone": "...",       # register only
+        "password": "..."
+    }
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid JSON format",
+                "code": "INVALID_JSON",
+            },
+            status=400,
+        )
+
+    try:
+        action = (data.get("action") or "").strip().lower()
+        if action not in ["register", "login"]:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Action must be register or login",
+                    "code": "INVALID_ACTION",
+                },
+                status=400,
+            )
+
+        _cleanup_expired_otp_sessions()
+
+        otp = _generate_demo_otp()
+        expires_at = timezone.now() + timedelta(seconds=OTP_EXPIRY_SECONDS)
+        session_id = str(uuid.uuid4())
+
+        if action == "register":
+            payload, error_response = _validate_registration_payload(data)
+            if error_response:
+                return error_response
+
+            _OTP_SESSIONS[session_id] = {
+                "action": "register",
+                "otp": otp,
+                "expires_at": expires_at,
+                "attempts": 0,
+                "payload": payload,
+            }
+
+            print(
+                f"[DEMO OTP] register role={payload['role']} email={payload['email']} otp={otp}"
+            )
+
+            return JsonResponse(
+                {
+                    "status": "success",
+                    "message": "OTP sent successfully",
+                    "data": {
+                        "session_id": session_id,
+                        "expires_in": OTP_EXPIRY_SECONDS,
+                        "action": "register",
+                    },
+                },
+                status=200,
+            )
+
+        login_payload, error_response = _validate_login_payload(data)
+        if error_response:
+            return error_response
+
+        _OTP_SESSIONS[session_id] = {
+            "action": "login",
+            "otp": otp,
+            "expires_at": expires_at,
+            "attempts": 0,
+            "payload": login_payload,
+        }
+
+        print(
+            f"[DEMO OTP] login role={login_payload['role']} email={login_payload['email']} otp={otp}"
+        )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": "OTP sent successfully",
+                "data": {
+                    "session_id": session_id,
+                    "expires_in": OTP_EXPIRY_SECONDS,
+                    "action": "login",
+                },
+            },
+            status=200,
+        )
+    except Exception as e:
+        print(f"OTP start error: {e}")
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to start OTP verification",
+                "code": "OTP_START_ERROR",
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def otp_verify(request):
+    """
+    Verify an OTP challenge and complete register/login.
+    Expected JSON payload:
+    {
+        "session_id": "...",
+        "otp": "123456"
+    }
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid JSON format",
+                "code": "INVALID_JSON",
+            },
+            status=400,
+        )
+
+    session_id = (data.get("session_id") or "").strip()
+    otp = (data.get("otp") or "").strip()
+
+    if not session_id or not otp:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Session id and OTP are required",
+                "code": "MISSING_FIELDS",
+            },
+            status=400,
+        )
+
+    _cleanup_expired_otp_sessions()
+    otp_session = _OTP_SESSIONS.get(session_id)
+
+    if not otp_session:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "OTP session expired or invalid",
+                "code": "INVALID_SESSION",
+            },
+            status=400,
+        )
+
+    if otp_session["otp"] != otp:
+        otp_session["attempts"] += 1
+        if otp_session["attempts"] >= 5:
+            _OTP_SESSIONS.pop(session_id, None)
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Too many invalid OTP attempts",
+                    "code": "OTP_ATTEMPTS_EXCEEDED",
+                },
+                status=429,
+            )
+
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid OTP",
+                "code": "INVALID_OTP",
+            },
+            status=400,
+        )
+
+    try:
+        payload = otp_session["payload"]
+        action = otp_session["action"]
+
+        if action == "register":
+            user, error_response = _create_user_record(
+                payload["name"],
+                payload["email"],
+                payload["phone"],
+                payload["password"],
+                payload["role"],
+            )
+            if error_response:
+                _OTP_SESSIONS.pop(session_id, None)
+                return error_response
+
+            _OTP_SESSIONS.pop(session_id, None)
+            return JsonResponse(
+                {
+                    "status": "success",
+                    "message": "Registration successful",
+                    "data": _build_user_payload(user),
+                },
+                status=201,
+            )
+
+        user = (
+            payload["id"],
+            payload["email"],
+            payload["name"],
+            payload["password_hash"],
+            payload["role"],
+        )
+        _OTP_SESSIONS.pop(session_id, None)
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": "Login successful",
+                "data": _build_user_payload(user),
+            },
+            status=200,
+        )
+    except Exception as e:
+        print(f"OTP verify error: {e}")
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "OTP verification failed",
+                "code": "OTP_VERIFY_ERROR",
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def otp_resend(request):
+    """
+    Resend OTP for an existing OTP session.
+    Expected JSON payload:
+    {
+        "session_id": "..."
+    }
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid JSON format",
+                "code": "INVALID_JSON",
+            },
+            status=400,
+        )
+
+    session_id = (data.get("session_id") or "").strip()
+    if not session_id:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Session id is required",
+                "code": "MISSING_SESSION_ID",
+            },
+            status=400,
+        )
+
+    _cleanup_expired_otp_sessions()
+    otp_session = _OTP_SESSIONS.get(session_id)
+
+    if not otp_session:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "OTP session expired or invalid",
+                "code": "INVALID_SESSION",
+            },
+            status=400,
+        )
+
+    otp = _generate_demo_otp()
+    otp_session["otp"] = otp
+    otp_session["expires_at"] = timezone.now() + timedelta(seconds=OTP_EXPIRY_SECONDS)
+    otp_session["attempts"] = 0
+
+    payload = otp_session["payload"]
+    print(
+        f"[DEMO OTP] resend action={otp_session['action']} role={payload.get('role')} email={payload.get('email')} otp={otp}"
+    )
+
+    return JsonResponse(
+        {
+            "status": "success",
+            "message": "OTP resent successfully",
+            "data": {
+                "session_id": session_id,
+                "expires_in": OTP_EXPIRY_SECONDS,
+            },
+        },
+        status=200,
+    )
 
 @csrf_exempt
 @require_http_methods(["POST"])

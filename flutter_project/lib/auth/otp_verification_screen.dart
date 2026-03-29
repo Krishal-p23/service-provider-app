@@ -5,17 +5,15 @@ import '../theme/app_theme.dart';
 import 'dart:async';
 
 class OTPVerificationScreen extends StatefulWidget {
-  final String name;
-  final String email;
+  final String sessionId;
   final String phone;
-  final String password;
+  final bool isLoginFlow;
 
   const OTPVerificationScreen({
     super.key,
-    required this.name,
-    required this.email,
+    required this.sessionId,
     required this.phone,
-    required this.password,
+    required this.isLoginFlow,
   });
 
   @override
@@ -93,17 +91,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       _isLoading = true;
     });
 
-    await Future.delayed(const Duration(seconds: 1));
-
     if (!mounted) return;
 
     final userProvider = context.read<UserProvider>();
-
-    final result = await userProvider.register(
-      name: widget.name.trim(),
-      email: widget.email.trim(),
-      phone: widget.phone.trim(),
-      password: widget.password,
+    final result = await userProvider.verifyAuthOtp(
+      sessionId: widget.sessionId,
+      otp: otp,
     );
 
     setState(() {
@@ -114,15 +107,23 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Registration successful! Please login.'),
+            content: Text(
+              widget.isLoginFlow
+                  ? 'Login successful'
+                  : 'Registration successful',
+            ),
             backgroundColor: AppTheme.successColor,
           ),
         );
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/customer-home',
+          (route) => false,
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Registration failed'),
+            content: Text(result['message'] ?? 'OTP verification failed'),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -135,7 +136,8 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       _isResending = true;
     });
 
-    await Future.delayed(const Duration(seconds: 1));
+    final userProvider = context.read<UserProvider>();
+    final result = await userProvider.resendAuthOtp(widget.sessionId);
 
     if (mounted) {
       setState(() {
@@ -144,12 +146,18 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('OTP sent successfully to your phone'),
-          backgroundColor: AppTheme.successColor,
+          content: Text(
+            (result['message'] ?? 'Failed to resend OTP').toString(),
+          ),
+          backgroundColor: result['success'] == true
+              ? AppTheme.successColor
+              : AppTheme.errorColor,
         ),
       );
 
-      _startResendTimer();
+      if (result['success'] == true) {
+        _startResendTimer();
+      }
     }
   }
 
@@ -178,7 +186,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               ),
               const SizedBox(height: AppTheme.spacingMedium),
               Text(
-                'We have sent a 6-digit code to\n+91 ${widget.phone}',
+                'We have sent a 6-digit code to\n${widget.phone}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppTheme.getTextColor(context, secondary: true),
                 ),

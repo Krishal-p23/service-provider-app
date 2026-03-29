@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/booking_provider.dart';
-import '../../utils/mock_data.dart';
 import 'payment_screen.dart';
 
 class OtpJobCompletionScreen extends StatefulWidget {
   final int bookingId;
 
-  const OtpJobCompletionScreen({
-    super.key,
-    required this.bookingId,
-  });
+  const OtpJobCompletionScreen({super.key, required this.bookingId});
 
   @override
   State<OtpJobCompletionScreen> createState() => _OtpJobCompletionScreenState();
@@ -28,28 +24,33 @@ class _OtpJobCompletionScreenState extends State<OtpJobCompletionScreen> {
 
   Future<void> _verifyOTP() async {
     if (_otpController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter OTP')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter OTP')));
       return;
     }
 
     setState(() => _isVerifying = true);
 
     try {
-      final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
-      
+      final bookingProvider = Provider.of<BookingProvider>(
+        context,
+        listen: false,
+      );
+
       // Verify OTP (mock: 123456)
       final isValid = bookingProvider.verifyOTP(_otpController.text);
-      
+
       if (!isValid) {
         throw Exception('Invalid OTP');
       }
 
-      final booking = MockDatabase.getBookingById(widget.bookingId);
+      var booking = bookingProvider.getBookingById(widget.bookingId);
+      booking ??= await bookingProvider.fetchBookingById(widget.bookingId);
       if (booking == null) {
         throw Exception('Booking not found');
       }
+      final resolvedBooking = booking;
 
       if (!mounted) return;
 
@@ -59,7 +60,7 @@ class _OtpJobCompletionScreenState extends State<OtpJobCompletionScreen> {
         MaterialPageRoute(
           builder: (context) => PaymentScreen(
             bookingId: widget.bookingId,
-            amount: booking.totalAmount,
+            amount: resolvedBooking.totalAmount,
           ),
         ),
       );
@@ -82,34 +83,25 @@ class _OtpJobCompletionScreenState extends State<OtpJobCompletionScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Verify Job Completion'),
-      ),
+      appBar: AppBar(title: const Text('Verify Job Completion')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.lock_outline,
-              size: 80,
-              color: theme.primaryColor,
-            ),
+            Icon(Icons.lock_outline, size: 80, color: theme.primaryColor),
             const SizedBox(height: 32),
-            
-            Text(
-              'Enter OTP',
-              style: theme.textTheme.displayLarge,
-            ),
+
+            Text('Enter OTP', style: theme.textTheme.displayLarge),
             const SizedBox(height: 12),
-            
+
             Text(
               'Enter the OTP provided by the service provider to confirm job completion',
               style: theme.textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            
+
             // OTP Input
             TextField(
               controller: _otpController,
@@ -126,7 +118,7 @@ class _OtpJobCompletionScreenState extends State<OtpJobCompletionScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Demo OTP hint
             Container(
               padding: const EdgeInsets.all(12),
@@ -151,7 +143,7 @@ class _OtpJobCompletionScreenState extends State<OtpJobCompletionScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Verify Button
             SizedBox(
               width: double.infinity,
@@ -169,7 +161,10 @@ class _OtpJobCompletionScreenState extends State<OtpJobCompletionScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('Verify & Continue', style: TextStyle(fontSize: 16)),
+                    : const Text(
+                        'Verify & Continue',
+                        style: TextStyle(fontSize: 16),
+                      ),
               ),
             ),
           ],

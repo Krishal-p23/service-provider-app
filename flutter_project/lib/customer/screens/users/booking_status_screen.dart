@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/booking_provider.dart';
+import '../../providers/service_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../widgets/booking_card.dart';
-import '../../utils/mock_data.dart';
 import 'otp_job_completion_screen.dart';
 
 class BookingStatusScreen extends StatefulWidget {
@@ -13,7 +13,7 @@ class BookingStatusScreen extends StatefulWidget {
   State<BookingStatusScreen> createState() => _BookingStatusScreenState();
 }
 
-class _BookingStatusScreenState extends State<BookingStatusScreen> 
+class _BookingStatusScreenState extends State<BookingStatusScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -49,11 +49,14 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
     );
 
     if (confirm == true && mounted) {
-      final bookingProvider = Provider.of<BookingProvider>(context, listen: false);
+      final bookingProvider = Provider.of<BookingProvider>(
+        context,
+        listen: false,
+      );
       final success = await bookingProvider.cancelBooking(bookingId);
-      
+
       if (!mounted) return;
-      
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Booking cancelled successfully')),
@@ -80,9 +83,13 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
       );
     }
 
-    final upcomingBookings = bookingProvider.getUpcomingBookings(currentUser.id);
+    final upcomingBookings = bookingProvider.getUpcomingBookings(
+      currentUser.id,
+    );
     final ongoingBookings = bookingProvider.getOngoingBookings(currentUser.id);
-    final completedBookings = bookingProvider.getCompletedBookings(currentUser.id);
+    final completedBookings = bookingProvider.getCompletedBookings(
+      currentUser.id,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -110,6 +117,11 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
   }
 
   Widget _buildBookingList(List<dynamic> bookings, String type) {
+    final serviceProvider = Provider.of<ServiceProvider>(
+      context,
+      listen: false,
+    );
+
     if (bookings.isEmpty) {
       return Center(
         child: Column(
@@ -135,9 +147,11 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
       itemCount: bookings.length,
       itemBuilder: (context, index) {
         final booking = bookings[index];
-        final worker = MockDatabase.getWorkerById(booking.workerId);
-        final workerUser = worker != null ? MockDatabase.getUserById(worker.userId) : null;
-        final service = MockDatabase.getServiceById(booking.serviceId);
+        final worker = serviceProvider.getWorkerById(booking.workerId);
+        final workerUser = serviceProvider.getWorkerUserByWorkerId(
+          booking.workerId,
+        );
+        final service = serviceProvider.getServiceById(booking.serviceId);
 
         return BookingCard(
           booking: booking,
@@ -147,7 +161,7 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
           onTap: () {
             // Navigate to booking details
           },
-          onCancel: type == 'upcoming' 
+          onCancel: type == 'upcoming'
               ? () => _cancelBooking(booking.id)
               : null,
           onComplete: type == 'ongoing'
@@ -155,9 +169,8 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => OtpJobCompletionScreen(
-                        bookingId: booking.id,
-                      ),
+                      builder: (context) =>
+                          OtpJobCompletionScreen(bookingId: booking.id),
                     ),
                   );
                 }

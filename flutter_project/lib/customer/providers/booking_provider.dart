@@ -1,24 +1,45 @@
 import 'package:flutter/foundation.dart';
 import '../models/booking.dart';
 import '../models/payment.dart';
-import '../utils/mock_data.dart';
+import '../services/api_service.dart';
 
 class BookingProvider with ChangeNotifier {
+  final ApiService _apiService = ApiService();
+
   List<Booking> _bookings = [];
+  final Map<int, Payment> _paymentsByBooking = {};
+  int? _loadedUserId;
+  bool _isLoading = false;
+
   List<Booking> get bookings => _bookings;
+  bool get isLoading => _isLoading;
 
-  BookingProvider() {
-    _loadBookings();
-  }
-
-  void _loadBookings() {
-    _bookings = MockDatabase.bookings;
+  Future<void> fetchUserBookings(int userId) async {
+    if (_isLoading) return;
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      await _apiService.initialize();
+      final result = await _apiService.getUserBookings(userId);
+      if (result['success'] == true) {
+        _bookings = (result['data'] as List)
+            .map((item) => Booking.fromJson(item as Map<String, dynamic>))
+            .toList();
+        _loadedUserId = userId;
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   // Get bookings for a specific user
   List<Booking> getUserBookings(int userId) {
-    return MockDatabase.getBookingsByUserId(userId);
+    if (_loadedUserId != userId && !_isLoading) {
+      fetchUserBookings(userId);
+    }
+    return _bookings.where((b) => b.userId == userId).toList();
   }
 
   // Get bookings by status
@@ -55,49 +76,43 @@ class BookingProvider with ChangeNotifier {
     required DateTime scheduledDate,
     required double totalAmount,
   }) async {
-    final bookingId = MockDatabase.generateId(MockDatabase.bookings);
-    
-    final booking = Booking(
-      id: bookingId,
+    await _apiService.initialize();
+    final result = await _apiService.createBooking(
       userId: userId,
       workerId: workerId,
       serviceId: serviceId,
       scheduledDate: scheduledDate,
-      status: 'pending',
       totalAmount: totalAmount,
-      createdAt: DateTime.now(),
     );
 
-    MockDatabase.addBooking(booking);
-    _loadBookings();
-    
+    if (result['success'] != true) {
+      throw Exception('Failed to create booking');
+    }
+
+    final booking = Booking.fromJson(result['data'] as Map<String, dynamic>);
+    _bookings = [booking, ..._bookings];
+    notifyListeners();
     return booking;
   }
 
   // Update booking status
   Future<void> updateBookingStatus(int bookingId, String status) async {
-    final booking = MockDatabase.getBookingById(bookingId);
-    if (booking != null) {
-      final updatedBooking = Booking(
-        id: booking.id,
-        userId: booking.userId,
-        workerId: booking.workerId,
-        serviceId: booking.serviceId,
-        scheduledDate: booking.scheduledDate,
-        status: status,
-        totalAmount: booking.totalAmount,
-        createdAt: booking.createdAt,
-      );
-      
-      MockDatabase.updateBooking(updatedBooking);
-      _loadBookings();
+    await _apiService.initialize();
+    final result = await _apiService.updateBookingStatus(bookingId, status);
+    if (result['success'] == true) {
+      final idx = _bookings.indexWhere((b) => b.id == bookingId);
+      if (idx >= 0) {
+        _bookings[idx] = _bookings[idx].copyWith(status: status);
+        notifyListeners();
+      }
     }
   }
 
   // Cancel booking
   Future<bool> cancelBooking(int bookingId) async {
-    final booking = MockDatabase.getBookingById(bookingId);
-    if (booking != null && (booking.status == 'pending' || booking.status == 'confirmed')) {
+    final booking = getBookingById(bookingId);
+    if (booking != null &&
+        (booking.status == 'pending' || booking.status == 'confirmed')) {
       await updateBookingStatus(bookingId, 'cancelled');
       return true;
     }
@@ -115,10 +130,8 @@ class BookingProvider with ChangeNotifier {
     required String paymentMethod,
     required String transactionId,
   }) async {
-    final paymentId = MockDatabase.generateId(MockDatabase.payments);
-    
     final payment = Payment(
-      id: paymentId,
+      id: DateTime.now().millisecondsSinceEpoch,
       bookingId: bookingId,
       paymentMethod: paymentMethod,
       paymentStatus: 'completed',
@@ -126,13 +139,40 @@ class BookingProvider with ChangeNotifier {
       paidAt: DateTime.now(),
     );
 
-    MockDatabase.addPayment(payment);
+    _paymentsByBooking[bookingId] = payment;
     notifyListeners();
   }
 
   // Get payment for booking
   Payment? getPaymentForBooking(int bookingId) {
-    return MockDatabase.getPaymentByBookingId(bookingId);
+    return _paymentsByBooking[bookingId];
+  }
+
+  Booking? getBookingById(int bookingId) {
+    try {
+      return _bookings.firstWhere((b) => b.id == bookingId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Booking?> fetchBookingById(int bookingId) async {
+    await _apiService.initialize();
+    final result = await _apiService.getBookingById(bookingId);
+
+    if (result['success'] != true) {
+      return null;
+    }
+
+    final booking = Booking.fromJson(result['data'] as Map<String, dynamic>);
+    final idx = _bookings.indexWhere((b) => b.id == bookingId);
+    if (idx >= 0) {
+      _bookings[idx] = booking;
+    } else {
+      _bookings.add(booking);
+    }
+    notifyListeners();
+    return booking;
   }
 
   // Verify OTP (mock implementation)

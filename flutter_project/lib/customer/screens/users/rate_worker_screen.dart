@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/service_provider.dart';
-import '../../utils/mock_data.dart';
+import '../../providers/booking_provider.dart';
 import 'package:flutter_project/customer/screens/users/booking_status_screen.dart';
 
 class RateWorkerScreen extends StatefulWidget {
   final int bookingId;
 
-  const RateWorkerScreen({
-    super.key,
-    required this.bookingId,
-  });
+  const RateWorkerScreen({super.key, required this.bookingId});
 
   @override
   State<RateWorkerScreen> createState() => _RateWorkerScreenState();
@@ -29,18 +26,25 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
 
   Future<void> _submitReview() async {
     if (_rating == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a rating')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a rating')));
       return;
     }
 
     setState(() => _isSubmitting = true);
 
     try {
-      final serviceProvider = Provider.of<ServiceProvider>(context, listen: false);
-      final booking = MockDatabase.getBookingById(widget.bookingId);
-      
+      final serviceProvider = Provider.of<ServiceProvider>(
+        context,
+        listen: false,
+      );
+      final bookingProvider = Provider.of<BookingProvider>(
+        context,
+        listen: false,
+      );
+      final booking = bookingProvider.getBookingById(widget.bookingId);
+
       if (booking == null) {
         throw Exception('Booking not found');
       }
@@ -50,7 +54,9 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
         userId: booking.userId,
         workerId: booking.workerId,
         rating: _rating,
-        comment: _commentController.text.trim().isEmpty ? null : _commentController.text.trim(),
+        comment: _commentController.text.trim().isEmpty
+            ? null
+            : _commentController.text.trim(),
       );
 
       if (!mounted) return;
@@ -58,9 +64,7 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
       // Navigate to bookings screen
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(
-          builder: (context) => const BookingStatusScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const BookingStatusScreen()),
         (route) => false,
       );
 
@@ -71,9 +75,9 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -84,9 +88,7 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
   void _skipReview() {
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(
-        builder: (context) => const BookingStatusScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const BookingStatusScreen()),
       (route) => false,
     );
   }
@@ -94,18 +96,21 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final booking = MockDatabase.getBookingById(widget.bookingId);
-    final worker = booking != null ? MockDatabase.getWorkerById(booking.workerId) : null;
-    final workerUser = worker != null ? MockDatabase.getUserById(worker.userId) : null;
+    final bookingProvider = Provider.of<BookingProvider>(context);
+    final serviceProvider = Provider.of<ServiceProvider>(context);
+    final booking = bookingProvider.getBookingById(widget.bookingId);
+    final worker = booking != null
+        ? serviceProvider.getWorkerById(booking.workerId)
+        : null;
+    final workerUser = booking != null
+        ? serviceProvider.getWorkerUserByWorkerId(booking.workerId)
+        : null;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rate Service'),
         actions: [
-          TextButton(
-            onPressed: _skipReview,
-            child: const Text('Skip'),
-          ),
+          TextButton(onPressed: _skipReview, child: const Text('Skip')),
         ],
       ),
       body: SingleChildScrollView(
@@ -131,13 +136,13 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
               ),
               const SizedBox(height: 32),
             ],
-            
+
             Text(
               'How was your experience?',
               style: theme.textTheme.displaySmall,
             ),
             const SizedBox(height: 24),
-            
+
             // Star Rating
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -162,12 +167,12 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
                 _rating == 1
                     ? 'Poor'
                     : _rating == 2
-                        ? 'Below Average'
-                        : _rating == 3
-                            ? 'Average'
-                            : _rating == 4
-                                ? 'Good'
-                                : 'Excellent',
+                    ? 'Below Average'
+                    : _rating == 3
+                    ? 'Average'
+                    : _rating == 4
+                    ? 'Good'
+                    : 'Excellent',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.primaryColor,
                   fontWeight: FontWeight.w600,
@@ -175,7 +180,7 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
               ),
             ],
             const SizedBox(height: 32),
-            
+
             // Comment TextField
             TextField(
               controller: _commentController,
@@ -188,7 +193,7 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Submit Button
             SizedBox(
               width: double.infinity,
@@ -206,7 +211,10 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('Submit Review', style: TextStyle(fontSize: 16)),
+                    : const Text(
+                        'Submit Review',
+                        style: TextStyle(fontSize: 16),
+                      ),
               ),
             ),
           ],

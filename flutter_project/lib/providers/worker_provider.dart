@@ -34,6 +34,17 @@ class WorkerProvider extends ChangeNotifier {
   double get averageRating => _averageRating;
   int get completedJobs => _completedJobs;
 
+  void _setAuthenticatedWorker(Map<String, dynamic> userData) {
+    _currentUser = User.fromJson(userData);
+    _workerProfile = Worker(
+      id: userData['id'] ?? 0,
+      userId: userData['id'] ?? 0,
+      isVerified: false,
+      isAvailable: true,
+    );
+    _error = null;
+  }
+
   /// Initialize provider and check if worker is already logged in
   Future<void> initialize() async {
     await _apiService.initialize();
@@ -81,6 +92,165 @@ class WorkerProvider extends ChangeNotifier {
       _error = 'Registration error: $e';
       notifyListeners();
       return {'success': false, 'message': _error};
+    }
+  }
+
+  /// Start OTP for worker registration.
+  Future<Map<String, dynamic>> requestRegisterOtp({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.startAuthOtp(
+        action: 'register',
+        role: 'worker',
+        name: name,
+        email: email,
+        phone: phone,
+        password: password,
+      );
+
+      _isLoading = false;
+      if (result['success']) {
+        notifyListeners();
+        return {
+          'success': true,
+          'sessionId': result['data']?['data']?['session_id'],
+          'message': result['data']?['message'] ?? 'OTP sent successfully',
+        };
+      }
+
+      _error =
+          result['data']?['message'] ??
+          result['data']?['error'] ??
+          'Failed to send OTP';
+      notifyListeners();
+      return {'success': false, 'message': _error};
+    } catch (e) {
+      _isLoading = false;
+      _error = 'OTP request error: $e';
+      notifyListeners();
+      return {'success': false, 'message': _error};
+    }
+  }
+
+  /// Start OTP for worker login.
+  Future<Map<String, dynamic>> requestLoginOtp({
+    required String email,
+    required String password,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.startAuthOtp(
+        action: 'login',
+        role: 'worker',
+        email: email,
+        password: password,
+      );
+
+      _isLoading = false;
+      if (result['success']) {
+        notifyListeners();
+        return {
+          'success': true,
+          'sessionId': result['data']?['data']?['session_id'],
+          'message': result['data']?['message'] ?? 'OTP sent successfully',
+        };
+      }
+
+      _error =
+          result['data']?['message'] ??
+          result['data']?['error'] ??
+          'Failed to send OTP';
+      notifyListeners();
+      return {'success': false, 'message': _error};
+    } catch (e) {
+      _isLoading = false;
+      _error = 'OTP request error: $e';
+      notifyListeners();
+      return {'success': false, 'message': _error};
+    }
+  }
+
+  /// Verify OTP and complete auth for worker flows.
+  Future<Map<String, dynamic>> verifyAuthOtp({
+    required String sessionId,
+    required String otp,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.verifyAuthOtp(
+        sessionId: sessionId,
+        otp: otp,
+      );
+
+      _isLoading = false;
+      if (result['success']) {
+        final userData = result['data']?['data'] as Map<String, dynamic>?;
+        final role = (userData?['role'] ?? '').toString().toLowerCase();
+
+        if (userData == null || role != 'worker') {
+          _error = 'Invalid login. Please use customer login.';
+          notifyListeners();
+          return {'success': false, 'message': _error};
+        }
+
+        _setAuthenticatedWorker(userData);
+        await fetchProfile();
+        notifyListeners();
+
+        return {
+          'success': true,
+          'message': result['data']?['message'] ?? 'OTP verified successfully',
+        };
+      }
+
+      _error =
+          result['data']?['message'] ??
+          result['data']?['error'] ??
+          'OTP verification failed';
+      notifyListeners();
+      return {'success': false, 'message': _error};
+    } catch (e) {
+      _isLoading = false;
+      _error = 'OTP verification error: $e';
+      notifyListeners();
+      return {'success': false, 'message': _error};
+    }
+  }
+
+  /// Resend OTP for an active auth challenge.
+  Future<Map<String, dynamic>> resendAuthOtp(String sessionId) async {
+    try {
+      final result = await _apiService.resendAuthOtp(sessionId: sessionId);
+      if (result['success']) {
+        return {
+          'success': true,
+          'message': result['data']?['message'] ?? 'OTP resent successfully',
+        };
+      }
+
+      return {
+        'success': false,
+        'message':
+            result['data']?['message'] ??
+            result['data']?['error'] ??
+            'Failed to resend OTP',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'OTP resend error: $e'};
     }
   }
 

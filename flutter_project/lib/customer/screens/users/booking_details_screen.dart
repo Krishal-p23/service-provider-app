@@ -443,7 +443,6 @@ import 'package:intl/intl.dart';
 import '../../providers/booking_provider.dart';
 import '../../providers/service_provider.dart';
 import '../../../providers/user_provider.dart';
-import '../../utils/mock_data.dart';
 import '../main_screen.dart';
 
 class BookingDetailsScreen extends StatefulWidget {
@@ -885,17 +884,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final serviceProvider = Provider.of<ServiceProvider>(context);
-    final userProvider = Provider.of<UserProvider>(context);
 
     final service = serviceProvider.getServiceById(widget.serviceId);
-    final worker = MockDatabase.getWorkerById(widget.workerId);
-    final workerUser = worker != null
-        ? MockDatabase.getUserById(worker.userId)
-        : null;
-    final currentUser = userProvider.currentUser;
-    final userLocation = currentUser != null
-        ? MockDatabase.getUserLocation(currentUser.id)
-        : null;
+    final worker = serviceProvider.getWorkerById(widget.workerId);
+    final workerUser = serviceProvider.getWorkerUserByWorkerId(widget.workerId);
+    final userLocation = null;
 
     if (service == null || worker == null) {
       return Scaffold(

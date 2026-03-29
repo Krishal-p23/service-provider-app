@@ -361,11 +361,9 @@
 //   }
 // }
 
-
 import 'package:flutter/material.dart';
 import '../widgets/address_bar.dart';
 import '../widgets/quick_action_tiles.dart';
-import '../widgets/promotional_cards.dart';
 import '../widgets/trust_strip.dart';
 import '../widgets/category_grid.dart';
 import '../delegates/service_search_delegate.dart';
@@ -389,10 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openSearch() {
-    showSearch(
-      context: context,
-      delegate: ServiceSearchDelegate(),
-    );
+    showSearch(context: context, delegate: ServiceSearchDelegate());
   }
 
   void _handleSearch(String query) {
@@ -400,9 +395,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => SearchResultsScreen(
-            query: query.trim(),
-          ),
+          builder: (context) => SearchResultsScreen(query: query.trim()),
         ),
       );
     }
@@ -413,10 +406,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SearchResultsScreen(
-          query: categoryName,
-          categoryId: categoryId,
-        ),
+        builder: (context) =>
+            SearchResultsScreen(query: categoryName, categoryId: categoryId),
       ),
     );
   }
@@ -443,24 +434,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   FocusScope.of(context).unfocus();
                 },
                 onSubmitted: _handleSearch,
-                readOnly: true, // Make read-only since we're using search delegate
+                readOnly:
+                    true, // Make read-only since we're using search delegate
                 decoration: InputDecoration(
                   hintText: 'Search for services...',
                   hintStyle: TextStyle(
-                    color: isDark 
-                        ? AppTheme.darkTextSecondary 
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
                         : AppTheme.lightTextSecondary,
                   ),
                   prefixIcon: Icon(
                     Icons.search,
-                    color: isDark 
-                        ? AppTheme.darkTextSecondary 
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
                         : AppTheme.lightTextSecondary,
                   ),
                   suffixIcon: Icon(
                     Icons.mic_none,
-                    color: isDark 
-                        ? AppTheme.darkTextSecondary 
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
                         : AppTheme.lightTextSecondary,
                   ),
                   filled: true,
@@ -468,7 +460,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? AppTheme.darkSurfaceVariant
                       : AppTheme.lightBackground,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
+                    borderRadius: BorderRadius.circular(
+                      AppTheme.borderRadiusSmall,
+                    ),
                     borderSide: BorderSide(
                       color: isDark
                           ? AppTheme.darkDivider
@@ -476,7 +470,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
+                    borderRadius: BorderRadius.circular(
+                      AppTheme.borderRadiusSmall,
+                    ),
                     borderSide: BorderSide(
                       color: isDark
                           ? AppTheme.darkDivider
@@ -495,9 +491,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const AddressBar(),
 
             // Quick Action Tiles with navigation
-            QuickActionTiles(
-              onCategoryTap: _handleCategoryTap,
-            ),
+            QuickActionTiles(onCategoryTap: _handleCategoryTap),
 
             // Scrollable Content
             Expanded(
@@ -506,20 +500,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     const SizedBox(height: AppTheme.spacingMedium),
 
-                    // Promotional Cards
-                    const PromotionalCards(),
-
-                    const SizedBox(height: AppTheme.spacingMedium),
-
                     // Trust Strip
                     const TrustStrip(),
 
                     const SizedBox(height: AppTheme.spacingMedium),
 
                     // Category Grid with navigation
-                    CategoryGrid(
-                      onCategoryTap: _handleCategoryTap,
-                    ),
+                    CategoryGrid(onCategoryTap: _handleCategoryTap),
 
                     const SizedBox(height: 80),
                   ],

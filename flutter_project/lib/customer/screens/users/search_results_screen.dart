@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../providers/service_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../widgets/service_provider_card.dart';
-import '../../utils/mock_data.dart';
 import '../../../theme/app_theme.dart';
 import 'service_provider_details_screen.dart';
 
@@ -11,11 +10,7 @@ class SearchResultsScreen extends StatefulWidget {
   final String query;
   final int? categoryId;
 
-  const SearchResultsScreen({
-    super.key,
-    required this.query,
-    this.categoryId,
-  });
+  const SearchResultsScreen({super.key, required this.query, this.categoryId});
 
   @override
   State<SearchResultsScreen> createState() => _SearchResultsScreenState();
@@ -36,12 +31,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
     if (currentUser == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Search Results'),
-        ),
-        body: const Center(
-          child: Text('Please log in to view results'),
-        ),
+        appBar: AppBar(title: const Text('Search Results')),
+        body: const Center(child: Text('Please log in to view results')),
       );
     }
 
@@ -61,7 +52,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(_showFilters ? Icons.filter_list_off : Icons.filter_list),
+            icon: Icon(
+              _showFilters ? Icons.filter_list_off : Icons.filter_list,
+            ),
             tooltip: _showFilters ? 'Hide Filters' : 'Show Filters',
             onPressed: () {
               setState(() {
@@ -81,7 +74,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 color: isDark ? AppTheme.darkSurface : AppTheme.lightSurface,
                 border: Border(
                   bottom: BorderSide(
-                    color: isDark ? AppTheme.darkDivider : AppTheme.lightDivider,
+                    color: isDark
+                        ? AppTheme.darkDivider
+                        : AppTheme.lightDivider,
                     width: 1,
                   ),
                 ),
@@ -94,16 +89,24 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     'Sort By',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.lightTextPrimary,
                     ),
                   ),
                   const SizedBox(height: AppTheme.spacingSmall),
                   Container(
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkSurfaceVariant : AppTheme.lightBackground,
-                      borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
+                      color: isDark
+                          ? AppTheme.darkSurfaceVariant
+                          : AppTheme.lightBackground,
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.borderRadiusSmall,
+                      ),
                       border: Border.all(
-                        color: isDark ? AppTheme.darkDivider : AppTheme.lightDivider,
+                        color: isDark
+                            ? AppTheme.darkDivider
+                            : AppTheme.lightDivider,
                       ),
                     ),
                     child: DropdownButtonHideUnderline(
@@ -114,7 +117,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           horizontal: AppTheme.spacingMedium,
                           vertical: AppTheme.spacingXSmall,
                         ),
-                        borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.borderRadiusSmall,
+                        ),
                         items: const [
                           DropdownMenuItem(
                             value: 'distance',
@@ -137,24 +142,32 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: AppTheme.spacingLarge),
-                  
+
                   // Minimum Rating Dropdown
                   Text(
                     'Minimum Rating',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.lightTextPrimary,
                     ),
                   ),
                   const SizedBox(height: AppTheme.spacingSmall),
                   Container(
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkSurfaceVariant : AppTheme.lightBackground,
-                      borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
+                      color: isDark
+                          ? AppTheme.darkSurfaceVariant
+                          : AppTheme.lightBackground,
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.borderRadiusSmall,
+                      ),
                       border: Border.all(
-                        color: isDark ? AppTheme.darkDivider : AppTheme.lightDivider,
+                        color: isDark
+                            ? AppTheme.darkDivider
+                            : AppTheme.lightDivider,
                       ),
                     ),
                     child: DropdownButtonHideUnderline(
@@ -165,24 +178,17 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           horizontal: AppTheme.spacingMedium,
                           vertical: AppTheme.spacingXSmall,
                         ),
-                        borderRadius: BorderRadius.circular(AppTheme.borderRadiusSmall),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.borderRadiusSmall,
+                        ),
                         items: const [
                           DropdownMenuItem(
                             value: null,
                             child: Text('Any Rating'),
                           ),
-                          DropdownMenuItem(
-                            value: 3.0,
-                            child: Text('3.0+ ⭐'),
-                          ),
-                          DropdownMenuItem(
-                            value: 4.0,
-                            child: Text('4.0+ ⭐'),
-                          ),
-                          DropdownMenuItem(
-                            value: 4.5,
-                            child: Text('4.5+ ⭐'),
-                          ),
+                          DropdownMenuItem(value: 3.0, child: Text('3.0+ ⭐')),
+                          DropdownMenuItem(value: 4.0, child: Text('4.0+ ⭐')),
+                          DropdownMenuItem(value: 4.5, child: Text('4.5+ ⭐')),
                         ],
                         onChanged: (value) {
                           setState(() => _minRating = value);
@@ -193,7 +199,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 ],
               ),
             ),
-          
+
           // Results Count and Info
           Container(
             padding: const EdgeInsets.symmetric(
@@ -217,7 +223,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     Icon(
                       Icons.search,
                       size: 16,
-                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.lightTextSecondary,
                     ),
                     const SizedBox(width: AppTheme.spacingSmall),
                     Expanded(
@@ -225,7 +233,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         '${workersData.length} service provider${workersData.length == 1 ? '' : 's'} found',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.lightTextPrimary,
                         ),
                       ),
                     ),
@@ -238,14 +248,18 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                       Icon(
                         _sortBy == 'rating' ? Icons.star : Icons.near_me,
                         size: 14,
-                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.lightTextSecondary,
                       ),
                       const SizedBox(width: AppTheme.spacingSmall),
                       Expanded(
                         child: Text(
                           _getSortDescription(),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.lightTextSecondary,
                           ),
                         ),
                       ),
@@ -255,7 +269,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               ],
             ),
           ),
-          
+
           // Results List
           Expanded(
             child: workersData.isEmpty
@@ -274,7 +288,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           Text(
                             'No service providers found',
                             style: theme.textTheme.titleLarge?.copyWith(
-                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.lightTextPrimary,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -282,7 +298,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           Text(
                             'Try adjusting your filters or search query',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.lightTextSecondary,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -291,33 +309,41 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingSmall),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppTheme.spacingSmall,
+                    ),
                     itemCount: workersData.length,
                     itemBuilder: (context, index) {
                       final data = workersData[index];
                       final worker = data['worker'];
                       final distance = data['distance'];
                       final rating = data['rating'];
-                      
-                      final user = MockDatabase.getUserById(worker.userId);
-                      final reviews = MockDatabase.getReviewsByWorkerId(worker.id);
-                      
+
+                      final user = serviceProvider.getWorkerUserByWorkerId(
+                        worker.id,
+                      );
+                      final completedJobs = serviceProvider
+                          .getWorkerCompletedJobs(worker.id);
+
                       return ServiceProviderCard(
                         worker: worker,
                         user: user,
                         distance: distance,
                         rating: rating,
-                        completedJobs: reviews.length,
-                        category: widget.categoryId != null 
-                            ? MockDatabase.getCategoryById(widget.categoryId!)?.categoryName
+                        completedJobs: completedJobs,
+                        category: widget.categoryId != null
+                            ? serviceProvider
+                                  .getCategoryById(widget.categoryId!)
+                                  ?.categoryName
                             : null,
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ServiceProviderDetailsScreen(
-                                workerId: worker.id,
-                              ),
+                              builder: (context) =>
+                                  ServiceProviderDetailsScreen(
+                                    workerId: worker.id,
+                                  ),
                             ),
                           );
                         },
@@ -325,9 +351,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ServiceProviderDetailsScreen(
-                                workerId: worker.id,
-                              ),
+                              builder: (context) =>
+                                  ServiceProviderDetailsScreen(
+                                    workerId: worker.id,
+                                  ),
                             ),
                           );
                         },

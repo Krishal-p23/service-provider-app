@@ -23,7 +23,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/accounts/', include('authentication.urls')),
     path('api/workers/', include('workers.urls')),
-    # path('api/services/', include('services.urls')),
+    path('api/services/', include('services.urls')),
+    path('api/bookings/', include('bookings.urls')),
+    path('api/reviews/', include('reviews.urls')),
 ]
 
 # Serve media files during development

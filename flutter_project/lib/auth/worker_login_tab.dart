@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/worker_provider.dart';
 import '../theme/app_theme.dart';
+import 'worker_otp_verification_screen.dart';
 
 class WorkerLoginTab extends StatefulWidget {
   final Color roleColor;
@@ -38,7 +39,7 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
       });
 
       final workerProvider = context.read<WorkerProvider>();
-      final success = await workerProvider.login(
+      final result = await workerProvider.requestLoginOtp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
@@ -47,11 +48,23 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
         _isLoading = false;
       });
 
-      if (success && mounted) {
-        // Navigate to worker dashboard - update route as needed
-        Navigator.pushReplacementNamed(context, '/worker-dashboard');
+      if (result['success'] == true && mounted) {
+        final sessionId = (result['sessionId'] ?? '').toString();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WorkerOTPVerificationScreen(
+              sessionId: sessionId,
+              phone: _emailController.text.trim(),
+              serviceType: 'Login',
+              isLoginFlow: true,
+            ),
+          ),
+        );
       } else if (mounted) {
-        final error = workerProvider.error ?? 'Login failed';
+        final error =
+            (result['message'] ?? workerProvider.error ?? 'Login failed')
+                .toString();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error), backgroundColor: AppTheme.errorColor),
         );

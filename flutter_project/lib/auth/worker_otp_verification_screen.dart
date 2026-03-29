@@ -5,19 +5,17 @@ import '../theme/app_theme.dart';
 import 'dart:async';
 
 class WorkerOTPVerificationScreen extends StatefulWidget {
-  final String name;
-  final String email;
+  final String sessionId;
   final String phone;
-  final String password;
   final String serviceType;
+  final bool isLoginFlow;
 
   const WorkerOTPVerificationScreen({
     super.key,
-    required this.name,
-    required this.email,
+    required this.sessionId,
     required this.phone,
-    required this.password,
     required this.serviceType,
+    required this.isLoginFlow,
   });
 
   @override
@@ -103,17 +101,12 @@ class _WorkerOTPVerificationScreenState
       _isLoading = true;
     });
 
-    await Future.delayed(const Duration(seconds: 1));
-
     if (!mounted) return;
 
     final workerProvider = context.read<WorkerProvider>();
-
-    final result = await workerProvider.register(
-      name: widget.name.trim(),
-      email: widget.email.trim(),
-      phone: widget.phone.trim(),
-      password: widget.password,
+    final result = await workerProvider.verifyAuthOtp(
+      sessionId: widget.sessionId,
+      otp: otp,
     );
 
     setState(() {
@@ -124,18 +117,24 @@ class _WorkerOTPVerificationScreenState
       if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              'Worker registration successful! Please login.',
+            content: Text(
+              widget.isLoginFlow
+                  ? 'Worker login successful'
+                  : 'Worker registration successful',
             ),
             backgroundColor: AppTheme.successColor,
             duration: const Duration(seconds: 3),
           ),
         );
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/worker-dashboard',
+          (route) => false,
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Registration failed'),
+            content: Text(result['message'] ?? 'OTP verification failed'),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -148,7 +147,8 @@ class _WorkerOTPVerificationScreenState
       _isResending = true;
     });
 
-    await Future.delayed(const Duration(seconds: 1));
+    final workerProvider = context.read<WorkerProvider>();
+    final result = await workerProvider.resendAuthOtp(widget.sessionId);
 
     if (mounted) {
       setState(() {
@@ -157,12 +157,18 @@ class _WorkerOTPVerificationScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('OTP sent successfully to your phone'),
-          backgroundColor: AppTheme.successColor,
+          content: Text(
+            (result['message'] ?? 'Failed to resend OTP').toString(),
+          ),
+          backgroundColor: result['success'] == true
+              ? AppTheme.successColor
+              : AppTheme.errorColor,
         ),
       );
 
-      _startResendTimer();
+      if (result['success'] == true) {
+        _startResendTimer();
+      }
     }
   }
 
@@ -195,37 +201,37 @@ class _WorkerOTPVerificationScreenState
               ),
               const SizedBox(height: AppTheme.spacingMedium),
 
-              // Service Type Badge
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.spacingMedium,
-                    vertical: AppTheme.spacingSmall,
-                  ),
-                  decoration: BoxDecoration(
-                    color: workerColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(
-                      AppTheme.borderRadiusLarge,
+              if (!widget.isLoginFlow)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spacingMedium,
+                      vertical: AppTheme.spacingSmall,
                     ),
-                    border: Border.all(color: workerColor.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.build, size: 16, color: workerColor),
-                      const SizedBox(width: AppTheme.spacingSmall - 2),
-                      Text(
-                        _formatServiceType(widget.serviceType),
-                        style: const TextStyle(
-                          color: workerColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
+                    decoration: BoxDecoration(
+                      color: workerColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.borderRadiusLarge,
                       ),
-                    ],
+                      border: Border.all(color: workerColor.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.build, size: 16, color: workerColor),
+                        const SizedBox(width: AppTheme.spacingSmall - 2),
+                        Text(
+                          _formatServiceType(widget.serviceType),
+                          style: const TextStyle(
+                            color: workerColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
               const SizedBox(height: AppTheme.spacingMedium),
 
               Text(
@@ -237,7 +243,7 @@ class _WorkerOTPVerificationScreenState
               ),
               const SizedBox(height: AppTheme.spacingXSmall),
               Text(
-                '+91 ${widget.phone}',
+                widget.phone,
                 style: theme.textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: workerColor,
