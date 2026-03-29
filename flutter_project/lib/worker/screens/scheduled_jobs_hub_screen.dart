@@ -13,7 +13,6 @@ class ScheduledJobsHubScreen extends StatelessWidget {
     final scaffoldBgColor = isDarkMode
         ? AppTheme.darkBackground
         : AppTheme.lightBackground;
-    final textColor = AppTheme.getTextColor(context);
     final subtextColor = AppTheme.getTextColor(context, secondary: true);
 
     return Scaffold(

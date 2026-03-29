@@ -36,19 +36,16 @@ class ApiService {
 
   // Store tokens
   String? _accessToken;
-  String? _refreshToken;
 
   /// Initialize and load tokens from storage
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     _accessToken = prefs.getString('access_token');
-    _refreshToken = prefs.getString('refresh_token');
   }
 
   /// Save tokens to storage
   Future<void> _saveTokens(String access, String refresh) async {
     _accessToken = access;
-    _refreshToken = refresh;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('access_token', access);
     await prefs.setString('refresh_token', refresh);
@@ -57,7 +54,6 @@ class ApiService {
   /// Clear tokens from storage
   Future<void> clearTokens() async {
     _accessToken = null;
-    _refreshToken = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
     await prefs.remove('refresh_token');
@@ -373,7 +369,6 @@ class ApiService {
         };
       }
 
-      final data = jsonDecode(response.body);
       return {'success': false, 'statusCode': response.statusCode, 'data': []};
     } catch (e) {
       return {'success': false, 'statusCode': 500, 'data': []};

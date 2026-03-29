@@ -54,7 +54,6 @@ class BankTransfersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = AppTheme.getTextColor(context);
 
     return Scaffold(

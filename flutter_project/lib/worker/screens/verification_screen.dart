@@ -3,9 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/worker_verification_provider.dart';
-import 'verification_status_screen.dart';
+import 'document_status_screen.dart';
 import '../../theme/app_theme.dart';
-import '../../providers/worker_provider.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -96,12 +95,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ),
         );
 
-        // Navigate to verification status screen
+        // Navigate to backend-driven status screen
         if (mounted) {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const VerificationStatusScreen(),
+              builder: (context) => const DocumentStatusScreen(),
             ),
           );
         }
@@ -144,7 +143,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Info Card - Now mentions demo verification
+                // Info Card
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -176,7 +175,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Demo verification - Submit your ID to see instant verification result',
+                              'Submit your document for identity verification',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.getTextColor(
@@ -478,7 +477,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           ),
                           const SizedBox(width: 8),
                           const Text(
-                            'Demo Verification',
+                            'Guidelines',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -488,10 +487,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '• Upload any clear ID image\n'
-                        '• Verification is instant (demo mode)\n'
-                        '• Result will be random (verified/unverified)\n'
-                        '• Real eKYC will be enabled later',
+                        '• Upload clear, readable image of your ID\n'
+                        '• Ensure all details are visible\n'
+                        '• Accepted: Aadhaar, PAN, Driving License\n'
+                        '• Verification may take some time',
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.5,

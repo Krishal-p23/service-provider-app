@@ -1,70 +1,6 @@
-// import 'package:flutter/material.dart';
-// import 'package:shared_preferences/shared_preferences.dart';
-
-// class WorkerVerificationProvider extends ChangeNotifier {
-//   bool _isVerified = false;
-//   String _governmentId = '';
-//   String _idImagePath = '';
-
-//   bool get isVerified => _isVerified;
-//   String get governmentId => _governmentId;
-//   String get idImagePath => _idImagePath;
-
-//   WorkerVerificationProvider() {
-//     _loadVerificationStatus();
-//   }
-
-//   Future<void> _loadVerificationStatus() async {
-//     try {
-//       final prefs = await SharedPreferences.getInstance();
-//       _isVerified = prefs.getBool('worker_verified') ?? false;
-//       _governmentId = prefs.getString('worker_gov_id') ?? '';
-//       _idImagePath = prefs.getString('worker_id_image') ?? '';
-//       notifyListeners();
-//     } catch (e) {
-//       // If shared_preferences fails, keep default values
-//       _isVerified = false;
-//     }
-//   }
-
-//   Future<bool> submitVerification(String govId, String imagePath) async {
-//     try {
-//       final prefs = await SharedPreferences.getInstance();
-//       await prefs.setBool('worker_verified', true);
-//       await prefs.setString('worker_gov_id', govId);
-//       await prefs.setString('worker_id_image', imagePath);
-
-//       _isVerified = true;
-//       _governmentId = govId;
-//       _idImagePath = imagePath;
-//       notifyListeners();
-//       return true;
-//     } catch (e) {
-//       return false;
-//     }
-//   }
-
-//   Future<void> clearVerification() async {
-//     try {
-//       final prefs = await SharedPreferences.getInstance();
-//       await prefs.remove('worker_verified');
-//       await prefs.remove('worker_gov_id');
-//       await prefs.remove('worker_id_image');
-
-//       _isVerified = false;
-//       _governmentId = '';
-//       _idImagePath = '';
-//       notifyListeners();
-//     } catch (e) {
-//       // Ignore errors
-//     }
-//   }
-// }
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/worker_verification_api_service.dart';
-import '../services/mock_verification_service.dart';
 import '../../customer/services/api_service.dart';
 
 class WorkerVerificationProvider extends ChangeNotifier {
@@ -148,10 +84,7 @@ class WorkerVerificationProvider extends ChangeNotifier {
     }
   }
 
-  /// Submit document verification using MOCK service (no backend call)
-  ///
-  /// Shows random verification result for demo/testing purposes
-  /// Stores image locally and returns verified/unverified randomly
+  /// Submit document verification to backend API
   ///
   /// Parameters:
   /// - [documentType]: Type of document (aadhar, pan, driving_license, passport, voter_id)
@@ -166,42 +99,43 @@ class WorkerVerificationProvider extends ChangeNotifier {
   }) async {
     try {
       print(
-        '[VerificationProvider] Starting MOCK verification: docType=$documentType, govId=$govId, imagePath=$imagePath',
-      );
-      print(
-        '[VerificationProvider] NOTE: Using mock verification service (no backend call)',
+        '[VerificationProvider] Starting upload: docType=$documentType, govId=$govId, imagePath=$imagePath',
       );
 
-      // Call mock service to verify document locally
-      print('[VerificationProvider] Calling mock verification service...');
-      final result = await MockVerificationService.verifyDocument(
+      await _authService.initialize();
+      final token = _authService.accessToken;
+
+      if (token == null) {
+        _lastError = 'Not authenticated. Please login again.';
+        notifyListeners();
+        return false;
+      }
+
+      print('[VerificationProvider] Calling API to upload document...');
+      final result = await _apiService.uploadDocument(
+        token: token,
         documentType: documentType,
         documentNumber: govId,
         imagePath: imagePath,
       );
 
-      print('[VerificationProvider] Mock Verification Response: $result');
+      print('[VerificationProvider] API Response: $result');
 
       if (result['success'] == true) {
-        // Update local state with mock result
-        final data = result['data'] as Map<String, dynamic>;
-        final isVerified = data['is_verified'] as bool;
-
+        // Upload succeeds first as pending; verification may happen later.
         _documentType = documentType;
         _governmentId = govId;
-        _idImagePath = data['document_image'] as String? ?? imagePath;
-        _isVerified = isVerified;
-        _isPending = false; // Not pending - we have immediate result
+        _idImagePath = imagePath;
+        _isVerified = false;
+        _isPending = true;
         _lastError = null;
 
-        print(
-          '[VerificationProvider] Mock verification successful! Status: ${isVerified ? 'VERIFIED' : 'UNVERIFIED'}',
-        );
+        print('[VerificationProvider] Upload successful! Pending review.');
         notifyListeners();
         return true;
       } else {
-        _lastError = result['error'] ?? 'Failed to verify document';
-        print('[VerificationProvider] Mock verification failed: $_lastError');
+        _lastError = result['error'] ?? 'Failed to upload document';
+        print('[VerificationProvider] Upload failed: $_lastError');
         notifyListeners();
         return false;
       }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
-import '../../theme/theme_provider.dart';
 import '../../theme/app_theme.dart';
 import '../services/location_service.dart';
 
@@ -11,10 +10,10 @@ class AddressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
-    final themeProvider = context.watch<ThemeProvider>();
 
     // Determine if user has a valid address from UserLocation
-    final hasAddress = userProvider.isLoggedIn &&
+    final hasAddress =
+        userProvider.isLoggedIn &&
         userProvider.currentUserLocation != null &&
         userProvider.currentUserLocation!.address.isNotEmpty;
 
@@ -42,9 +41,7 @@ class AddressBar extends StatelessWidget {
             const SizedBox(width: AppTheme.spacingSmall - 2),
             Expanded(
               child: Text(
-                hasAddress
-                    ? userProvider.displayAddress
-                    : 'Add your address',
+                hasAddress ? userProvider.displayAddress : 'Add your address',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
@@ -92,18 +89,12 @@ class AddressBar extends StatelessWidget {
             ),
 
             // Title
-            Text(
-              'Select Address Option',
-              style: theme.textTheme.titleLarge,
-            ),
+            Text('Select Address Option', style: theme.textTheme.titleLarge),
             const SizedBox(height: AppTheme.spacingLarge),
 
             if (hasAddress)
               ListTile(
-                leading: Icon(
-                  Icons.edit_location,
-                  color: theme.primaryColor,
-                ),
+                leading: Icon(Icons.edit_location, color: theme.primaryColor),
                 title: const Text('Edit current address'),
                 subtitle: const Text('Modify your saved address'),
                 onTap: () {
@@ -113,10 +104,7 @@ class AddressBar extends StatelessWidget {
               ),
 
             ListTile(
-              leading: Icon(
-                Icons.my_location,
-                color: theme.primaryColor,
-              ),
+              leading: Icon(Icons.my_location, color: theme.primaryColor),
               title: const Text('Use current location'),
               subtitle: const Text('Get address from GPS'),
               onTap: () async {
@@ -126,11 +114,10 @@ class AddressBar extends StatelessWidget {
             ),
 
             ListTile(
-              leading: Icon(
-                Icons.add_location,
-                color: theme.primaryColor,
+              leading: Icon(Icons.add_location, color: theme.primaryColor),
+              title: Text(
+                hasAddress ? 'Add new address' : 'Add address manually',
               ),
-              title: Text(hasAddress ? 'Add new address' : 'Add address manually'),
               subtitle: const Text('Enter address details'),
               onTap: () {
                 Navigator.pop(bottomSheetContext);
@@ -163,9 +150,8 @@ class AddressBar extends StatelessWidget {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
         );
 
         // Update user's location via API

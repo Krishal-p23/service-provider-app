@@ -1,6 +1,3 @@
-
-
-
 // import 'package:flutter/material.dart';
 // import 'package:provider/provider.dart';
 // import 'package:intl/intl.dart';
@@ -581,7 +578,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           itemBuilder: (context, index) {
                             final slot = _timeSlots[index];
                             final isBlocked = _checkIfSlotBlocked(slot);
-                            final isSelected = _selectedTimeSlot == slot;
 
                             return RadioListTile<String>(
                               title: Text(
@@ -684,7 +680,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                                'Service provider is already allocated for this time slot'),
+                              'Service provider is already allocated for this time slot',
+                            ),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -698,7 +695,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                                'Service provider is already allocated for this time slot'),
+                              'Service provider is already allocated for this time slot',
+                            ),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -780,7 +778,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Service provider is already allocated for this time slot'),
+            'Service provider is already allocated for this time slot',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -791,7 +790,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Service provider is already allocated for this time slot'),
+            'Service provider is already allocated for this time slot',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -801,11 +801,15 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final bookingProvider =
-          Provider.of<BookingProvider>(context, listen: false);
+      final bookingProvider = Provider.of<BookingProvider>(
+        context,
+        listen: false,
+      );
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final serviceProvider =
-          Provider.of<ServiceProvider>(context, listen: false);
+      final serviceProvider = Provider.of<ServiceProvider>(
+        context,
+        listen: false,
+      );
 
       final service = serviceProvider.getServiceById(widget.serviceId);
       final currentUser = userProvider.currentUser;
@@ -852,9 +856,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       // Navigate to main screen with history tab
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(
-          builder: (context) => const MainScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const MainScreen()),
         (route) => false,
       );
 
@@ -887,8 +889,9 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
     final service = serviceProvider.getServiceById(widget.serviceId);
     final worker = MockDatabase.getWorkerById(widget.workerId);
-    final workerUser =
-        worker != null ? MockDatabase.getUserById(worker.userId) : null;
+    final workerUser = worker != null
+        ? MockDatabase.getUserById(worker.userId)
+        : null;
     final currentUser = userProvider.currentUser;
     final userLocation = currentUser != null
         ? MockDatabase.getUserLocation(currentUser.id)
@@ -902,9 +905,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Booking Details'),
-      ),
+      appBar: AppBar(title: const Text('Booking Details')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -968,8 +969,9 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       children: [
                         CircleAvatar(
                           radius: 24,
-                          backgroundColor:
-                              theme.primaryColor.withValues(alpha: 0.1),
+                          backgroundColor: theme.primaryColor.withValues(
+                            alpha: 0.1,
+                          ),
                           backgroundImage: worker.profilePhoto != null
                               ? NetworkImage(worker.profilePhoto!)
                               : null,
@@ -1014,10 +1016,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Select Date',
-                      style: theme.textTheme.displaySmall,
-                    ),
+                    Text('Select Date', style: theme.textTheme.displaySmall),
                     const SizedBox(height: 12),
                     InkWell(
                       onTap: () => _selectDate(context),
@@ -1029,14 +1028,17 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.calendar_today,
-                                color: theme.primaryColor),
+                            Icon(
+                              Icons.calendar_today,
+                              color: theme.primaryColor,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 _selectedDate != null
-                                    ? DateFormat('EEEE, MMMM dd, yyyy')
-                                        .format(_selectedDate!)
+                                    ? DateFormat(
+                                        'EEEE, MMMM dd, yyyy',
+                                      ).format(_selectedDate!)
                                     : 'Select a date',
                                 style: theme.textTheme.bodyLarge,
                               ),
@@ -1059,10 +1061,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Select Time',
-                      style: theme.textTheme.displaySmall,
-                    ),
+                    Text('Select Time', style: theme.textTheme.displaySmall),
                     const SizedBox(height: 12),
                     InkWell(
                       onTap: _showTimeSelectionDialog,
@@ -1082,8 +1081,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                                 style: theme.textTheme.bodyLarge,
                               ),
                             ),
-                            Icon(Icons.arrow_drop_down,
-                                color: theme.primaryColor),
+                            Icon(
+                              Icons.arrow_drop_down,
+                              color: theme.primaryColor,
+                            ),
                           ],
                         ),
                       ),
@@ -1137,10 +1138,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Total Amount',
-                    style: theme.textTheme.displaySmall,
-                  ),
+                  Text('Total Amount', style: theme.textTheme.displaySmall),
                   Text(
                     '₹${service.basePrice.toStringAsFixed(0)}',
                     style: theme.textTheme.displayMedium?.copyWith(
@@ -1181,10 +1179,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       strokeWidth: 2,
                     ),
                   )
-                : const Text(
-                    'Confirm Booking',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                : const Text('Confirm Booking', style: TextStyle(fontSize: 16)),
           ),
         ),
       ),

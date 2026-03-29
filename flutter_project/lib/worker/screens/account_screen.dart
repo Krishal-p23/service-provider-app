@@ -20,7 +20,6 @@ class WorkerAccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final workerProvider = context.watch<WorkerProvider>();
     final user = workerProvider.currentUser;
-    final worker = workerProvider.currentWorker;
     final surfaceColor = AppTheme.getSurfaceColor(context);
     final textColor = AppTheme.getTextColor(context);
 

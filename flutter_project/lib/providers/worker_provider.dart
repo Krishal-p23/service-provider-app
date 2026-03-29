@@ -15,7 +15,7 @@ class WorkerProvider extends ChangeNotifier {
 
   // Worker statistics
   int _todayJobsCount = 0;
-  int _weekJobsCount = 0;
+  final int _weekJobsCount = 0;
   double _totalEarnings = 0;
   double _averageRating = 0;
   int _completedJobs = 0;

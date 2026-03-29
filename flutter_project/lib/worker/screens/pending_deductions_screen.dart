@@ -240,9 +240,7 @@ class PendingDeductionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = AppTheme.getTextColor(context);
-    final textSecondary = AppTheme.getTextColor(context, secondary: true);
     final surfaceColor = AppTheme.getSurfaceColor(context);
-    final dividerColor = AppTheme.getDividerColor(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

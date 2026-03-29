@@ -389,9 +389,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController = TextEditingController(text: user?.name ?? '');
     _mobileController = TextEditingController(text: user?.phone ?? '');
 
-    // Parse address if available
-    // TODO: Add address parsing when user model has address
-    final address = ''; // user?.address ?? '';
     _pincodeController = TextEditingController();
     _cityController = TextEditingController();
     _localityController = TextEditingController();
@@ -419,16 +416,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final currentUser = workerProvider.currentUser;
 
       if (currentUser != null) {
-        // Build full address
-        final addressParts = [
-          _localityController.text,
-          _landmarkController.text.isNotEmpty ? _landmarkController.text : null,
-          _cityController.text,
-          _stateController.text,
-          _pincodeController.text,
-          _countryController.text,
-        ].where((part) => part != null && part.isNotEmpty).join(', ');
-
         final userData = {
           'name': _nameController.text,
           'email': currentUser.email,

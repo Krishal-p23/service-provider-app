@@ -11,10 +11,8 @@ class ScheduledJobsDayScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = AppTheme.getTextColor(context);
     final surfaceColor = AppTheme.getSurfaceColor(context);
-    final dividerColor = AppTheme.getDividerColor(context);
 
     return Consumer<JobProvider>(
       builder: (context, jobProvider, _) {
@@ -61,7 +59,6 @@ class ScheduledJobsDayScreen extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final textSecondary = AppTheme.getTextColor(context, secondary: true);
 
     return Center(

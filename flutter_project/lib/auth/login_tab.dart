@@ -62,7 +62,6 @@ class _LoginTabState extends State<LoginTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.spacingXLarge),
