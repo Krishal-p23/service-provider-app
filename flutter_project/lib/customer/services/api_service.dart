@@ -404,6 +404,120 @@ class ApiService {
     }
   }
 
+  /// Get worker profile
+  /// GET /api/workers/profile/
+  Future<Map<String, dynamic>> getWorkerProfile() async {
+    try {
+      final url = '$baseUrl/workers/profile/';
+      print('🔵 DEBUG: Fetching worker profile from: $url');
+      print('🔵 DEBUG: Headers: $_headers');
+
+      final response = await http.get(Uri.parse(url), headers: _headers);
+
+      print('🔵 DEBUG: Profile response status: ${response.statusCode}');
+      print(
+        '🔵 DEBUG: Profile response body (first 300 chars): ${response.body.substring(0, response.body.length > 300 ? 300 : response.body.length)}',
+      );
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      print('❌ ERROR in getWorkerProfile: $e');
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Get worker jobs with filtering
+  /// GET /api/workers/jobs/?filter=day|week|month&status=optional
+  Future<Map<String, dynamic>> getWorkerJobs({
+    String filter = 'day',
+    String? status,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/workers/jobs/').replace(
+        queryParameters: {
+          'filter': filter,
+          if (status != null) 'status': status,
+        },
+      );
+
+      print('🔵 DEBUG: Fetching jobs from: $uri');
+      print('🔵 DEBUG: Headers: $_headers');
+      print('🔵 DEBUG: Access token: ${_headers['Authorization']}');
+
+      final response = await http.get(uri, headers: _headers);
+
+      print('🔵 DEBUG: Response status: ${response.statusCode}');
+      print(
+        '🔵 DEBUG: Response body (first 500 chars): ${response.body.substring(0, response.body.length > 500 ? 500 : response.body.length)}',
+      );
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      print('❌ ERROR in getWorkerJobs: $e');
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Get worker statistics
+  /// GET /api/workers/stats/
+  Future<Map<String, dynamic>> getWorkerStats() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/workers/stats/'),
+        headers: _headers,
+      );
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
   /// Logout
   Future<void> logout() async {
     await clearTokens();

@@ -3,6 +3,15 @@ import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../customer/screens/onboarding_screen.dart';
+import 'edit_profile_screen.dart';
+import 'verification_screen.dart';
+import 'bank_transfers_screen.dart';
+import 'past_services_screen.dart';
+import 'my_reviews_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_conditions_screen.dart';
+import 'help_support_screen.dart';
+import 'settings_screen.dart';
 
 class WorkerAccountScreen extends StatelessWidget {
   const WorkerAccountScreen({super.key});
@@ -30,7 +39,10 @@ class WorkerAccountScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {
-              // TODO: Navigate to settings
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
             },
           ),
         ],
@@ -179,7 +191,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Full Name',
                 user?.name ?? 'Not set',
                 () {
-                  // TODO: Navigate to edit name
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EditProfileScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -188,7 +205,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Mobile Number',
                 user?.phone ?? 'Not set',
                 () {
-                  // TODO: Navigate to edit mobile
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EditProfileScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -197,7 +219,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Email',
                 user?.email ?? 'Not set',
                 () {
-                  // TODO: Navigate to edit email
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EditProfileScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -206,7 +233,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Address',
                 'Not set', // TODO: Add address to user model
                 () {
-                  // TODO: Navigate to edit address
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EditProfileScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -235,7 +267,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Verification Status',
                 'View your verification documents',
                 () {
-                  // TODO: Navigate to verification
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const VerificationScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -244,7 +281,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Bank Details',
                 'Manage your payment methods',
                 () {
-                  // TODO: Navigate to bank details
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const BankTransfersScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -253,7 +295,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Work History',
                 'View your completed jobs',
                 () {
-                  // TODO: Navigate to work history
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PastServicesScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -262,7 +309,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Reviews & Ratings',
                 'See what customers say about you',
                 () {
-                  // TODO: Navigate to reviews
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MyReviewsScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -291,7 +343,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Privacy Policy',
                 'Read our privacy policy',
                 () {
-                  // TODO: Navigate to privacy policy
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PrivacyPolicyScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -300,7 +357,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Terms & Conditions',
                 'Read terms and conditions',
                 () {
-                  // TODO: Navigate to terms
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TermsConditionsScreen(),
+                    ),
+                  );
                 },
               ),
 
@@ -309,7 +371,12 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Help & Support',
                 'Get help with your account',
                 () {
-                  // TODO: Navigate to help
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const HelpSupportScreen(),
+                    ),
+                  );
                 },
               ),
 

@@ -13,6 +13,13 @@ class WorkerProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  // Worker statistics
+  int _todayJobsCount = 0;
+  int _weekJobsCount = 0;
+  double _totalEarnings = 0;
+  double _averageRating = 0;
+  int _completedJobs = 0;
+
   User? get currentUser => _currentUser;
   Worker? get currentWorker => _workerProfile;
   Worker? get workerProfile => _workerProfile;
@@ -20,11 +27,12 @@ class WorkerProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Placeholder stats until worker jobs/payments endpoints are integrated.
-  int get todayJobsCount => 0;
-  int get weekJobsCount => 0;
-  double get totalEarnings => 0;
-  double get averageRating => 0;
+  // Stats getters with real data
+  int get todayJobsCount => _todayJobsCount;
+  int get weekJobsCount => _weekJobsCount;
+  double get totalEarnings => _totalEarnings;
+  double get averageRating => _averageRating;
+  int get completedJobs => _completedJobs;
 
   /// Initialize provider and check if worker is already logged in
   Future<void> initialize() async {
@@ -128,8 +136,8 @@ class WorkerProvider extends ChangeNotifier {
     }
   }
 
-  /// Fetch current worker profile
-  /// API: POST /api/accounts/me/
+  /// Fetch current worker profile with stats
+  /// API: GET /api/accounts/me/ and GET /api/workers/profile/ and GET /api/workers/stats/
   Future<void> fetchProfile() async {
     try {
       final result = await _apiService.getProfile();
@@ -142,14 +150,11 @@ class WorkerProvider extends ChangeNotifier {
         if (role == 'worker') {
           _currentUser = User.fromJson(userData);
 
-          // TODO: When backend provides worker details, parse them here
-          // For now, create a basic worker profile
-          _workerProfile = Worker(
-            id: userData['id'] ?? 0,
-            userId: userData['id'] ?? 0,
-            isVerified: false,
-            isAvailable: true,
-          );
+          // Fetch detailed worker profile
+          await fetchWorkerProfile();
+
+          // Fetch worker statistics
+          await fetchWorkerStats();
 
           _error = null;
         } else {
@@ -165,6 +170,57 @@ class WorkerProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Profile fetch error: $e';
       notifyListeners();
+    }
+  }
+
+  /// Fetch detailed worker profile from workers app
+  Future<void> fetchWorkerProfile() async {
+    try {
+      final result = await _apiService.getWorkerProfile();
+
+      if (result['success']) {
+        final data = result['data'];
+        _workerProfile = Worker(
+          id: data['worker_id'] ?? 0,
+          userId: data['user_id'] ?? 0,
+          isVerified: data['is_verified'] ?? false,
+          isAvailable: data['is_available'] ?? true,
+        );
+      } else {
+        // Fallback: create basic profile
+        _workerProfile = Worker(
+          id: _currentUser?.id ?? 0,
+          userId: _currentUser?.id ?? 0,
+          isVerified: false,
+          isAvailable: true,
+        );
+      }
+    } catch (e) {
+      // Fallback: create basic profile
+      _workerProfile = Worker(
+        id: _currentUser?.id ?? 0,
+        userId: _currentUser?.id ?? 0,
+        isVerified: false,
+        isAvailable: true,
+      );
+    }
+  }
+
+  /// Fetch worker statistics from API
+  Future<void> fetchWorkerStats() async {
+    try {
+      final result = await _apiService.getWorkerStats();
+
+      if (result['success']) {
+        final data = result['data'];
+        _todayJobsCount = data['today_jobs_count'] ?? 0;
+        _totalEarnings = (data['total_earnings'] ?? 0).toDouble();
+        _averageRating = (data['average_rating'] ?? 0).toDouble();
+        _completedJobs = data['completed_jobs'] ?? 0;
+      }
+    } catch (e) {
+      // Use default values if fetch fails
+      print('Failed to fetch worker stats: $e');
     }
   }
 

@@ -1,11 +1,11 @@
-# from django.urls import path
-# from .views import demo_api, get_users, register, login
+from django.urls import path
+from .views import profile, jobs, stats, auth_debug
 
-# app_name = 'authentication'
+app_name = 'workers'
 
-# urlpatterns = [
-#     path('demo/', demo_api, name='demo_api'),
-#     path('users/', get_users, name='get_users'),
-#     path('register/', register, name='register'),
-#     path('login/', login, name='login'),
-# ]
+urlpatterns = [
+    path('profile/', profile, name='profile'),
+    path('jobs/', jobs, name='jobs'),
+    path('stats/', stats, name='stats'),
+    path('auth-debug/', auth_debug, name='auth_debug'),  # Debug endpoint
+]

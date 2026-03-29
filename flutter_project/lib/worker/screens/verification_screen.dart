@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/worker_verification_provider.dart';
+import '../../theme/app_theme.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -96,7 +97,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -104,14 +105,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
         ),
         title: const Text(
           'Verify Account',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
+        backgroundColor: AppTheme.getSurfaceColor(context),
+        foregroundColor: AppTheme.getTextColor(context),
+        // foregroundColor: Colors.black,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -125,17 +123,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1976D2).withOpacity(0.1),
+                    color: AppTheme.workerPrimaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: const Color(0xFF1976D2).withOpacity(0.3),
+                      color: AppTheme.workerPrimaryColor.withOpacity(0.3),
                     ),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.info_outline,
-                        color: Color(0xFF1976D2),
+                        color: AppTheme.workerPrimaryColor,
                         size: 24,
                       ),
                       const SizedBox(width: 12),
@@ -144,7 +142,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           'Verify your account to unlock all features and build trust with customers',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.grey.shade800,
+                            color: AppTheme.getTextColor(
+                              context,
+                              secondary: true,
+                            ),
                           ),
                         ),
                       ),
@@ -155,38 +156,70 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 const SizedBox(height: 32),
 
                 // Government ID Number Field
-                const Text(
+                Text(
                   'Government ID Number',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
+                    color: AppTheme.getTextColor(context),
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _govIdController,
+                  style: TextStyle(
+                    color: AppTheme.getTextColor(context),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Enter Aadhaar/PAN/Driving License number',
-                    prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+                    hintStyle: TextStyle(
+                      color: AppTheme.getTextColor(context, secondary: true),
+                      fontSize: 14,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.badge_outlined,
+                      size: 20,
+                      color: AppTheme.workerPrimaryColor,
+                    ),
                     filled: true,
-                    fillColor: Colors.grey.shade50,
+                    fillColor: AppTheme.getSurfaceColor(
+                      context,
+                    ).withOpacity(0.8),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(
+                        color: AppTheme.getTextColor(
+                          context,
+                          secondary: true,
+                        ).withOpacity(0.3),
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(
+                        color: AppTheme.getTextColor(
+                          context,
+                          secondary: true,
+                        ).withOpacity(0.3),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF1976D2), width: 2),
+                      borderSide: const BorderSide(
+                        color: AppTheme.workerPrimaryColor,
+                        width: 2,
+                      ),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(color: Colors.red),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -204,13 +237,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 // Upload ID Image
                 const Text(
                   'Government ID Image',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                
+
                 GestureDetector(
                   onTap: _pickImage,
                   child: Container(
@@ -291,7 +321,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                      const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -327,7 +361,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.info, color: Colors.amber.shade700, size: 20),
+                          Icon(
+                            Icons.info,
+                            color: Colors.amber.shade700,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           const Text(
                             'Guidelines',

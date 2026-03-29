@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../data/mock_job_data.dart';
+import 'package:provider/provider.dart';
+import '../../theme/app_theme.dart';
 import '../models/job.dart';
+import '../providers/job_provider.dart';
 import 'job_details_screen.dart';
 
 class ScheduledJobsWeekScreen extends StatelessWidget {
@@ -9,38 +11,59 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final jobs = MockJobData.getWeekJobs();
-    
-    // Sort by time
-    jobs.sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = AppTheme.getTextColor(context);
+    final surfaceColor = AppTheme.getSurfaceColor(context);
+    final dividerColor = AppTheme.getDividerColor(context);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Jobs for the Week',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
-      ),
-      body: jobs.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: jobs.length,
-              itemBuilder: (context, index) {
-                return _buildJobCard(context, jobs[index]);
-              },
+    return Consumer<JobProvider>(
+      builder: (context, jobProvider, _) {
+        // Ensure we're showing week jobs
+        if (jobProvider.currentFilter != JobFilter.week) {
+          // This won't normally happen, but added for safety
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            jobProvider.setFilter(JobFilter.week);
+          });
+        }
+
+        final jobs = jobProvider.scheduledJobs;
+        final isLoading = jobProvider.isLoading;
+
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: AppBar(
+            title: Text(
+              'Jobs for the Week',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: textPrimary,
+              ),
             ),
+            backgroundColor: surfaceColor,
+            elevation: 0,
+            foregroundColor: textPrimary,
+          ),
+          body: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : jobs.isEmpty
+              ? _buildEmptyState(context)
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: jobs.length,
+                  itemBuilder: (context, index) {
+                    return _buildJobCard(context, jobs[index]);
+                  },
+                ),
+        );
+      },
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textSecondary = AppTheme.getTextColor(context, secondary: true);
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -48,7 +71,7 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
           Icon(
             Icons.event_available,
             size: 80,
-            color: Colors.grey.shade300,
+            color: textSecondary.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
           Text(
@@ -56,7 +79,7 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
+              color: textSecondary,
             ),
           ),
         ],
@@ -68,8 +91,12 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
     final dateFormat = DateFormat('MMM d, h:mm a');
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final jobDate = DateTime(job.scheduledTime.year, job.scheduledTime.month, job.scheduledTime.day);
-    
+    final jobDate = DateTime(
+      job.scheduledTime.year,
+      job.scheduledTime.month,
+      job.scheduledTime.day,
+    );
+
     String dayLabel;
     if (jobDate == today) {
       dayLabel = 'Today';
@@ -78,26 +105,26 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
     } else {
       dayLabel = DateFormat('EEE, MMM d').format(job.scheduledTime);
     }
-    
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => JobDetailsScreen(job: job),
-          ),
+          MaterialPageRoute(builder: (context) => JobDetailsScreen(job: job)),
         );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.getSurfaceColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: AppTheme.getDividerColor(context)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withOpacity(
+                Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.05,
+              ),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -141,14 +168,17 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 16),
-            
+
             // Job details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green.shade50,
                       borderRadius: BorderRadius.circular(4),
@@ -173,7 +203,11 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.access_time, size: 13, color: Colors.grey.shade600),
+                      Icon(
+                        Icons.access_time,
+                        size: 13,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         DateFormat('h:mm a').format(job.scheduledTime),
@@ -183,7 +217,11 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Icon(Icons.person_outline, size: 13, color: Colors.grey.shade600),
+                      Icon(
+                        Icons.person_outline,
+                        size: 13,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -202,7 +240,10 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.orange.shade50,
                           borderRadius: BorderRadius.circular(6),
@@ -230,7 +271,7 @@ class ScheduledJobsWeekScreen extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             Icon(
               Icons.arrow_forward_ios,
               size: 16,

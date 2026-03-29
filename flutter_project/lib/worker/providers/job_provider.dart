@@ -1,43 +1,106 @@
 import 'package:flutter/material.dart';
 import '../models/job.dart';
-import '../data/mock_job_data.dart';
+import 'package:flutter_project/customer/services/api_service.dart';
 
 enum JobFilter { day, week, month }
 
 class JobProvider extends ChangeNotifier {
+  final ApiService _apiService = ApiService();
+
   Job? _activeJob;
   List<Job> _scheduledJobs = [];
   JobFilter _currentFilter = JobFilter.day;
+  bool _isLoading = false;
+  String? _error;
 
   Job? get activeJob => _activeJob;
   List<Job> get scheduledJobs => _scheduledJobs;
   JobFilter get currentFilter => _currentFilter;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
   JobProvider() {
     loadScheduledJobs();
   }
 
-  void loadScheduledJobs() {
-    switch (_currentFilter) {
+  /// Convert API filter string to JobFilter enum
+  String _filterToString(JobFilter filter) {
+    switch (filter) {
       case JobFilter.day:
-        _scheduledJobs = MockJobData.getTodayJobs();
-        break;
+        return 'day';
       case JobFilter.week:
-        _scheduledJobs = MockJobData.getWeekJobs();
-        break;
+        return 'week';
       case JobFilter.month:
-        _scheduledJobs = MockJobData.getMonthJobs();
-        break;
+        return 'month';
     }
-    
-    // Sort by scheduled time
-    _scheduledJobs.sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
-    
-    // Remove active job from scheduled jobs if it exists
-    if (_activeJob != null) {
-      _scheduledJobs.removeWhere((job) => job.id == _activeJob!.id);
+  }
+
+  /// Convert API job data to Job model
+  Job _jobFromApi(Map<String, dynamic> data) {
+    print('🔵 DEBUG: Parsing job data: $data');
+
+    try {
+      final scheduledTime = DateTime.parse(
+        data['scheduled_time'] ?? DateTime.now().toIso8601String(),
+      );
+
+      return Job(
+        id: data['job_id']?.toString() ?? '',
+        title: data['service_name'] ?? 'Service',
+        customerName: data['customer_name'] ?? 'Unknown',
+        address: data['address'] ?? '',
+        scheduledTime: scheduledTime,
+        duration: data['duration'] ?? '1 hour',
+        status: data['status'] ?? 'Upcoming',
+        amount: (data['amount'] ?? 0).toDouble(),
+        description: data['description'] ?? data['category_name'] ?? '',
+      );
+    } catch (e) {
+      print('❌ ERROR parsing job: $e');
+      throw Exception('Failed to parse job: $e');
     }
-    
+  }
+
+  /// Load jobs from API
+  Future<void> loadScheduledJobs() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final filterStr = _filterToString(_currentFilter);
+      final result = await _apiService.getWorkerJobs(filter: filterStr);
+
+      if (result['success']) {
+        final data = result['data'];
+        final jobsList = data['jobs'] ?? [];
+
+        _scheduledJobs = (jobsList as List)
+            .whereType<Map<String, dynamic>>()
+            .map(_jobFromApi)
+            .toList();
+
+        // Sort by scheduled time
+        _scheduledJobs.sort(
+          (a, b) => a.scheduledTime.compareTo(b.scheduledTime),
+        );
+
+        // Remove active job from scheduled jobs if it exists
+        if (_activeJob != null) {
+          _scheduledJobs.removeWhere((job) => job.id == _activeJob!.id);
+        }
+
+        _error = null;
+      } else {
+        _error = result['data']?['error'] ?? 'Failed to load jobs';
+        _scheduledJobs = [];
+      }
+    } catch (e) {
+      _error = 'Error loading jobs: $e';
+      _scheduledJobs = [];
+    }
+
+    _isLoading = false;
     notifyListeners();
   }
 
@@ -69,7 +132,7 @@ class JobProvider extends ChangeNotifier {
   Future<bool> rescheduleJob(String jobId, DateTime newTime) async {
     // Find the job in scheduled jobs
     final jobIndex = _scheduledJobs.indexWhere((job) => job.id == jobId);
-    
+
     if (jobIndex != -1) {
       final job = _scheduledJobs[jobIndex];
       final updatedJob = Job(

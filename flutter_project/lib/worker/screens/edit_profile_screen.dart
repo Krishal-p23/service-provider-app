@@ -28,7 +28,7 @@
 //     final worker = context.read<WorkerProvider>().currentWorker;
 //     _nameController = TextEditingController(text: worker?.name ?? '');
 //     _mobileController = TextEditingController(text: worker?.mobile ?? '');
-    
+
 //     // Parse address if available
 //     final address = worker?.address ?? '';
 //     _pincodeController = TextEditingController();
@@ -56,7 +56,7 @@
 //     if (_formKey.currentState!.validate()) {
 //       final workerProvider = context.read<WorkerProvider>();
 //       final currentWorker = workerProvider.currentWorker;
-      
+
 //       if (currentWorker != null) {
 //         // Build full address
 //         final addressParts = [
@@ -79,14 +79,14 @@
 //         );
 
 //         workerProvider.updateWorker(updatedWorker);
-        
+
 //         ScaffoldMessenger.of(context).showSnackBar(
 //           const SnackBar(
 //             content: Text('Profile updated successfully'),
 //             backgroundColor: Color(0xFF00897B),
 //           ),
 //         );
-        
+
 //         Navigator.pop(context);
 //       }
 //     }
@@ -359,16 +359,10 @@
 //   }
 // }
 
-
-
-
-
-
-
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
+import '../../theme/app_theme.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -394,7 +388,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = context.read<WorkerProvider>().currentUser;
     _nameController = TextEditingController(text: user?.name ?? '');
     _mobileController = TextEditingController(text: user?.phone ?? '');
-    
+
     // Parse address if available
     // TODO: Add address parsing when user model has address
     final address = ''; // user?.address ?? '';
@@ -422,34 +416,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void _saveChanges() {
     if (_formKey.currentState!.validate()) {
       final workerProvider = context.read<WorkerProvider>();
-        final currentUser = workerProvider.currentUser;
-        
-        if (currentUser != null) {
-          // Build full address
-          final addressParts = [
-            _localityController.text,
-            _landmarkController.text.isNotEmpty ? _landmarkController.text : null,
-            _cityController.text,
-            _stateController.text,
-            _pincodeController.text,
-            _countryController.text,
-          ].where((part) => part != null && part.isNotEmpty).join(', ');
+      final currentUser = workerProvider.currentUser;
 
-          final userData = {
-            'name': _nameController.text,
-            'email': currentUser.email,
-            'phone': _mobileController.text,
-            // TODO: Add address to user model if needed
-          };
+      if (currentUser != null) {
+        // Build full address
+        final addressParts = [
+          _localityController.text,
+          _landmarkController.text.isNotEmpty ? _landmarkController.text : null,
+          _cityController.text,
+          _stateController.text,
+          _pincodeController.text,
+          _countryController.text,
+        ].where((part) => part != null && part.isNotEmpty).join(', ');
 
-          workerProvider.updateUser(userData);
+        final userData = {
+          'name': _nameController.text,
+          'email': currentUser.email,
+          'phone': _mobileController.text,
+          // TODO: Add address to user model if needed
+        };
+
+        workerProvider.updateUser(userData);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully'),
             backgroundColor: Color(0xFF1976D2),
           ),
         );
-        
+
         Navigator.pop(context);
       }
     }
@@ -458,25 +452,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: AppTheme.getTextColor(context)),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Edit Profile',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-            color: Colors.white,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: AppTheme.getSurfaceColor(context),
+        foregroundColor: AppTheme.getTextColor(context),
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.check, color: Colors.white),
+            icon: Icon(Icons.check, color: AppTheme.workerPrimaryColor),
             onPressed: _saveChanges,
           ),
         ],
@@ -542,6 +533,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 // Full Name
                 _buildTextField(
+                  context: context,
                   controller: _nameController,
                   label: 'Full Name',
                   icon: Icons.person,
@@ -557,6 +549,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 // Mobile Number
                 _buildTextField(
+                  context: context,
                   controller: _mobileController,
                   label: 'Mobile Number',
                   icon: Icons.phone,
@@ -575,16 +568,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(height: 24),
 
                 // Address Details Section
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.location_on, color: Color(0xFF1976D2), size: 20),
-                    SizedBox(width: 8),
+                    Icon(
+                      Icons.location_on,
+                      color: AppTheme.workerPrimaryColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Address Details',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1976D2),
+                        color: AppTheme.workerPrimaryColor,
                       ),
                     ),
                   ],
@@ -594,6 +591,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 // Pincode
                 _buildTextField(
+                  context: context,
                   controller: _pincodeController,
                   label: 'Pincode',
                   icon: Icons.pin_drop,
@@ -604,6 +602,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 // City
                 _buildTextField(
+                  context: context,
                   controller: _cityController,
                   label: 'City',
                   icon: Icons.location_city,
@@ -613,6 +612,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 // Locality/Area
                 _buildTextField(
+                  context: context,
                   controller: _localityController,
                   label: 'Locality/Area',
                   icon: Icons.home_work,
@@ -622,6 +622,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 // Landmark (Optional)
                 _buildTextField(
+                  context: context,
                   controller: _landmarkController,
                   label: 'Landmark (Optional)',
                   icon: Icons.place,
@@ -632,6 +633,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 // State
                 _buildTextField(
+                  context: context,
                   controller: _stateController,
                   label: 'State',
                   icon: Icons.map,
@@ -641,6 +643,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 // Country
                 _buildTextField(
+                  context: context,
                   controller: _countryController,
                   label: 'Country',
                   icon: Icons.public,
@@ -655,7 +658,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: ElevatedButton(
                     onPressed: _saveChanges,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1976D2),
+                      backgroundColor: AppTheme.workerPrimaryColor,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -682,6 +685,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildTextField({
+    required BuildContext context,
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -690,43 +694,54 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     bool required = true,
     bool enabled = true,
   }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final labelColor = isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700;
+    final fillColor = isDarkMode
+        ? Colors.grey.shade800.withOpacity(0.6)
+        : (enabled ? Colors.grey.shade50 : Colors.grey.shade100);
+    final borderColor = isDarkMode
+        ? Colors.grey.shade700.withOpacity(0.5)
+        : Colors.grey.shade300;
+
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       enabled: enabled,
-      style: const TextStyle(
-        color: Colors.black, // Black text for input
+      style: TextStyle(
+        color: textColor,
         fontSize: 15,
+        fontWeight: FontWeight.w500,
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(
-          color: Colors.grey.shade700,
-        ),
-        prefixIcon: Icon(
-          icon,
-          size: 20,
-          color: const Color(0xFF1976D2),
-        ),
+        labelStyle: TextStyle(color: labelColor, fontSize: 13),
+        prefixIcon: Icon(icon, size: 20, color: AppTheme.workerPrimaryColor),
         filled: true,
-        fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade100,
+        fillColor: fillColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF1976D2), width: 2),
+          borderSide: const BorderSide(
+            color: AppTheme.workerPrimaryColor,
+            width: 2,
+          ),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Colors.red),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
       validator: required ? validator : null,
     );

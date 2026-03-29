@@ -203,6 +203,7 @@
 // }
 
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 class PendingDeductionsScreen extends StatelessWidget {
   const PendingDeductionsScreen({super.key});
@@ -230,24 +231,33 @@ class PendingDeductionsScreen extends StatelessWidget {
   // Calculate total deductions
   static double get _totalDeductions {
     return _deductions.fold(
-        0, (sum, deduction) => sum + (deduction['amount'] as double));
+      0,
+      (sum, deduction) => sum + (deduction['amount'] as double),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = AppTheme.getTextColor(context);
+    final textSecondary = AppTheme.getTextColor(context, secondary: true);
+    final surfaceColor = AppTheme.getSurfaceColor(context);
+    final dividerColor = AppTheme.getDividerColor(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Pending Deductions',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
+            color: textPrimary,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: surfaceColor,
         elevation: 0,
-        foregroundColor: Colors.black,
+        foregroundColor: textPrimary,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -257,15 +267,20 @@ class PendingDeductionsScreen extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.orange.shade50, Colors.orange.shade100],
+                colors: isDark
+                    ? [Colors.orange.shade900, Colors.orange.shade800]
+                    : [Colors.orange.shade50, Colors.orange.shade100],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.orange.shade200, width: 1.5),
+              border: Border.all(
+                color: isDark ? Colors.orange.shade700 : Colors.orange.shade200,
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: Colors.orange.withOpacity(isDark ? 0.3 : 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -279,7 +294,7 @@ class PendingDeductionsScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? Colors.orange.shade700 : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -291,7 +306,7 @@ class PendingDeductionsScreen extends StatelessWidget {
                       ),
                       child: Icon(
                         Icons.account_balance_wallet_outlined,
-                        color: Colors.orange.shade700,
+                        color: isDark ? Colors.white : Colors.orange.shade700,
                         size: 28,
                       ),
                     ),
@@ -305,7 +320,9 @@ class PendingDeductionsScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Colors.orange.shade900,
+                              color: isDark
+                                  ? Colors.white70
+                                  : Colors.orange.shade900,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -314,7 +331,9 @@ class PendingDeductionsScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange.shade900,
+                              color: isDark
+                                  ? Colors.white
+                                  : Colors.orange.shade900,
                               letterSpacing: -1,
                             ),
                           ),
@@ -327,13 +346,16 @@ class PendingDeductionsScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? Colors.orange.shade700 : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline,
-                          size: 18, color: Colors.orange.shade700),
+                      Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: isDark ? Colors.white : Colors.orange.shade700,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -341,7 +363,9 @@ class PendingDeductionsScreen extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Colors.orange.shade900,
+                            color: isDark
+                                ? Colors.white
+                                : Colors.orange.shade900,
                           ),
                         ),
                       ),
@@ -354,29 +378,32 @@ class PendingDeductionsScreen extends StatelessWidget {
 
           const SizedBox(height: 32),
 
-          const Text(
+          Text(
             'Deduction Details',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: textPrimary,
             ),
           ),
 
           const SizedBox(height: 16),
 
           // Deductions List
-          ..._deductions.map((deduction) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildDeductionCard(
-                  title: deduction['title'],
-                  amount: deduction['amount'],
-                  date: deduction['date'],
-                  description: deduction['description'],
-                  icon: deduction['icon'],
-                  color: deduction['color'],
-                ),
-              )),
+          ..._deductions.map(
+            (deduction) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildDeductionCard(
+                context: context,
+                title: deduction['title'],
+                amount: deduction['amount'],
+                date: deduction['date'],
+                description: deduction['description'],
+                icon: deduction['icon'],
+                color: deduction['color'],
+              ),
+            ),
+          ),
 
           const SizedBox(height: 24),
 
@@ -385,12 +412,17 @@ class PendingDeductionsScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.blue.shade50, Colors.blue.shade100],
+                colors: isDark
+                    ? [Colors.blue.shade900, Colors.blue.shade800]
+                    : [Colors.blue.shade50, Colors.blue.shade100],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.blue.shade200, width: 1.5),
+              border: Border.all(
+                color: isDark ? Colors.blue.shade700 : Colors.blue.shade200,
+                width: 1.5,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -400,11 +432,14 @@ class PendingDeductionsScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? Colors.blue.shade700 : Colors.white,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.help_outline,
-                          color: Colors.blue.shade700, size: 20),
+                      child: Icon(
+                        Icons.help_outline,
+                        color: isDark ? Colors.white : Colors.blue.shade700,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -412,7 +447,7 @@ class PendingDeductionsScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade900,
+                        color: isDark ? Colors.white : Colors.blue.shade900,
                       ),
                     ),
                   ],
@@ -428,7 +463,7 @@ class PendingDeductionsScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Colors.blue.shade900,
+                    color: isDark ? Colors.white : Colors.blue.shade900,
                     height: 1.6,
                   ),
                 ),
@@ -443,6 +478,7 @@ class PendingDeductionsScreen extends StatelessWidget {
   }
 
   Widget _buildDeductionCard({
+    required BuildContext context,
     required String title,
     required double amount,
     required String date,
@@ -450,15 +486,21 @@ class PendingDeductionsScreen extends StatelessWidget {
     required IconData icon,
     required Color color,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = AppTheme.getTextColor(context);
+    final textSecondary = AppTheme.getTextColor(context, secondary: true);
+    final surfaceColor = AppTheme.getSurfaceColor(context);
+    final dividerColor = AppTheme.getDividerColor(context);
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300, width: 1.5),
+        color: surfaceColor,
+        border: Border.all(color: dividerColor, width: 1.5),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(isDark ? 0.18 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -486,10 +528,10 @@ class PendingDeductionsScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: textPrimary,
                         ),
                       ),
                     ),
@@ -508,16 +550,18 @@ class PendingDeductionsScreen extends StatelessWidget {
                   description,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.grey.shade700,
+                    color: textSecondary,
                     height: 1.3,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: dividerColor.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -525,7 +569,7 @@ class PendingDeductionsScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
+                      color: textSecondary,
                     ),
                   ),
                 ),
