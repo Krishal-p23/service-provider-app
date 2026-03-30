@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/booking_provider.dart';
 import '../../providers/service_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../widgets/booking_card.dart';
-import 'otp_job_completion_screen.dart';
+import 'payment_screen.dart';
 
 class BookingStatusScreen extends StatefulWidget {
   const BookingStatusScreen({super.key});
@@ -16,15 +17,37 @@ class BookingStatusScreen extends StatefulWidget {
 class _BookingStatusScreenState extends State<BookingStatusScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshBookings();
+    });
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _refreshBookings();
+    });
+  }
+
+  Future<void> _refreshBookings() async {
+    if (!mounted) return;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final bookingProvider = Provider.of<BookingProvider>(
+      context,
+      listen: false,
+    );
+    final currentUser = userProvider.currentUser;
+    if (currentUser == null) {
+      return;
+    }
+    await bookingProvider.fetchUserBookings(currentUser.id);
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -166,11 +189,36 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
               : null,
           onComplete: type == 'ongoing'
               ? () {
+                  if (booking.status == 'awaiting_payment') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PaymentScreen(
+                          bookingId: booking.id,
+                          amount: booking.totalAmount,
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Payment is enabled after worker marks job done.',
+                      ),
+                    ),
+                  );
+                }
+              : null,
+          onPayNow: booking.status == 'awaiting_payment'
+              ? () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          OtpJobCompletionScreen(bookingId: booking.id),
+                      builder: (context) => PaymentScreen(
+                        bookingId: booking.id,
+                        amount: booking.totalAmount,
+                      ),
                     ),
                   );
                 }

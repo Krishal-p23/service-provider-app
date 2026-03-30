@@ -17,7 +17,7 @@ def create_job_otp_table():
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS job_otp (
-                    id BIGSERIAL PRIMARY KEY,
+                    id SERIAL PRIMARY KEY,
                     booking_id BIGINT NOT NULL,
                     customer_id BIGINT NOT NULL,
                     worker_id BIGINT NOT NULL,

@@ -465,9 +465,50 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
         job: job,
         isTopJob: isTopJob,
         onActivate: () => _handleActivate(context, jobProvider, job),
+        onMarkDone: () => _handleMarkDone(context, jobProvider, job),
         onReschedule: () => _handleReschedule(context, jobProvider, job),
         onDelete: () => _handleDelete(context, jobProvider, job),
       ),
+    );
+  }
+
+  Future<void> _handleMarkDone(
+    BuildContext context,
+    JobProvider jobProvider,
+    Job job,
+  ) async {
+    final bookingId = int.tryParse(job.id);
+    if (bookingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid booking id. Cannot mark job done.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final apiService = ApiService();
+    await apiService.initialize();
+    final result = await apiService.markJobDone(bookingId: bookingId);
+
+    if (!context.mounted) return;
+
+    if (result['success'] == true) {
+      await jobProvider.loadScheduledJobs();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Job marked complete. Awaiting customer payment.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final message =
+        result['data']?['message']?.toString() ?? 'Failed to mark job done.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -514,69 +555,233 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
     );
   }
 
-  void _handleReschedule(
+  Future<void> _handleReschedule(
     BuildContext context,
     JobProvider jobProvider,
     Job job,
-  ) {
-    showDialog(
+  ) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final bookingId = int.tryParse(job.id);
+    if (bookingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid booking id. Cannot reschedule this job.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    DateTime selectedDateTime = job.scheduledTime.add(const Duration(hours: 1));
+    final reasonController = TextEditingController();
+    bool isSubmitting = false;
+
+    await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Reschedule Job',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Job: ${job.title}',
-              style: const TextStyle(fontWeight: FontWeight.w500),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Customer: ${job.customerName}',
-              style: TextStyle(color: Colors.grey.shade700),
+            title: const Text(
+              'Reschedule Job',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Reschedule functionality will be implemented with a date/time picker in production.',
-              style: TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Demo: Reschedule to 1 hour later
-              final newTime = job.scheduledTime.add(const Duration(hours: 1));
-              jobProvider.rescheduleJob(job.id, newTime);
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Job rescheduled (demo: +1 hour)'),
-                  backgroundColor: Colors.green,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1976D2),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Job: ${job.title}',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Customer: ${job.customerName}',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event),
+                    title: const Text('New Date'),
+                    subtitle: Text(
+                      DateFormat('EEE, MMM d, yyyy').format(selectedDateTime),
+                    ),
+                    onTap: isSubmitting
+                        ? null
+                        : () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDateTime,
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 180),
+                              ),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                selectedDateTime = DateTime(
+                                  picked.year,
+                                  picked.month,
+                                  picked.day,
+                                  selectedDateTime.hour,
+                                  selectedDateTime.minute,
+                                );
+                              });
+                            }
+                          },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.access_time),
+                    title: const Text('New Time'),
+                    subtitle: Text(
+                      DateFormat('h:mm a').format(selectedDateTime),
+                    ),
+                    onTap: isSubmitting
+                        ? null
+                        : () async {
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.fromDateTime(
+                                selectedDateTime,
+                              ),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                selectedDateTime = DateTime(
+                                  selectedDateTime.year,
+                                  selectedDateTime.month,
+                                  selectedDateTime.day,
+                                  picked.hour,
+                                  picked.minute,
+                                );
+                              });
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 3,
+                    enabled: !isSubmitting,
+                    decoration: const InputDecoration(
+                      labelText: 'Reason for reschedule',
+                      hintText: 'Example: Medical emergency / urgent issue',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: const Text('Reschedule'),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final reason = reasonController.text.trim();
+                        if (reason.length < 5) {
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please enter a valid reason (min 5 characters).',
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (selectedDateTime.isBefore(DateTime.now())) {
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please choose a future date and time.',
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+
+                        setDialogState(() {
+                          isSubmitting = true;
+                        });
+
+                        final apiService = ApiService();
+                        await apiService.initialize();
+                        final result = await apiService.rescheduleBooking(
+                          bookingId: bookingId,
+                          scheduledDate: selectedDateTime,
+                          reason: reason,
+                        );
+
+                        if (!mounted) return;
+
+                        if (result['success'] == true) {
+                          await jobProvider.loadScheduledJobs();
+                          if (!mounted) return;
+                          Navigator.of(context, rootNavigator: true).pop();
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Job rescheduled successfully and customer notified in app.',
+                              ),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+
+                        final message =
+                            result['data']?['message']?.toString() ??
+                            'Failed to reschedule booking.';
+                        setDialogState(() {
+                          isSubmitting = false;
+                        });
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text(message),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1976D2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Text('Reschedule'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
+
+    reasonController.dispose();
   }
 
   void _handleDelete(BuildContext context, JobProvider jobProvider, Job job) {

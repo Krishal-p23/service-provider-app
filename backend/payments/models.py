@@ -31,3 +31,38 @@ class Payment(models.Model):
 
     def __str__(self):
         return f'Payment #{self.id} - {self.payment_status}'
+
+
+class WalletTransaction(models.Model):
+    TYPE_CREDIT = 'credit'
+    TYPE_DEBIT = 'debit'
+    TYPE_REFUND = 'refund'
+
+    TYPE_CHOICES = [
+        (TYPE_CREDIT, 'Credit'),
+        (TYPE_DEBIT, 'Debit'),
+        (TYPE_REFUND, 'Refund'),
+    ]
+
+    user = models.ForeignKey(
+        'authentication.AppUser',
+        on_delete=models.CASCADE,
+        related_name='wallet_transactions',
+        db_column='user_id',
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'wallet_transactions'
+        managed = True
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['type']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f'WalletTransaction #{self.id} - {self.type}'

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_project/theme/theme_provider.dart';
 import 'package:flutter_project/providers/user_provider.dart';
 import 'package:flutter_project/providers/worker_provider.dart';
@@ -21,6 +23,12 @@ import 'package:flutter_project/customer/services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    // Firebase may not be configured in local dev yet.
+  }
 
   runApp(
     MultiProvider(
@@ -103,15 +111,30 @@ class _AppInitializerState extends State<AppInitializer> {
 
     await userProvider.initialize();
     if (userProvider.isLoggedIn) {
+      await _registerFcmToken();
       return '/customer-home';
     }
 
     await workerProvider.initialize();
     if (workerProvider.isLoggedIn) {
+      await _registerFcmToken();
       return '/worker-dashboard';
     }
 
     return 'onboarding';
+  }
+
+  Future<void> _registerFcmToken() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission();
+      final token = await messaging.getToken();
+      if (token != null && token.isNotEmpty) {
+        await ApiService().saveFcmToken(token);
+      }
+    } catch (_) {
+      // Ignore FCM setup/runtime errors in local development.
+    }
   }
 
   @override

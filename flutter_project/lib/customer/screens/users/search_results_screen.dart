@@ -20,6 +20,33 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   String _sortBy = 'distance'; // 'distance', 'distance_desc', 'rating'
   double? _minRating;
   bool _showFilters = false;
+  bool _requestedWorkers = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_requestedWorkers) return;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final serviceProvider = Provider.of<ServiceProvider>(
+      context,
+      listen: false,
+    );
+    final userLocation = userProvider.currentUserLocation;
+
+    _requestedWorkers = true;
+    final normalizedQuery = widget.query.trim();
+    final effectiveSearch = widget.categoryId == null && normalizedQuery.isNotEmpty
+        ? normalizedQuery
+        : null;
+    serviceProvider.fetchWorkers(
+      categoryId: widget.categoryId,
+      search: effectiveSearch,
+      lat: userLocation?.latitude,
+      lng: userLocation?.longitude,
+      radiusKm: 20,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +66,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     // Get filtered workers
     final workersData = serviceProvider.filterWorkers(
       userId: currentUser.id,
-      serviceId: widget.categoryId,
+      serviceId: null,
       sortBy: _sortBy,
       minRating: _minRating,
     );

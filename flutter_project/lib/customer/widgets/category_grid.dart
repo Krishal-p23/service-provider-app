@@ -264,6 +264,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/service_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import '../services/location_service.dart';
 
@@ -423,6 +424,15 @@ class CategoryGrid extends StatelessWidget {
   }
 
   Future<bool> _requestLocationIfNeeded(BuildContext context, String categoryName) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final hasSavedLocation =
+        userProvider.currentUserLocation != null &&
+        userProvider.currentUserLocation!.address.trim().isNotEmpty;
+
+    if (hasSavedLocation) {
+      return true;
+    }
+
     // Show dialog asking if user wants to enable location
     final bool? userWantsLocation = await showDialog<bool>(
       context: context,

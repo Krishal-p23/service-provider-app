@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import '../providers/worker_verification_provider.dart';
-import 'document_status_screen.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+import '../../customer/services/api_service.dart';
 import '../../theme/app_theme.dart';
 
 class VerificationScreen extends StatefulWidget {
@@ -14,108 +12,419 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _govIdController = TextEditingController();
-  String? _selectedImagePath;
-  String? _selectedDocumentType = 'aadhar';
-  bool _isSubmitting = false;
+  final ApiService _apiService = ApiService();
+  bool _isLoading = true;
+  bool _isStartingSession = false;
 
-  // Document type options and their display names
-  static const Map<String, String> documentTypeMap = {
-    'aadhar': 'Aadhar Card',
-    'pan': 'PAN Card',
-    'driving_license': 'Driving License',
-    'passport': 'Passport',
-    'voter_id': 'Voter ID',
-  };
+  // Verification status and user data
+  String? _verificationStatus;
+  bool? _isVerified;
+  String? _errorMessage;
 
   @override
-  void dispose() {
-    _govIdController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadVerificationStatus();
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _loadVerificationStatus() async {
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
+      await _apiService.initialize();
+      final result = await _apiService.getWorkerProfile();
 
-      if (image != null) {
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>;
         setState(() {
-          _selectedImagePath = image.path;
+          _verificationStatus =
+              data['verification_status'] as String? ?? 'not_started';
+          _isVerified = data['is_verified'] as bool? ?? false;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage =
+              result['message'] ?? 'Failed to load verification status';
+          _isLoading = false;
         });
       }
     } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error loading verification status: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _startKycSession() async {
+    setState(() {
+      _isStartingSession = true;
+    });
+
+    try {
+      await _apiService.initialize();
+      final result = await _apiService.startWorkerKycSession();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isStartingSession = false;
+      });
+
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>;
+        final sessionUrl = (data['session_url'] ?? '').toString();
+
+        if (sessionUrl.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Didit session URL was not returned by server.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DiditKycWebViewScreen(sessionUrl: sessionUrl),
+          ),
+        );
+
+        if (mounted) {
+          // Refresh verification status after KYC flow
+          _loadVerificationStatus();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'KYC flow finished. Verification status updates automatically within a few seconds.',
+              ),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Check for error message at root level first, then in data
+      String message = result['message'] ?? 'Failed to start KYC session.';
+
+      if (message == 'Failed to start KYC session.' &&
+          result['data'] is Map<String, dynamic>) {
+        final data = result['data'] as Map<String, dynamic>;
+        message = (data['message'] ?? data['error'] ?? message).toString();
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isStartingSession = false;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error picking image: ${e.toString()}'),
+          content: Text('Error starting KYC session: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  Future<void> _submitVerification() async {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedImagePath == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please upload your Government ID image'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      setState(() {
-        _isSubmitting = true;
-      });
-
-      final verificationProvider = context.read<WorkerVerificationProvider>();
-      final success = await verificationProvider.submitVerificationViaAPI(
-        documentType: _selectedDocumentType!,
-        govId: _govIdController.text,
-        imagePath: _selectedImagePath!,
+  Widget _buildVerificationUI() {
+    // If loading, show loading indicator
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Loading verification status...',
+              style: TextStyle(
+                color: AppTheme.getTextColor(context, secondary: true),
+              ),
+            ),
+          ],
+        ),
       );
-
-      setState(() {
-        _isSubmitting = false;
-      });
-
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Document submitted successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Navigate to backend-driven status screen
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const DocumentStatusScreen(),
-            ),
-          );
-        }
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              verificationProvider.lastError ??
-                  'Failed to submit verification. Please try again.',
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
+
+    // If error loading data
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.getTextColor(context)),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadVerificationStatus,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // If already verified
+    if (_isVerified == true && _verificationStatus == 'approved') {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 40),
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.green.withValues(alpha: 0.2),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: const Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 64,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Account Verified',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.getTextColor(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Your KYC verification has been approved. You can now accept bookings.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.getTextColor(context, secondary: true),
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+      );
+    }
+
+    // If verification is pending
+    if (_verificationStatus == 'pending') {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 40),
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.orange.withValues(alpha: 0.2),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: const Icon(Icons.schedule, color: Colors.orange, size: 64),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Verification Pending',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.getTextColor(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Your KYC verification is being processed. This usually takes a few seconds.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.getTextColor(context, secondary: true),
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _loadVerificationStatus,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Check Status'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+      );
+    }
+
+    // If verification was rejected
+    if (_verificationStatus == 'rejected') {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 40),
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.red.withValues(alpha: 0.2),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: const Icon(Icons.cancel, color: Colors.red, size: 64),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Verification Rejected',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.getTextColor(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Your KYC verification was rejected. Please try again with a clearer image.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.getTextColor(context, secondary: true),
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _isStartingSession ? null : _startKycSession,
+            icon: _isStartingSession
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.open_in_browser),
+            label: Text(
+              _isStartingSession ? 'Starting KYC Session...' : 'Try Again',
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+      );
+    }
+
+    // Default: Not verified - Show start verification button
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.workerPrimaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppTheme.workerPrimaryColor.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.verified_user,
+                    color: AppTheme.workerPrimaryColor,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Didit KYC Verification',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.getTextColor(context),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'To accept bookings, you need to complete KYC (Know Your Customer) verification. Tap the button below to verify your identity securely.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.getTextColor(context, secondary: true),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '⏱️ Takes 1-2 minutes. Verification updates automatically after completion.',
+                  style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        ElevatedButton.icon(
+          onPressed: _isStartingSession ? null : _startKycSession,
+          icon: _isStartingSession
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Icon(Icons.open_in_browser),
+          label: Text(
+            _isStartingSession
+                ? 'Starting KYC Session...'
+                : 'Start KYC Verification',
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.workerPrimaryColor,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextButton.icon(
+          onPressed: _isLoading ? null : _loadVerificationStatus,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Check Status / Refresh'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppTheme.workerPrimaryColor,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -123,424 +432,96 @@ class _VerificationScreenState extends State<VerificationScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text(
           'Verify Account',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         backgroundColor: AppTheme.getSurfaceColor(context),
         foregroundColor: AppTheme.getTextColor(context),
-        // foregroundColor: Colors.black,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _loadVerificationStatus,
+            tooltip: 'Refresh Status',
+          ),
+        ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Info Card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.workerPrimaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppTheme.workerPrimaryColor.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: AppTheme.workerPrimaryColor,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Verify your account',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.getTextColor(context),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Submit your document for identity verification',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.getTextColor(
-                                  context,
-                                  secondary: true,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Document Type Dropdown
-                Text(
-                  'Select Document Type',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getTextColor(context),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.getSurfaceColor(context).withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppTheme.getTextColor(
-                        context,
-                        secondary: true,
-                      ).withOpacity(0.3),
-                    ),
-                  ),
-                  child: DropdownButton<String>(
-                    value: _selectedDocumentType,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    dropdownColor: AppTheme.getSurfaceColor(context),
-                    icon: Icon(
-                      Icons.arrow_drop_down,
-                      color: AppTheme.workerPrimaryColor,
-                    ),
-                    items: documentTypeMap.entries.map((entry) {
-                      return DropdownMenuItem<String>(
-                        value: entry.key,
-                        child: Text(
-                          entry.value,
-                          style: TextStyle(
-                            color: AppTheme.getTextColor(context),
-                            fontSize: 15,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedDocumentType = value;
-                      });
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Government ID Number Field
-                Text(
-                  'Government ID Number',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getTextColor(context),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Builder(
-                  builder: (context) {
-                    String hintText = 'Enter your Government ID number';
-                    if (_selectedDocumentType != null) {
-                      hintText = switch (_selectedDocumentType) {
-                        'aadhar' => 'Enter 12-digit Aadhaar number',
-                        'pan' => 'Enter 10-character PAN',
-                        'driving_license' => 'Enter Driving License number',
-                        'passport' => 'Enter Passport number',
-                        'voter_id' => 'Enter Voter ID number',
-                        _ => 'Enter your Government ID number',
-                      };
-                    }
-                    return TextFormField(
-                      controller: _govIdController,
-                      style: TextStyle(
-                        color: AppTheme.getTextColor(context),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: hintText,
-                        hintStyle: TextStyle(
-                          color: AppTheme.getTextColor(
-                            context,
-                            secondary: true,
-                          ),
-                          fontSize: 14,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.badge_outlined,
-                          size: 20,
-                          color: AppTheme.workerPrimaryColor,
-                        ),
-                        filled: true,
-                        fillColor: AppTheme.getSurfaceColor(
-                          context,
-                        ).withOpacity(0.8),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: AppTheme.getTextColor(
-                              context,
-                              secondary: true,
-                            ).withOpacity(0.3),
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: AppTheme.getTextColor(
-                              context,
-                              secondary: true,
-                            ).withOpacity(0.3),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: AppTheme.workerPrimaryColor,
-                            width: 2,
-                          ),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Colors.red),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Government ID number is required';
-                        }
-                        if (value.length < 6) {
-                          return 'Please enter a valid ID number';
-                        }
-                        return null;
-                      },
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 24),
-
-                // Upload ID Image
-                const Text(
-                  'Government ID Image',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: Container(
-                    width: double.infinity,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _selectedImagePath != null
-                            ? const Color(0xFF1976D2)
-                            : Colors.grey.shade300,
-                        width: 2,
-                        style: BorderStyle.solid,
-                      ),
-                    ),
-                    child: _selectedImagePath != null
-                        ? Stack(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.file(
-                                  File(_selectedImagePath!),
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.check_circle,
-                                    color: Color(0xFF1976D2),
-                                    size: 24,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.cloud_upload_outlined,
-                                size: 48,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Tap to upload ID image',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey.shade600,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'JPG, PNG (Max 5MB)',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-
-                if (_selectedImagePath != null) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.check_circle,
-                        color: Colors.green,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Image selected: ${_selectedImagePath!.split('/').last}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.green,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _pickImage,
-                        child: const Text('Change'),
-                      ),
-                    ],
-                  ),
-                ],
-
-                const SizedBox(height: 32),
-
-                // Guidelines
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.amber.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info,
-                            color: Colors.amber.shade700,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Guidelines',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '• Upload clear, readable image of your ID\n'
-                        '• Ensure all details are visible\n'
-                        '• Accepted: Aadhaar, PAN, Driving License\n'
-                        '• Verification may take some time',
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 1.5,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Submit Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitVerification,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1976D2),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      disabledBackgroundColor: Colors.grey.shade300,
-                    ),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            'Submit',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
+          child: _buildVerificationUI(),
         ),
+      ),
+    );
+  }
+}
+
+class DiditKycWebViewScreen extends StatefulWidget {
+  final String sessionUrl;
+
+  const DiditKycWebViewScreen({super.key, required this.sessionUrl});
+
+  @override
+  State<DiditKycWebViewScreen> createState() => _DiditKycWebViewScreenState();
+}
+
+class _DiditKycWebViewScreenState extends State<DiditKycWebViewScreen> {
+  late final WebViewController _controller;
+  bool _isPageLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (_) {
+            if (mounted) {
+              setState(() {
+                _isPageLoading = true;
+              });
+            }
+          },
+          onPageFinished: (_) {
+            if (mounted) {
+              setState(() {
+                _isPageLoading = false;
+              });
+            }
+          },
+          onNavigationRequest: (request) {
+            if (request.url.contains('/api/workers/kyc/callback/')) {
+              Navigator.pop(context);
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.sessionUrl));
+
+    // Required for Android WebView camera/microphone access in KYC flow.
+    if (controller.platform is AndroidWebViewController) {
+      final androidController = controller.platform as AndroidWebViewController;
+      androidController.setOnPlatformPermissionRequest((request) {
+        request.grant();
+      });
+    }
+
+    _controller = controller;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('KYC Verification')),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isPageLoading) const Center(child: CircularProgressIndicator()),
+        ],
       ),
     );
   }

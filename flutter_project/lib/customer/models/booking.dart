@@ -9,6 +9,10 @@ class Booking {
   final DateTime createdAt;
   final String? activationOtp;
   final DateTime? otpExpiresAt;
+  final DateTime? previousScheduledDate;
+  final DateTime? rescheduledAt;
+  final String? rescheduledBy;
+  final String? rescheduleReason;
 
   Booking({
     required this.id,
@@ -21,6 +25,10 @@ class Booking {
     DateTime? createdAt,
     this.activationOtp,
     this.otpExpiresAt,
+    this.previousScheduledDate,
+    this.rescheduledAt,
+    this.rescheduledBy,
+    this.rescheduleReason,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Booking copyWith({
@@ -34,6 +42,10 @@ class Booking {
     DateTime? createdAt,
     String? activationOtp,
     DateTime? otpExpiresAt,
+    DateTime? previousScheduledDate,
+    DateTime? rescheduledAt,
+    String? rescheduledBy,
+    String? rescheduleReason,
   }) {
     return Booking(
       id: id ?? this.id,
@@ -46,6 +58,10 @@ class Booking {
       createdAt: createdAt ?? this.createdAt,
       activationOtp: activationOtp ?? this.activationOtp,
       otpExpiresAt: otpExpiresAt ?? this.otpExpiresAt,
+      previousScheduledDate: previousScheduledDate ?? this.previousScheduledDate,
+      rescheduledAt: rescheduledAt ?? this.rescheduledAt,
+      rescheduledBy: rescheduledBy ?? this.rescheduledBy,
+      rescheduleReason: rescheduleReason ?? this.rescheduleReason,
     );
   }
 
@@ -61,6 +77,10 @@ class Booking {
       'created_at': createdAt.toIso8601String(),
       'activation_otp': activationOtp,
       'otp_expires_at': otpExpiresAt?.toIso8601String(),
+      'previous_scheduled_date': previousScheduledDate?.toIso8601String(),
+      'rescheduled_at': rescheduledAt?.toIso8601String(),
+      'rescheduled_by': rescheduledBy,
+      'reschedule_reason': rescheduleReason,
     };
   }
 
@@ -82,6 +102,14 @@ class Booking {
       otpExpiresAt: json['otp_expires_at'] != null
           ? DateTime.parse(json['otp_expires_at'])
           : null,
+        previousScheduledDate: json['previous_scheduled_date'] != null
+          ? DateTime.parse(json['previous_scheduled_date'])
+          : null,
+        rescheduledAt: json['rescheduled_at'] != null
+          ? DateTime.parse(json['rescheduled_at'])
+          : null,
+        rescheduledBy: json['rescheduled_by']?.toString(),
+        rescheduleReason: json['reschedule_reason']?.toString(),
     );
   }
 

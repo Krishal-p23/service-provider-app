@@ -1,0 +1,16 @@
+backend/.env
+backend/backend/_pycache__/
+backend/services/_pycache__/
+backend/services/migrations/_pycache__/
+backend/bookings/_pycache__/
+backend/bookings/migrations/_pycache__/
+backend/workers/_pycache__/
+backend/workers/migrations/_pycache__/
+backend/users/_pycache__/
+backend/users/migrations/_pycache__/
+backend/reviews/_pycache__/
+backend/reviews/migrations/_pycache__/
+backend/payments/_pycache__/
+backend/payments/migrations/_pycache__/
+backend/authentication/_pycache__/
+backend/authentication/migrations/_pycache__/

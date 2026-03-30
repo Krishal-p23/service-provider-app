@@ -10,6 +10,7 @@ class BookingCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onCancel;
   final VoidCallback? onComplete;
+  final VoidCallback? onPayNow;
 
   const BookingCard({
     super.key,
@@ -20,6 +21,7 @@ class BookingCard extends StatelessWidget {
     this.onTap,
     this.onCancel,
     this.onComplete,
+    this.onPayNow,
   });
 
   Color _getStatusColor(String status, ThemeData theme) {
@@ -32,6 +34,8 @@ class BookingCard extends StatelessWidget {
         return theme.primaryColor;
       case 'completed':
         return Colors.green;
+      case 'awaiting_payment':
+        return Colors.deepOrange;
       case 'cancelled':
         return Colors.red;
       default:
@@ -49,6 +53,8 @@ class BookingCard extends StatelessWidget {
         return 'In Progress';
       case 'completed':
         return 'Completed';
+      case 'awaiting_payment':
+        return 'Awaiting Payment';
       case 'cancelled':
         return 'Cancelled';
       default:
@@ -82,32 +88,23 @@ class BookingCard extends StatelessWidget {
                         ? NetworkImage(workerPhoto!)
                         : null,
                     child: workerPhoto == null
-                        ? Icon(
-                            Icons.person,
-                            color: theme.primaryColor,
-                          )
+                        ? Icon(Icons.person, color: theme.primaryColor)
                         : null,
                   ),
                   const SizedBox(width: 12),
-                  
+
                   // Booking Info
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          serviceName,
-                          style: theme.textTheme.displaySmall,
-                        ),
+                        Text(serviceName, style: theme.textTheme.displaySmall),
                         const SizedBox(height: 4),
-                        Text(
-                          workerName,
-                          style: theme.textTheme.bodyMedium,
-                        ),
+                        Text(workerName, style: theme.textTheme.bodyMedium),
                       ],
                     ),
                   ),
-                  
+
                   // Status Badge
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -115,12 +112,16 @@ class BookingCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(booking.status, theme)
-                          .withValues(alpha: 0.1),
+                      color: _getStatusColor(
+                        booking.status,
+                        theme,
+                      ).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: _getStatusColor(booking.status, theme)
-                            .withValues(alpha: 0.3),
+                        color: _getStatusColor(
+                          booking.status,
+                          theme,
+                        ).withValues(alpha: 0.3),
                       ),
                     ),
                     child: Text(
@@ -133,9 +134,9 @@ class BookingCard extends StatelessWidget {
                   ),
                 ],
               ),
-              
+
               const Divider(height: 24),
-              
+
               // Date & Time
               Row(
                 children: [
@@ -162,9 +163,52 @@ class BookingCard extends StatelessWidget {
                   ),
                 ],
               ),
-              
+
+              if (booking.rescheduledAt != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rescheduled by ${booking.rescheduledBy ?? 'worker'}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                      if ((booking.rescheduleReason ?? '').trim().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Reason: ${booking.rescheduleReason}',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                      if (booking.previousScheduledDate != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Previous: ${dateFormat.format(booking.previousScheduledDate!)} ${timeFormat.format(booking.previousScheduledDate!)}',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 12),
-              
+
               // Amount
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -182,17 +226,18 @@ class BookingCard extends StatelessWidget {
                   ),
                 ],
               ),
-              
+
               // Action Buttons
-              if (booking.status == 'pending' || 
+              if (booking.status == 'pending' ||
                   booking.status == 'confirmed' ||
-                  booking.status == 'in_progress') ...[
+                  booking.status == 'in_progress' ||
+                  booking.status == 'awaiting_payment') ...[
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     // Cancel Button (only for pending/confirmed)
-                    if ((booking.status == 'pending' || 
-                         booking.status == 'confirmed') && 
+                    if ((booking.status == 'pending' ||
+                            booking.status == 'confirmed') &&
                         onCancel != null)
                       Expanded(
                         child: OutlinedButton(
@@ -204,17 +249,29 @@ class BookingCard extends StatelessWidget {
                           child: const Text('Cancel'),
                         ),
                       ),
-                    
+
                     // Complete Button (only for in_progress)
-                    if (booking.status == 'in_progress' && onComplete != null) ...[
-                      if ((booking.status == 'pending' || 
-                           booking.status == 'confirmed') && 
+                    if (booking.status == 'in_progress' &&
+                        onComplete != null) ...[
+                      if ((booking.status == 'pending' ||
+                              booking.status == 'confirmed') &&
                           onCancel != null)
                         const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: onComplete,
                           child: const Text('Mark Complete'),
+                        ),
+                      ),
+                    ],
+
+                    // Pay Now button when worker marked job done
+                    if (booking.status == 'awaiting_payment' &&
+                        onPayNow != null) ...[
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: onPayNow,
+                          child: const Text('Pay Now'),
                         ),
                       ),
                     ],

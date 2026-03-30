@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/worker_provider.dart';
-import '../../customer/screens/onboarding_screen.dart';
 import '../../customer/services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'worker_notifications_screen.dart';
 import 'bank_transfers_screen.dart';
 import 'pending_deductions_screen.dart';
-import 'account_screen.dart';
-import 'my_reviews_screen.dart';
-import 'settings_screen.dart';
-import 'help_support_screen.dart';
-import 'scheduled_jobs_hub_screen.dart';
 
 class WorkerMoneyScreen extends StatefulWidget {
   const WorkerMoneyScreen({super.key, this.onNavigateToTab});
@@ -149,20 +143,9 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
     return (_monthsData[_selectedMonthIndex]['earnings'] as double);
   }
 
-  String get _earningsSubtitle {
-    if (_monthsData.isEmpty || _selectedMonthIndex >= _monthsData.length) {
-      return 'Earned this month';
-    }
-    final label = _monthsData[_selectedMonthIndex]['label']?.toString() ?? '';
-    if (label.isEmpty) return 'Earned this month';
-    return 'Earned in $label';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final workerProvider = context.watch<WorkerProvider>();
-    final worker = workerProvider.currentWorker;
-    final user = workerProvider.currentUser;
+    context.watch<WorkerProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = AppTheme.getTextColor(context);
     final textSecondary = AppTheme.getTextColor(context, secondary: true);
@@ -182,18 +165,7 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.menu, size: 28),
-                      onPressed: () {
-                        _showMenuDrawer(
-                          context,
-                          workerProvider,
-                          worker,
-                          user,
-                          isDark,
-                        );
-                      },
-                    ),
+                    const SizedBox(width: 48),
                     Row(
                       children: [
                         Container(
@@ -689,207 +661,6 @@ class _WorkerMoneyScreenState extends State<WorkerMoneyScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  void _showMenuDrawer(
-    BuildContext context,
-    WorkerProvider workerProvider,
-    worker,
-    user,
-    bool isDark,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final maxHeight = MediaQuery.of(context).size.height * 0.9;
-
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.grey.shade600
-                          : Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: const Color(
-                            0xFF1976D2,
-                          ).withOpacity(0.15),
-                          child: const Icon(
-                            Icons.person,
-                            color: Color(0xFF1976D2),
-                            size: 32,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user?.name ?? 'Worker',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                user?.phone ?? '',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: isDark
-                                      ? Colors.grey.shade400
-                                      : Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(height: 1),
-                  _buildMenuItem(Icons.work_outline, 'My Jobs', () {
-                    Navigator.pop(context);
-                    if (widget.onNavigateToTab != null) {
-                      widget.onNavigateToTab!(1);
-                      return;
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ScheduledJobsHubScreen(),
-                      ),
-                    );
-                  }),
-                  _buildMenuItem(Icons.star_outline, 'Reviews', () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MyReviewsScreen(),
-                      ),
-                    );
-                  }),
-                  _buildMenuItem(Icons.account_circle_outlined, 'Account', () {
-                    Navigator.pop(context);
-                    if (widget.onNavigateToTab != null) {
-                      widget.onNavigateToTab!(2);
-                      return;
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const WorkerAccountScreen(),
-                      ),
-                    );
-                  }),
-                  const Divider(height: 1),
-                  _buildMenuItem(Icons.settings_outlined, 'Settings', () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SettingsScreen(),
-                      ),
-                    );
-                  }),
-                  _buildMenuItem(Icons.help_outline, 'Help & Support', () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const HelpSupportScreen(),
-                      ),
-                    );
-                  }),
-                  ListTile(
-                    leading: const Icon(Icons.logout, color: Colors.red),
-                    title: const Text(
-                      'Logout',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      final shouldLogout = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Logout'),
-                          content: const Text(
-                            'Are you sure you want to logout?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.red,
-                              ),
-                              child: const Text('Logout'),
-                            ),
-                          ],
-                        ),
-                      );
-
-                      if (shouldLogout == true && context.mounted) {
-                        await workerProvider.logout();
-                        if (context.mounted) {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const OnboardingScreen(),
-                            ),
-                            (route) => false,
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMenuItem(IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, size: 24),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-      ),
-      onTap: onTap,
     );
   }
 

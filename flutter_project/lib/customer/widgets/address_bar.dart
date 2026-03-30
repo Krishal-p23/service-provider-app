@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/service_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import '../services/location_service.dart';
@@ -168,6 +169,11 @@ class AddressBar extends StatelessWidget {
 
         if (context.mounted) {
           if (success) {
+            await Provider.of<ServiceProvider>(
+              context,
+              listen: false,
+            ).fetchWorkers(lat: latitude, lng: longitude, radiusKm: 20);
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(

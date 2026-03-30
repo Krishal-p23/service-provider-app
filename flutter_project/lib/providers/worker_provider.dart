@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../customer/models/user.dart';
 import '../customer/models/worker.dart';
+import '../customer/models/user_location.dart';
 import 'package:flutter_project/customer/services/api_service.dart';
 
 /// WorkerProvider - Manages worker (WORKER role) authentication and state
@@ -10,6 +11,7 @@ class WorkerProvider extends ChangeNotifier {
 
   User? _currentUser; // Base user data
   Worker? _workerProfile; // Worker-specific data
+  UserLocation? _currentUserLocation;
   bool _isLoading = false;
   String? _error;
 
@@ -23,6 +25,7 @@ class WorkerProvider extends ChangeNotifier {
   User? get currentUser => _currentUser;
   Worker? get currentWorker => _workerProfile;
   Worker? get workerProfile => _workerProfile;
+  UserLocation? get currentUserLocation => _currentUserLocation;
   bool get isLoggedIn => _currentUser != null && _workerProfile != null;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -326,6 +329,9 @@ class WorkerProvider extends ChangeNotifier {
           // Fetch worker statistics
           await fetchWorkerStats();
 
+          // Fetch worker location from user_locations table
+          await fetchUserLocation();
+
           _error = null;
         } else {
           _error = 'Invalid worker role';
@@ -440,6 +446,79 @@ class WorkerProvider extends ChangeNotifier {
     }
   }
 
+  /// Fetch worker user's location from backend.
+  Future<void> fetchUserLocation() async {
+    if (_currentUser == null) return;
+
+    try {
+      final result = await _apiService.getUserLocation(_currentUser!.id);
+
+      if (result['success'] && result['data'] != null) {
+        _currentUserLocation = UserLocation.fromJson(result['data']);
+        _error = null;
+      } else {
+        _currentUserLocation = null;
+      }
+
+      notifyListeners();
+    } catch (_) {
+      _currentUserLocation = null;
+      notifyListeners();
+    }
+  }
+
+  /// Create or update worker user's location in backend.
+  Future<bool> updateUserLocation({
+    required double latitude,
+    required double longitude,
+    required String address,
+  }) async {
+    if (_currentUser == null) return false;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final locationData = {
+        'user_id': _currentUser!.id,
+        'latitude': latitude,
+        'longitude': longitude,
+        'address': address,
+      };
+
+      final result = _currentUserLocation == null
+          ? await _apiService.createUserLocation(locationData)
+          : await _apiService.updateUserLocation(
+              _currentUserLocation!.id,
+              locationData,
+            );
+
+      _isLoading = false;
+
+      if (result['success']) {
+        _currentUserLocation = UserLocation.fromJson(result['data']);
+        _error = null;
+        notifyListeners();
+        return true;
+      }
+
+      final failureData = result['data'];
+      _error = failureData is Map<String, dynamic>
+          ? (failureData['message'] ??
+                    failureData['error'] ??
+                    'Failed to update location')
+                .toString()
+          : 'Failed to update location';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Location update error: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Fetch workers list from backend users table.
   Future<List<User>> fetchWorkers() async {
     try {
@@ -460,6 +539,7 @@ class WorkerProvider extends ChangeNotifier {
     await _apiService.logout();
     _currentUser = null;
     _workerProfile = null;
+    _currentUserLocation = null;
     _error = null;
     notifyListeners();
   }

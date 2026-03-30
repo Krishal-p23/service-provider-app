@@ -14,6 +14,8 @@ import 'privacy_policy_screen.dart';
 import 'terms_conditions_screen.dart';
 import 'help_support_screen.dart';
 import 'settings_screen.dart';
+import 'availability_screen.dart';
+import 'worker_services_screen.dart';
 
 class WorkerAccountScreen extends StatelessWidget {
   const WorkerAccountScreen({super.key});
@@ -127,6 +129,7 @@ class WorkerAccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final workerProvider = context.watch<WorkerProvider>();
     final user = workerProvider.currentUser;
+    final savedAddress = workerProvider.currentUserLocation?.address;
     final surfaceColor = AppTheme.getSurfaceColor(context);
     final textColor = AppTheme.getTextColor(context);
 
@@ -142,6 +145,13 @@ class WorkerAccountScreen extends StatelessWidget {
         foregroundColor: textColor,
         automaticallyImplyLeading: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              workerProvider.fetchWorkerProfile();
+            },
+            tooltip: 'Refresh Profile',
+          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {
@@ -203,38 +213,39 @@ class WorkerAccountScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.successColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppTheme.successColor.withOpacity(0.3),
+                          if (workerProvider.workerProfile?.isVerified ?? false)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.verified,
-                                  size: 14,
-                                  color: AppTheme.successColor,
+                              decoration: BoxDecoration(
+                                color: AppTheme.successColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppTheme.successColor.withOpacity(0.3),
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Verified Worker',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.verified,
+                                    size: 14,
                                     color: AppTheme.successColor,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Verified Worker',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.successColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -337,7 +348,9 @@ class WorkerAccountScreen extends StatelessWidget {
               _buildInfoTile(
                 Icons.location_on_outlined,
                 'Address',
-                'Not set', // TODO: Add address to user model
+                (savedAddress != null && savedAddress.trim().isNotEmpty)
+                    ? savedAddress
+                    : 'Not set',
                 () {
                   Navigator.push(
                     context,
@@ -401,6 +414,34 @@ class WorkerAccountScreen extends StatelessWidget {
                 'Bank Transfers',
                 'View upcoming and past transfers',
                 () => _openBankTransfers(context),
+              ),
+
+              _buildActionTile(
+                Icons.schedule_outlined,
+                'Set Availability',
+                'Manage your working days and hours',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AvailabilityScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              _buildActionTile(
+                Icons.build_circle_outlined,
+                'Services I Provide',
+                'Choose which services customers can book you for',
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const WorkerServicesScreen(),
+                    ),
+                  );
+                },
               ),
 
               _buildActionTile(

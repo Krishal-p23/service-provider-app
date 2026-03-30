@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/flutterDevelop/project/service-provider-app/flutter_project/linux"
+    "cmake.sourceDirectory": "C:/flutterDevelop/project/service-provider-app/flutter_project/linux",
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }

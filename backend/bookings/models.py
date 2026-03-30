@@ -4,12 +4,16 @@ from django.db import models
 class Booking(models.Model):
     STATUS_PENDING = 'pending'
     STATUS_CONFIRMED = 'confirmed'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_AWAITING_PAYMENT = 'awaiting_payment'
     STATUS_COMPLETED = 'completed'
     STATUS_CANCELLED = 'cancelled'
 # status::text = ANY (ARRAY['pending'::character varying, 'confirmed'::character varying, 'in_progress'::character varying, 'completed'::character varying, 'cancelled'::character varying]::text[])
     STATUS_CHOICES = [
         (STATUS_PENDING, 'Pending'),
         (STATUS_CONFIRMED, 'Confirmed'),
+        (STATUS_IN_PROGRESS, 'In Progress'),
+        (STATUS_AWAITING_PAYMENT, 'Awaiting Payment'),
         (STATUS_COMPLETED, 'Completed'),
         (STATUS_CANCELLED, 'Cancelled'),
     ]

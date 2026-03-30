@@ -1,13 +1,11 @@
 import 'package:flutter/foundation.dart';
 import '../models/booking.dart';
-import '../models/payment.dart';
 import '../services/api_service.dart';
 
 class BookingProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
 
   List<Booking> _bookings = [];
-  final Map<int, Payment> _paymentsByBooking = {};
   int? _loadedUserId;
   bool _isLoading = false;
 
@@ -59,7 +57,11 @@ class BookingProvider with ChangeNotifier {
   // Get ongoing bookings
   List<Booking> getOngoingBookings(int userId) {
     final userBookings = getUserBookings(userId);
-    return userBookings.where((b) => b.status == 'in_progress').toList();
+    return userBookings
+        .where(
+          (b) => b.status == 'in_progress' || b.status == 'awaiting_payment',
+        )
+        .toList();
   }
 
   // Get completed bookings
@@ -149,6 +151,8 @@ class BookingProvider with ChangeNotifier {
 
   // Mark booking as completed
   Future<void> completeBooking(int bookingId) async {
+    // TODO: Replace placeholder with backend payment confirmation endpoint call.
+    await _recordPaymentIfAvailable(bookingId);
     await updateBookingStatus(bookingId, 'completed');
   }
 
@@ -157,23 +161,40 @@ class BookingProvider with ChangeNotifier {
     required int bookingId,
     required String paymentMethod,
     required String transactionId,
+    String? paymentStatus,
+    bool useWallet = false,
+    int? userId,
   }) async {
-    final payment = Payment(
-      id: DateTime.now().millisecondsSinceEpoch,
+    await _apiService.initialize();
+    final result = await _apiService.confirmPayment(
       bookingId: bookingId,
       paymentMethod: paymentMethod,
-      paymentStatus: 'completed',
-      transactionId: transactionId,
-      paidAt: DateTime.now(),
+      transactionRef: transactionId,
+      paymentStatus: paymentStatus,
+      useWallet: useWallet,
+      userId: userId,
     );
 
-    _paymentsByBooking[bookingId] = payment;
+    if (result['success'] != true) {
+      final data = result['data'];
+      final message = data is Map<String, dynamic>
+          ? (data['message'] ?? data['error'] ?? 'Failed to confirm payment')
+                .toString()
+          : 'Failed to confirm payment';
+      throw Exception(message);
+    }
+
+    final idx = _bookings.indexWhere((b) => b.id == bookingId);
+    if (idx >= 0) {
+      _bookings[idx] = _bookings[idx].copyWith(status: 'completed');
+    }
     notifyListeners();
   }
 
-  // Get payment for booking
-  Payment? getPaymentForBooking(int bookingId) {
-    return _paymentsByBooking[bookingId];
+  Future<void> _recordPaymentIfAvailable(int bookingId) async {
+    // TODO: Wire to backend payment record API when endpoint is available.
+    // This placeholder keeps completion flow centralized until Part 2 payment APIs are implemented.
+    return;
   }
 
   Booking? getBookingById(int bookingId) {
@@ -203,9 +224,29 @@ class BookingProvider with ChangeNotifier {
     return booking;
   }
 
-  // Verify OTP (mock implementation)
-  bool verifyOTP(String otp) {
-    // Mock OTP verification - always returns true for '123456'
-    return otp == '123456';
+  // Verify booking OTP against backend and activate the job when valid.
+  Future<void> verifyBookingOtp({
+    required int bookingId,
+    required String otp,
+  }) async {
+    await _apiService.initialize();
+    final result = await _apiService.verifyJobOTP(
+      bookingId: bookingId,
+      otp: otp,
+    );
+
+    if (result['success'] != true) {
+      final data = result['data'];
+      final message = data is Map<String, dynamic>
+          ? (data['message'] ?? data['error'] ?? 'Invalid OTP').toString()
+          : 'Invalid OTP';
+      throw Exception(message);
+    }
+
+    final idx = _bookings.indexWhere((b) => b.id == bookingId);
+    if (idx >= 0) {
+      _bookings[idx] = _bookings[idx].copyWith(status: 'in_progress');
+      notifyListeners();
+    }
   }
 }

@@ -38,12 +38,10 @@ class _OtpJobCompletionScreenState extends State<OtpJobCompletionScreen> {
         listen: false,
       );
 
-      // Verify OTP (mock: 123456)
-      final isValid = bookingProvider.verifyOTP(_otpController.text);
-
-      if (!isValid) {
-        throw Exception('Invalid OTP');
-      }
+      await bookingProvider.verifyBookingOtp(
+        bookingId: widget.bookingId,
+        otp: _otpController.text.trim(),
+      );
 
       var booking = bookingProvider.getBookingById(widget.bookingId);
       booking ??= await bookingProvider.fetchBookingById(widget.bookingId);
@@ -119,29 +117,6 @@ class _OtpJobCompletionScreenState extends State<OtpJobCompletionScreen> {
             ),
             const SizedBox(height: 32),
 
-            // Demo OTP hint
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: Colors.amber, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Demo OTP: 123456',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.amber.shade900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 32),
 
             // Verify Button

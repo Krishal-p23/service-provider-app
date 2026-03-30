@@ -18,15 +18,20 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from authentication.views import locations_collection, location_by_id, location_by_user
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/accounts/', include('authentication.urls')),
+    path('api/locations/', locations_collection, name='locations_collection'),
+    path('api/locations/<int:location_id>/', location_by_id, name='location_by_id'),
+    path('api/locations/user/<int:user_id>/', location_by_user, name='location_by_user'),
     path('api/workers/', include('workers.urls')),
     path('api/services/', include('services.urls')),
     path('api/bookings/', include('bookings.urls')),
     path('api/reviews/', include('reviews.urls')),
-    path('api/wallet/', include('payments.urls')),
+    path('api/wallet/', include(('payments.urls', 'wallet'), namespace='wallet')),
+    path('api/payments/', include(('payments.urls', 'payments'), namespace='payments')),
 ]
 
 # Serve media files during development

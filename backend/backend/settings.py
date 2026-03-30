@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Load environment variables from .env file
 load_dotenv(Path(__file__).resolve().parent.parent / '.env')
@@ -25,15 +26,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-k-%py7jlowpxcow*!de$l!uhv(s#az=jt4(610c!m0y-_$7@5#'
+# PUT YOUR REAL SECRET_KEY IN .env — generate one with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    raise ImproperlyConfigured("SECRET_KEY is not set")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.0.2.2']  # 10.0.2.2 for Android emulator
-if DEBUG:
-    # Allow LAN/USB testing hosts during local development.
-    ALLOWED_HOSTS = ['*']
+_allowed_hosts_env = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,10.0.2.2,testserver')
+ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts_env.split(',') if host.strip()]
+
+# Render provides this env var for deployed service hostname.
+_render_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME', '').strip()
+if _render_hostname and _render_hostname not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_render_hostname)
+
+if 'testserver' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('testserver')
+if DEBUG and '*' not in ALLOWED_HOSTS:
+    # Keep local development flexible without blocking emulator/LAN traffic.
+    ALLOWED_HOSTS.append('*')
 
 # CORS Settings for Flutter
 CORS_ALLOWED_ORIGINS = [
@@ -180,7 +193,24 @@ REST_FRAMEWORK = {
 }
 
 # Didit Identity Verification Settings
-# For eKYC (electronic Know-Your-Customer) and Aadhar verification
+# Session-based KYC flow
 DIDIT_ENABLED = os.getenv('DIDIT_ENABLED', 'False').lower() == 'true'
 DIDIT_API_KEY = os.getenv('DIDIT_API_KEY', '')
-DIDIT_API_BASE_URL = os.getenv('DIDIT_API_BASE_URL', 'https://api.didit.me/api')
+DIDIT_API_ID = os.getenv('DIDIT_API_ID', '')
+DIDIT_WORKFLOW_ID = os.getenv('DIDIT_WORKFLOW_ID', '')
+DIDIT_WEBHOOK_SECRET = os.getenv('DIDIT_WEBHOOK_SECRET', '')
+DIDIT_BASE_URL = os.getenv('DIDIT_BASE_URL', 'https://verification.didit.me')
+DIDIT_AUTH_URL = os.getenv('DIDIT_AUTH_URL', 'https://auth.didit.me')
+DIDIT_ALLOW_MOCK_FALLBACK = os.getenv('DIDIT_ALLOW_MOCK_FALLBACK', 'True').lower() == 'true'
+BACKEND_BASE_URL = os.getenv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
+
+# Third-party integrations
+FAST2SMS_API_KEY = os.getenv('FAST2SMS_API_KEY', '')
+SUREPASS_API_TOKEN = os.getenv('SUREPASS_API_TOKEN', '')
+SUREPASS_BASE_URL = os.getenv('SUREPASS_BASE_URL', 'https://kyc-api.surepass.io/api/v1')
+BUSINESS_UPI_ID = os.getenv('BUSINESS_UPI_ID', '')
+BUSINESS_NAME = os.getenv('BUSINESS_NAME', 'HomeServices')
+FCM_SERVER_KEY = os.getenv('FCM_SERVER_KEY', '')
+
+# Booking policy
+CANCELLATION_FEE_PERCENT = float(os.getenv('CANCELLATION_FEE_PERCENT', '20'))

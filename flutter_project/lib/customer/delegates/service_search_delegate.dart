@@ -207,6 +207,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/service_provider.dart';
+import '../../providers/user_provider.dart';
 import '../screens/users/search_results_screen.dart';
 import '../../theme/app_theme.dart';
 import '../services/location_service.dart'; // Added location service import
@@ -386,6 +387,15 @@ class ServiceSearchDelegate extends SearchDelegate {
 
   // Request location before showing search results
   Future<void> _requestLocationForSearch(BuildContext context, String categoryName) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final hasSavedLocation =
+        userProvider.currentUserLocation != null &&
+        userProvider.currentUserLocation!.address.trim().isNotEmpty;
+
+    if (hasSavedLocation) {
+      return;
+    }
+
     final bool? userWantsLocation = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {

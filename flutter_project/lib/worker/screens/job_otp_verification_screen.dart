@@ -32,6 +32,8 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
   final ApiService _apiService = ApiService();
 
   bool _isVerifying = false;
+  bool _isOtpVerified = false;
+  bool _isMarkingDone = false;
   String? _errorMessage;
 
   @override
@@ -89,19 +91,14 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
         final jobProvider = Provider.of<JobProvider>(context, listen: false);
         jobProvider.activateJob(widget.job);
 
-        // Navigate back to scheduled jobs screen
-        Navigator.of(context).pop(true); // Return true to indicate success
+        setState(() {
+          _isVerifying = false;
+          _isOtpVerified = true;
+        });
 
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Text('Job "${widget.job.title}" activated successfully'),
-              ],
-            ),
+          const SnackBar(
+            content: Text('OTP verified. You can now mark this job complete.'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -117,6 +114,43 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
       setState(() {
         _isVerifying = false;
         _errorMessage = 'Network error. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _markJobComplete() async {
+    setState(() {
+      _isMarkingDone = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await _apiService.initialize();
+      final result = await _apiService.markJobDone(bookingId: widget.bookingId);
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Job marked complete. Awaiting customer payment.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        setState(() {
+          _isMarkingDone = false;
+          _errorMessage =
+              result['data']?['message']?.toString() ??
+              'Failed to mark job complete';
+        });
+      }
+    } catch (_) {
+      setState(() {
+        _isMarkingDone = false;
+        _errorMessage = 'Network error while marking job complete.';
       });
     }
   }
@@ -374,7 +408,7 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _isVerifying ? null : _verifyOTP,
+                onPressed: (_isVerifying || _isOtpVerified) ? null : _verifyOTP,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorScheme.primary,
                   foregroundColor: Colors.white,
@@ -407,6 +441,43 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
                       ),
               ),
             ),
+
+            if (_isOtpVerified) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isMarkingDone ? null : _markJobComplete,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isMarkingDone
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Text(
+                          'Mark Job Complete',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 24),
 

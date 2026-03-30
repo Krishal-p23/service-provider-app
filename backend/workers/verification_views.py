@@ -11,9 +11,11 @@ from rest_framework.status import (
 )
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+import base64
 import logging
 from .verification_models import WorkerDocumentVerification
-from .didit_service import DiditVerificationService
+from .surepass_service import SurepassVerificationService
+from .views import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +70,6 @@ class WorkerDocumentUploadView(APIView):
     """
     API endpoint for workers to upload government ID documents
     """
-    # permission_classes = [IsAuthenticated]  # Temporarily disabled for debugging
-    
     def post(self, request):
         """
         Upload worker document for verification
@@ -81,32 +81,21 @@ class WorkerDocumentUploadView(APIView):
         """
         try:
             print(f'[Upload] Received request: {request.META.get("HTTP_AUTHORIZATION", "No auth")}')
-            user = request.user
-            print(f'[Upload] User authenticated: {user}')
-            print(f'[Upload] User is Anonymous: {user.is_anonymous}')
-            print(f'[Upload] User type: {type(user).__name__}')
-           
-            # Check if user is authenticated
-            if user.is_anonymous:
-                # Try to extract Bearer token manually
-                auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-                if auth_header.startswith("Bearer "):
-                    token = auth_header.split(" ", 1)[1].strip()
-                    try:
-                        user_id = int(token)
-                        from authentication.models import AppUser
-                        user = AppUser.objects.get(id=user_id)
-                        print(f'[Upload] User found via Bearer token: {user.name} ({user.role})')
-                    except (ValueError, AppUser.DoesNotExist):
-                        return Response(
-                            {'error': 'Invalid authorization token'},
-                            status=HTTP_401_UNAUTHORIZED
-                        )
-                else:
-                    return Response(
-                        {'error': 'Authentication required. Use Authorization: Bearer <user_id>'},
-                        status=HTTP_401_UNAUTHORIZED
-                    )
+            user_id = get_current_user_id(request)
+            if not user_id:
+                return Response(
+                    {'error': 'Authentication required. Use Authorization: Bearer <user_id>'},
+                    status=HTTP_401_UNAUTHORIZED
+                )
+
+            from authentication.models import AppUser
+            try:
+                user = AppUser.objects.get(id=user_id)
+            except AppUser.DoesNotExist:
+                return Response(
+                    {'error': 'Invalid authorization token'},
+                    status=HTTP_401_UNAUTHORIZED
+                )
             
             if not hasattr(user, 'role'):
                 return Response(
@@ -164,8 +153,8 @@ class WorkerDocumentUploadView(APIView):
             serializer = WorkerDocumentVerificationSerializer(verification)
             
             # Trigger background verification asynchronously (don't wait for it)
-            if DiditVerificationService.is_enabled() and document_type == 'aadhar':
-                logger.info(f'[Upload] Triggering async Didit verification for worker {worker.id}')
+            if SurepassVerificationService.is_enabled() and document_type == 'aadhar':
+                logger.info(f'[Upload] Triggering async Surepass verification for worker {worker.id}')
                 # Start verification in background thread (non-blocking)
                 import threading
                 thread = threading.Thread(
@@ -181,7 +170,7 @@ class WorkerDocumentUploadView(APIView):
                     'message': 'Document uploaded successfully' if created else 'Document updated',
                     'data': serializer.data,
                     'action': 'created' if created else 'updated',
-                    'note': 'Verification in progress in background' if DiditVerificationService.is_enabled() and document_type == 'aadhar' else 'Manual verification required'
+                    'note': 'Verification in progress in background' if SurepassVerificationService.is_enabled() and document_type == 'aadhar' else 'Manual verification required'
                 },
                 status=HTTP_200_OK
             )
@@ -211,17 +200,16 @@ class WorkerDocumentUploadView(APIView):
             # Get the verification record
             verification = WorkerDocumentVerification.objects.get(id=verification_id)
             
-            # Call Didit API
-            logger.info(f'[AsyncVerification] Calling Didit API for {document_number}')
-            result = DiditVerificationService.verify_aadhar(
-                aadhar_number=document_number,
-                image_path=image_path
-            )
+            # Call Surepass API with base64 image payload
+            logger.info(f'[AsyncVerification] Calling Surepass OCR API for {document_number}')
+            with open(image_path, 'rb') as image_file:
+                image_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+            result = SurepassVerificationService.verify_aadhaar_ocr(image_base64)
             
             logger.info(f'[AsyncVerification] Didit result: {result}')
             
             # Update verification status based on result
-            if result.get('status') == 'verified':
+            if result.get('success'):
                 verification.status = WorkerDocumentVerification.STATUS_VERIFIED
                 verification.verified_at = timezone.now()
                 verification.verified_by = None  # Auto-verified
@@ -231,15 +219,11 @@ class WorkerDocumentUploadView(APIView):
                 verification.worker.is_verified = True
                 verification.worker.save()
             
-            elif result.get('status') == 'rejected':
-                verification.status = WorkerDocumentVerification.STATUS_REJECTED
-                verification.rejection_reason = result.get('error_message', 'Aadhar verification failed - Invalid document')
-                verification.verified_at = timezone.now()
-                logger.warning(f'[AsyncVerification] ❌ Rejected for worker {verification.worker.id}: {result.get("error_message")}')
-            
             else:
-                # Keep as pending if error, disabled, or timeout
-                logger.info(f'[AsyncVerification] ⏳ Keeping as pending: {result.get("status")}')
+                verification.status = WorkerDocumentVerification.STATUS_REJECTED
+                verification.rejection_reason = result.get('message', 'Aadhaar verification failed')
+                verification.verified_at = timezone.now()
+                logger.warning(f'[AsyncVerification] ❌ Rejected for worker {verification.worker.id}: {result.get("message")}')
             
             verification.save()
             logger.info(f'[AsyncVerification] ✅ Completed for verification_id={verification_id}')
@@ -255,8 +239,22 @@ class WorkerDocumentUploadView(APIView):
     def get(self, request):
         """Get current worker's document verification status"""
         try:
-            user = request.user
-            
+            user_id = get_current_user_id(request)
+            if not user_id:
+                return Response(
+                    {'error': 'Authentication required'},
+                    status=HTTP_401_UNAUTHORIZED
+                )
+
+            from authentication.models import AppUser
+            try:
+                user = AppUser.objects.get(id=user_id)
+            except AppUser.DoesNotExist:
+                return Response(
+                    {'error': 'Invalid authorization token'},
+                    status=HTTP_401_UNAUTHORIZED
+                )
+
             if user.role != 'worker':
                 return Response(
                     {'error': 'Only workers can view their documents'},

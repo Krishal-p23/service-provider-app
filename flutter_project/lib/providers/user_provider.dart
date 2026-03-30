@@ -280,6 +280,8 @@ class UserProvider extends ChangeNotifier {
 
         final userData = result['data']['data'] ?? {};
         _currentUser = User.fromJson(userData);
+        await fetchUserLocation();
+        await fetchUserReviews();
         _error = null;
         notifyListeners();
         return true;
@@ -388,7 +390,11 @@ class UserProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _error = result['data']['error'] ?? 'Failed to update location';
+        final data = result['data'];
+        _error = data is Map<String, dynamic>
+            ? (data['message'] ?? data['error'] ?? 'Failed to update location')
+                  .toString()
+            : 'Failed to update location';
         notifyListeners();
         return false;
       }

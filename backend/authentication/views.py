@@ -9,20 +9,147 @@ import uuid
 from datetime import timedelta
 from django.utils import timezone
 from .auth_utils import hash_password, verify_password, validate_email, validate_phone, validate_password
+from .sms_service import send_otp_sms
 
 # Create your views here.
 
 OTP_EXPIRY_SECONDS = 300
-_OTP_SESSIONS = {}
+
+
+def _ensure_auth_otp_table():
+    """Create persistent OTP session table (SQLite/Postgres compatible)."""
+    with connection.cursor() as cursor:
+        if connection.vendor == "postgresql":
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS auth_otp_sessions (
+                    session_id VARCHAR(64) PRIMARY KEY,
+                    email VARCHAR(255) NOT NULL,
+                    role VARCHAR(50) NOT NULL,
+                    action VARCHAR(20) NOT NULL,
+                    otp VARCHAR(10) NOT NULL,
+                    attempts INT NOT NULL DEFAULT 0,
+                    expires_at TIMESTAMP NOT NULL,
+                    payload TEXT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+        else:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS auth_otp_sessions (
+                    session_id VARCHAR(64) PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    otp TEXT NOT NULL,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    expires_at DATETIME NOT NULL,
+                    payload TEXT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
 
 
 def _cleanup_expired_otp_sessions():
-    now = timezone.now()
-    expired_keys = [
-        key for key, value in _OTP_SESSIONS.items() if value["expires_at"] < now
-    ]
-    for key in expired_keys:
-        _OTP_SESSIONS.pop(key, None)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            DELETE FROM auth_otp_sessions
+            WHERE expires_at < %s
+            """,
+            [timezone.now()],
+        )
+
+
+def _create_otp_session(session_id, email, role, action, otp, expires_at, payload):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO auth_otp_sessions (session_id, email, role, action, otp, attempts, expires_at, payload)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            [
+                session_id,
+                email,
+                role,
+                action,
+                otp,
+                0,
+                expires_at,
+                json.dumps(payload),
+            ],
+        )
+
+
+def _get_otp_session(session_id):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT session_id, email, role, action, otp, attempts, expires_at, payload
+            FROM auth_otp_sessions
+            WHERE session_id = %s
+            """,
+            [session_id],
+        )
+        row = cursor.fetchone()
+
+    if not row:
+        return None
+
+    payload_raw = row[7] or "{}"
+    try:
+        parsed_payload = json.loads(payload_raw)
+    except json.JSONDecodeError:
+        parsed_payload = {}
+
+    return {
+        "session_id": row[0],
+        "email": row[1],
+        "role": row[2],
+        "action": row[3],
+        "otp": row[4],
+        "attempts": int(row[5] or 0),
+        "expires_at": row[6],
+        "payload": parsed_payload,
+    }
+
+
+def _update_otp_attempts(session_id, attempts):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE auth_otp_sessions
+            SET attempts = %s
+            WHERE session_id = %s
+            """,
+            [attempts, session_id],
+        )
+
+
+def _refresh_otp_session(session_id, otp, expires_at):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE auth_otp_sessions
+            SET otp = %s, expires_at = %s, attempts = 0
+            WHERE session_id = %s
+            """,
+            [otp, expires_at, session_id],
+        )
+
+
+def _delete_otp_session(session_id):
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            DELETE FROM auth_otp_sessions
+            WHERE session_id = %s
+            """,
+            [session_id],
+        )
 
 
 def _generate_demo_otp():
@@ -36,6 +163,22 @@ def _build_user_payload(user_tuple):
         "name": user_tuple[2],
         "role": user_tuple[4],
     }
+
+
+def _ensure_worker_profile_row(user_id, name=""):
+    """Guarantee a workers-table row exists for a worker-role account."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT id FROM workers WHERE user_id = %s", [user_id])
+        if cursor.fetchone():
+            return
+
+        cursor.execute(
+            """
+            INSERT INTO workers (user_id, is_verified, is_available, experience_years, bio, profile_photo)
+            VALUES (%s, FALSE, TRUE, 0, %s, '')
+            """,
+            [user_id, f"{(name or 'Worker').strip()} worker profile"],
+        )
 
 
 def _create_user_record(name, email, phone, password, role):
@@ -61,6 +204,9 @@ def _create_user_record(name, email, phone, password, role):
             [name, email, phone, password_hash, role],
         )
         user = cursor.fetchone()
+
+    if str(role).strip().lower() == "worker":
+        _ensure_worker_profile_row(user[0], user[2])
 
     return user, None
 
@@ -224,6 +370,7 @@ def otp_start(request):
                 status=400,
             )
 
+        _ensure_auth_otp_table()
         _cleanup_expired_otp_sessions()
 
         otp = _generate_demo_otp()
@@ -235,17 +382,20 @@ def otp_start(request):
             if error_response:
                 return error_response
 
-            _OTP_SESSIONS[session_id] = {
-                "action": "register",
-                "otp": otp,
-                "expires_at": expires_at,
-                "attempts": 0,
-                "payload": payload,
-            }
+            _create_otp_session(
+                session_id=session_id,
+                email=payload["email"],
+                role=payload["role"],
+                action="register",
+                otp=otp,
+                expires_at=expires_at,
+                payload=payload,
+            )
 
             print(
                 f"[DEMO OTP] register role={payload['role']} email={payload['email']} otp={otp}"
             )
+            send_otp_sms(payload.get("phone", ""), otp, "register")
 
             return JsonResponse(
                 {
@@ -255,6 +405,7 @@ def otp_start(request):
                         "session_id": session_id,
                         "expires_in": OTP_EXPIRY_SECONDS,
                         "action": "register",
+                        "otp": otp,
                     },
                 },
                 status=200,
@@ -264,17 +415,20 @@ def otp_start(request):
         if error_response:
             return error_response
 
-        _OTP_SESSIONS[session_id] = {
-            "action": "login",
-            "otp": otp,
-            "expires_at": expires_at,
-            "attempts": 0,
-            "payload": login_payload,
-        }
+        _create_otp_session(
+            session_id=session_id,
+            email=login_payload["email"],
+            role=login_payload["role"],
+            action="login",
+            otp=otp,
+            expires_at=expires_at,
+            payload=login_payload,
+        )
 
         print(
             f"[DEMO OTP] login role={login_payload['role']} email={login_payload['email']} otp={otp}"
         )
+        send_otp_sms(login_payload.get("phone", ""), otp, "login")
 
         return JsonResponse(
             {
@@ -284,6 +438,7 @@ def otp_start(request):
                     "session_id": session_id,
                     "expires_in": OTP_EXPIRY_SECONDS,
                     "action": "login",
+                    "otp": otp,
                 },
             },
             status=200,
@@ -336,8 +491,9 @@ def otp_verify(request):
             status=400,
         )
 
+    _ensure_auth_otp_table()
     _cleanup_expired_otp_sessions()
-    otp_session = _OTP_SESSIONS.get(session_id)
+    otp_session = _get_otp_session(session_id)
 
     if not otp_session:
         return JsonResponse(
@@ -350,9 +506,9 @@ def otp_verify(request):
         )
 
     if otp_session["otp"] != otp:
-        otp_session["attempts"] += 1
-        if otp_session["attempts"] >= 5:
-            _OTP_SESSIONS.pop(session_id, None)
+        attempts = otp_session["attempts"] + 1
+        if attempts >= 5:
+            _delete_otp_session(session_id)
             return JsonResponse(
                 {
                     "status": "error",
@@ -361,6 +517,8 @@ def otp_verify(request):
                 },
                 status=429,
             )
+
+        _update_otp_attempts(session_id, attempts)
 
         return JsonResponse(
             {
@@ -384,10 +542,10 @@ def otp_verify(request):
                 payload["role"],
             )
             if error_response:
-                _OTP_SESSIONS.pop(session_id, None)
+                _delete_otp_session(session_id)
                 return error_response
 
-            _OTP_SESSIONS.pop(session_id, None)
+            _delete_otp_session(session_id)
             return JsonResponse(
                 {
                     "status": "success",
@@ -404,7 +562,9 @@ def otp_verify(request):
             payload["password_hash"],
             payload["role"],
         )
-        _OTP_SESSIONS.pop(session_id, None)
+        if str(payload.get("role") or "").strip().lower() == "worker":
+            _ensure_worker_profile_row(payload["id"], payload.get("name", ""))
+        _delete_otp_session(session_id)
         return JsonResponse(
             {
                 "status": "success",
@@ -458,8 +618,9 @@ def otp_resend(request):
             status=400,
         )
 
+    _ensure_auth_otp_table()
     _cleanup_expired_otp_sessions()
-    otp_session = _OTP_SESSIONS.get(session_id)
+    otp_session = _get_otp_session(session_id)
 
     if not otp_session:
         return JsonResponse(
@@ -472,11 +633,11 @@ def otp_resend(request):
         )
 
     otp = _generate_demo_otp()
-    otp_session["otp"] = otp
-    otp_session["expires_at"] = timezone.now() + timedelta(seconds=OTP_EXPIRY_SECONDS)
-    otp_session["attempts"] = 0
+    expires_at = timezone.now() + timedelta(seconds=OTP_EXPIRY_SECONDS)
+    _refresh_otp_session(session_id, otp, expires_at)
 
     payload = otp_session["payload"]
+    send_otp_sms(payload.get("phone", ""), otp, otp_session["action"])
     print(
         f"[DEMO OTP] resend action={otp_session['action']} role={payload.get('role')} email={payload.get('email')} otp={otp}"
     )
@@ -488,6 +649,7 @@ def otp_resend(request):
             "data": {
                 "session_id": session_id,
                 "expires_in": OTP_EXPIRY_SECONDS,
+                "otp": otp,
             },
         },
         status=200,
@@ -573,6 +735,9 @@ def register(request):
                     [name, email, phone, password_hash, role],
                 )
                 user = cursor.fetchone()
+
+            if str(role).strip().lower() == 'worker':
+                _ensure_worker_profile_row(user[0], user[2])
             
             return JsonResponse({
                 "status": "success",
@@ -658,6 +823,9 @@ def login(request):
                     "message": "Invalid email or password",
                     "code": "INVALID_CREDENTIALS"
                 }, status=401)
+
+            if str(user_role).strip().lower() == 'worker':
+                _ensure_worker_profile_row(user_id, user_name)
 
             return JsonResponse({
                 "status": "success",
@@ -988,6 +1156,303 @@ def update_profile(request, user_id):
                 "status": "error",
                 "message": "Failed to update profile",
                 "code": "DB_ERROR",
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def locations_collection(request):
+    """GET list locations or POST create location."""
+    try:
+        if request.method == "GET":
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, user_id, latitude, longitude, address
+                    FROM user_locations
+                    ORDER BY id DESC
+                    """
+                )
+                rows = cursor.fetchall()
+
+            data = [
+                {
+                    "id": row[0],
+                    "user_id": row[1],
+                    "latitude": float(row[2]),
+                    "longitude": float(row[3]),
+                    "address": row[4],
+                }
+                for row in rows
+            ]
+            return JsonResponse({"status": "success", "data": data}, status=200)
+
+        payload = json.loads(request.body or "{}")
+        user_id = payload.get("user_id")
+        latitude = payload.get("latitude")
+        longitude = payload.get("longitude")
+        address = (payload.get("address") or "").strip()
+
+        if user_id is None or latitude is None or longitude is None or not address:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "user_id, latitude, longitude and address are required",
+                    "code": "MISSING_FIELDS",
+                },
+                status=400,
+            )
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO user_locations (user_id, latitude, longitude, address)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, user_id, latitude, longitude, address
+                """,
+                [user_id, latitude, longitude, address],
+            )
+            row = cursor.fetchone()
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "data": {
+                    "id": row[0],
+                    "user_id": row[1],
+                    "latitude": float(row[2]),
+                    "longitude": float(row[3]),
+                    "address": row[4],
+                },
+            },
+            status=201,
+        )
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid JSON format",
+                "code": "INVALID_JSON",
+            },
+            status=400,
+        )
+    except Exception as db_error:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to process locations request",
+                "code": "LOCATIONS_ERROR",
+                "details": str(db_error),
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def location_by_user(request, user_id):
+    """GET /api/locations/user/<user_id>/ - fetch location for a user."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, user_id, latitude, longitude, address
+                FROM user_locations
+                WHERE user_id = %s
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                [user_id],
+            )
+            row = cursor.fetchone()
+
+        if not row:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Location not found",
+                    "code": "NOT_FOUND",
+                },
+                status=404,
+            )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "data": {
+                    "id": row[0],
+                    "user_id": row[1],
+                    "latitude": float(row[2]),
+                    "longitude": float(row[3]),
+                    "address": row[4],
+                },
+            },
+            status=200,
+        )
+    except Exception as db_error:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to fetch user location",
+                "code": "LOCATION_FETCH_ERROR",
+                "details": str(db_error),
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def location_by_id(request, location_id):
+    """PUT /api/locations/<location_id>/ - update location."""
+    try:
+        payload = json.loads(request.body or "{}")
+        user_id = payload.get("user_id")
+        latitude = payload.get("latitude")
+        longitude = payload.get("longitude")
+        address = (payload.get("address") or "").strip()
+
+        if user_id is None or latitude is None or longitude is None or not address:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "user_id, latitude, longitude and address are required",
+                    "code": "MISSING_FIELDS",
+                },
+                status=400,
+            )
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE user_locations
+                SET user_id = %s, latitude = %s, longitude = %s, address = %s
+                WHERE id = %s
+                RETURNING id, user_id, latitude, longitude, address
+                """,
+                [user_id, latitude, longitude, address, location_id],
+            )
+            row = cursor.fetchone()
+
+        if not row:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Location not found",
+                    "code": "NOT_FOUND",
+                },
+                status=404,
+            )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "data": {
+                    "id": row[0],
+                    "user_id": row[1],
+                    "latitude": float(row[2]),
+                    "longitude": float(row[3]),
+                    "address": row[4],
+                },
+            },
+            status=200,
+        )
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid JSON format",
+                "code": "INVALID_JSON",
+            },
+            status=400,
+        )
+    except Exception as db_error:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to update location",
+                "code": "LOCATION_UPDATE_ERROR",
+                "details": str(db_error),
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_fcm_token(request):
+    """Save/update FCM token for current account."""
+    user_id = _get_user_id_from_bearer(request)
+    if not user_id:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Unauthorized",
+                "code": "UNAUTHORIZED",
+            },
+            status=401,
+        )
+
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Invalid JSON format",
+                "code": "INVALID_JSON",
+            },
+            status=400,
+        )
+
+    fcm_token = str(data.get("fcm_token") or "").strip()
+    if not fcm_token:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "fcm_token is required",
+                "code": "MISSING_FCM_TOKEN",
+            },
+            status=400,
+        )
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE users
+                SET fcm_token = %s
+                WHERE id = %s
+                """,
+                [fcm_token, user_id],
+            )
+
+            if cursor.rowcount == 0:
+                return JsonResponse(
+                    {
+                        "status": "error",
+                        "message": "User not found",
+                        "code": "NOT_FOUND",
+                    },
+                    status=404,
+                )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": "FCM token saved",
+            },
+            status=200,
+        )
+    except Exception as db_error:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to save FCM token",
+                "code": "DB_ERROR",
+                "details": str(db_error),
             },
             status=500,
         )

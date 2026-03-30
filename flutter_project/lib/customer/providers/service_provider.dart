@@ -19,6 +19,7 @@ class ServiceProvider with ChangeNotifier {
   final Map<int, int> _workerCompletedJobs = {};
   final Map<int, List<int>> _workerServiceIds = {};
   final Map<int, List<Review>> _workerReviews = {};
+  final Map<int, double?> _workerDistancesKm = {};
 
   bool _isLoading = false;
   String? _error;
@@ -33,7 +34,15 @@ class ServiceProvider with ChangeNotifier {
     loadDataFromApi();
   }
 
-  Future<void> loadDataFromApi() async {
+  Future<void> loadDataFromApi({
+    int? serviceId,
+    int? categoryId,
+    String? search,
+    double? minRating,
+    double? lat,
+    double? lng,
+    double radiusKm = 20,
+  }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -43,7 +52,15 @@ class ServiceProvider with ChangeNotifier {
 
       final categoriesResponse = await _apiService.getServiceCategories();
       final servicesResponse = await _apiService.getServices();
-      final workersResponse = await _apiService.getCustomerWorkers();
+      final workersResponse = await _apiService.getCustomerWorkers(
+        serviceId: serviceId,
+        categoryId: categoryId,
+        search: search,
+        minRating: minRating,
+        lat: lat,
+        lng: lng,
+        radiusKm: radiusKm,
+      );
 
       if (categoriesResponse['success'] == true) {
         _categories = (categoriesResponse['data'] as List)
@@ -78,6 +95,7 @@ class ServiceProvider with ChangeNotifier {
     _workerRatings.clear();
     _workerReviewCounts.clear();
     _workerCompletedJobs.clear();
+    _workerDistancesKm.clear();
 
     for (final item in rawWorkers) {
       final map = item as Map<String, dynamic>;
@@ -101,6 +119,10 @@ class ServiceProvider with ChangeNotifier {
       _workerRatings[worker.id] = ((map['rating'] ?? 0.0) as num).toDouble();
       _workerReviewCounts[worker.id] = (map['review_count'] ?? 0) as int;
       _workerCompletedJobs[worker.id] = (map['completed_jobs'] ?? 0) as int;
+      final distanceRaw = map['distance_km'] ?? map['distance'];
+      _workerDistancesKm[worker.id] = distanceRaw is num
+          ? distanceRaw.toDouble()
+          : double.tryParse(distanceRaw?.toString() ?? '');
     }
 
     // Build quick worker-service map from backend listing.
@@ -158,6 +180,42 @@ class ServiceProvider with ChangeNotifier {
     }).toList();
   }
 
+  Future<void> fetchWorkers({
+    int? serviceId,
+    int? categoryId,
+    String? search,
+    double? minRating,
+    double? lat,
+    double? lng,
+    double radiusKm = 20,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _apiService.initialize();
+      final workersResponse = await _apiService.getCustomerWorkers(
+        serviceId: serviceId,
+        categoryId: categoryId,
+        search: search,
+        minRating: minRating,
+        lat: lat,
+        lng: lng,
+        radiusKm: radiusKm,
+      );
+
+      if (workersResponse['success'] == true) {
+        _hydrateWorkers(workersResponse['data'] as List);
+      }
+    } catch (e) {
+      _error = 'Failed to fetch workers: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // Calculate distance between two coordinates (in km)
   double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     const p = 0.017453292519943295; // PI / 180
@@ -182,7 +240,8 @@ class ServiceProvider with ChangeNotifier {
     List<Map<String, dynamic>> workersWithDistance = [];
 
     for (var worker in workerList) {
-      final distance = (worker.id % 10) + 1.0;
+      final distance =
+          _workerDistancesKm[worker.id] ?? ((worker.id % 10) + 1.0);
       final rating = _workerRatings[worker.id] ?? 0.0;
 
       workersWithDistance.add({
@@ -275,7 +334,7 @@ class ServiceProvider with ChangeNotifier {
       'reviewCount': reviewCount,
       'reviews': reviews,
       'services': workerServices,
-      'distance': distance,
+      'distance': _workerDistancesKm[workerId] ?? distance,
       'completedJobs': _workerCompletedJobs[workerId] ?? 0,
     };
   }
@@ -338,8 +397,9 @@ class ServiceProvider with ChangeNotifier {
         'reviewCount': _workerReviewCounts[worker.id] ?? reviews.length,
         'reviews': reviews,
         'services': workerServices,
-        'distance': ((data['distance'] ?? (worker.id % 10) + 1.0) as num)
-            .toDouble(),
+        'distance':
+            _workerDistancesKm[worker.id] ??
+            ((data['distance'] ?? (worker.id % 10) + 1.0) as num).toDouble(),
         'completedJobs': _workerCompletedJobs[worker.id] ?? 0,
       };
     } catch (_) {

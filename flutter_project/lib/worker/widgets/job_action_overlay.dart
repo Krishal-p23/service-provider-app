@@ -6,6 +6,7 @@ class JobActionOverlay extends StatelessWidget {
   final Job job;
   final bool isTopJob;
   final VoidCallback onActivate;
+  final VoidCallback? onMarkDone;
   final VoidCallback onReschedule;
   final VoidCallback onDelete;
 
@@ -14,6 +15,7 @@ class JobActionOverlay extends StatelessWidget {
     required this.job,
     required this.isTopJob,
     required this.onActivate,
+    this.onMarkDone,
     required this.onReschedule,
     required this.onDelete,
   });
@@ -26,12 +28,12 @@ class JobActionOverlay extends StatelessWidget {
     final surfaceColor = Theme.of(context).colorScheme.surface;
     final primaryColor = Theme.of(context).colorScheme.primary;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final secondaryTextColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    final secondaryTextColor = isDark
+        ? Colors.grey.shade400
+        : Colors.grey.shade600;
 
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: surfaceColor,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
@@ -74,10 +76,7 @@ class JobActionOverlay extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     job.customerName,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: Colors.white70,
-                    ),
+                    style: const TextStyle(fontSize: 15, color: Colors.white70),
                   ),
                 ],
               ),
@@ -122,25 +121,39 @@ class JobActionOverlay extends StatelessWidget {
               ),
             ),
 
-            Divider(height: 1, color: isDark ? Colors.grey.shade800 : Colors.grey.shade300),
+            Divider(
+              height: 1,
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+            ),
 
             // Action Buttons - REMOVED isTopJob RESTRICTION
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // Activate button for ALL jobs
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.of(context).pop();
+                        if (job.status.toLowerCase() == 'in_progress' &&
+                            onMarkDone != null) {
+                          onMarkDone!();
+                          return;
+                        }
                         onActivate();
                       },
-                      icon: const Icon(Icons.play_circle_outline, size: 22),
-                      label: const Text(
-                        'Activate Job',
-                        style: TextStyle(
+                      icon: Icon(
+                        job.status.toLowerCase() == 'in_progress'
+                            ? Icons.check_circle_outline
+                            : Icons.play_circle_outline,
+                        size: 22,
+                      ),
+                      label: Text(
+                        job.status.toLowerCase() == 'in_progress'
+                            ? 'Mark Job Complete'
+                            : 'Activate Job',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -218,8 +231,10 @@ class JobActionOverlay extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final secondaryTextColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
-    
+    final secondaryTextColor = isDark
+        ? Colors.grey.shade400
+        : Colors.grey.shade600;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -229,11 +244,7 @@ class JobActionOverlay extends StatelessWidget {
             color: primaryColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            icon,
-            size: 18,
-            color: primaryColor,
-          ),
+          child: Icon(icon, size: 18, color: primaryColor),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -242,10 +253,7 @@ class JobActionOverlay extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: secondaryTextColor,
-                ),
+                style: TextStyle(fontSize: 12, color: secondaryTextColor),
               ),
               const SizedBox(height: 2),
               Text(

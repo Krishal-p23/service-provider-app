@@ -3,8 +3,26 @@ from .verification_models import WorkerDocumentVerification
 
 
 class Worker(models.Model):
+    VERIFICATION_STATUS_NOT_STARTED = 'not_started'
+    VERIFICATION_STATUS_PENDING = 'pending'
+    VERIFICATION_STATUS_APPROVED = 'approved'
+    VERIFICATION_STATUS_REJECTED = 'rejected'
+    
+    VERIFICATION_STATUSES = [
+        (VERIFICATION_STATUS_NOT_STARTED, 'Not Started'),
+        (VERIFICATION_STATUS_PENDING, 'Pending'),
+        (VERIFICATION_STATUS_APPROVED, 'Approved'),
+        (VERIFICATION_STATUS_REJECTED, 'Rejected'),
+    ]
+    
     user = models.OneToOneField('authentication.AppUser', on_delete=models.CASCADE, related_name='worker_profile')
     is_verified = models.BooleanField(default=False)
+    verification_status = models.CharField(
+        max_length=50,
+        choices=VERIFICATION_STATUSES,
+        default=VERIFICATION_STATUS_NOT_STARTED,
+        help_text="KYC verification status: not_started, pending, approved, rejected"
+    )
     is_available = models.BooleanField(default=True)
     experience_years = models.IntegerField(default=0)
     bio = models.TextField(blank=True)

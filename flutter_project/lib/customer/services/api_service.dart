@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,21 +11,15 @@ class ApiService {
     defaultValue: '',
   );
 
-  // Use emulator-friendly defaults when API_BASE_URL is not provided.
+  // Use environment-provided URL or fallback to production tunnel
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl;
     }
 
-    if (kIsWeb) {
-      return 'http://127.0.0.1:8000/api';
-    }
-
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8000/api';
-    }
-
-    return 'http://127.0.0.1:8000/api';
+    // Default to Cloudflare tunnel URL (works on physical devices and anywhere)
+    // Can be overridden with: --dart-define=API_BASE_URL=http://192.168.1.5:8000/api
+    return 'https://handmade-enemies-concentrations-electro.trycloudflare.com/api';
   }
 
   // Singleton pattern
@@ -387,7 +380,12 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final payload = jsonDecode(response.body);
+        final data =
+            payload is Map<String, dynamic> &&
+                payload['data'] is Map<String, dynamic>
+            ? payload['data'] as Map<String, dynamic>
+            : payload as Map<String, dynamic>;
         return {
           'success': true,
           'statusCode': response.statusCode,
@@ -431,7 +429,12 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 15));
 
-      final data = jsonDecode(response.body);
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : payload as Map<String, dynamic>;
 
       return {
         'success': response.statusCode == 201,
@@ -462,7 +465,12 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 15));
 
-      final data = jsonDecode(response.body);
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : payload as Map<String, dynamic>;
 
       return {
         'success': response.statusCode == 200,
@@ -559,16 +567,24 @@ class ApiService {
   /// GET /api/services/workers/?service_id=&search=&min_rating=
   Future<Map<String, dynamic>> getCustomerWorkers({
     int? serviceId,
+    int? categoryId,
     String? search,
     double? minRating,
+    double? lat,
+    double? lng,
+    double? radiusKm,
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/services/workers/').replace(
         queryParameters: {
           if (serviceId != null) 'service_id': serviceId.toString(),
+          if (categoryId != null) 'category_id': categoryId.toString(),
           if (search != null && search.trim().isNotEmpty)
             'search': search.trim(),
           if (minRating != null) 'min_rating': minRating.toString(),
+          if (lat != null) 'lat': lat.toString(),
+          if (lng != null) 'lng': lng.toString(),
+          if (radiusKm != null) 'radius_km': radiusKm.toString(),
         },
       );
 
@@ -712,6 +728,46 @@ class ApiService {
       };
     } catch (e) {
       return {'success': false, 'statusCode': 500, 'data': <String, dynamic>{}};
+    }
+  }
+
+  /// Worker reschedules booking with new datetime and reason
+  /// POST /api/bookings/{bookingId}/reschedule/
+  Future<Map<String, dynamic>> rescheduleBooking({
+    required int bookingId,
+    required DateTime scheduledDate,
+    required String reason,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/bookings/$bookingId/reschedule/'),
+            headers: _headers,
+            body: jsonEncode({
+              'scheduled_date': scheduledDate.toIso8601String(),
+              'reason': reason,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic>
+          ? (payload['data'] is Map<String, dynamic>
+                ? payload['data'] as Map<String, dynamic>
+                : payload)
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
     }
   }
 
@@ -878,6 +934,113 @@ class ApiService {
               payload['data'] is Map<String, dynamic>
           ? payload['data']
           : payload;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Get selectable service list for current worker
+  /// GET /api/workers/services/
+  Future<Map<String, dynamic>> getWorkerServicesSelection() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/workers/services/'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+        'message': payload is Map<String, dynamic> ? payload['message'] : null,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': <String, dynamic>{},
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
+  /// Update selected services for current worker
+  /// POST /api/workers/services/
+  Future<Map<String, dynamic>> updateWorkerServicesSelection(
+    List<int> serviceIds,
+  ) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/workers/services/'),
+            headers: _headers,
+            body: jsonEncode({'service_ids': serviceIds}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+        'message': payload is Map<String, dynamic>
+            ? (payload['message']?.toString() ?? '')
+            : '',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': <String, dynamic>{},
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
+  /// Start worker KYC session
+  /// POST /api/workers/kyc/start/
+  Future<Map<String, dynamic>> startWorkerKycSession() async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/workers/kyc/start/'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+
+      Map<String, dynamic> data;
+      try {
+        final payload = jsonDecode(response.body);
+        data = payload is Map<String, dynamic> ? payload : <String, dynamic>{};
+      } catch (_) {
+        final preview = response.body.length > 180
+            ? '${response.body.substring(0, 180)}...'
+            : response.body;
+        data = {
+          'success': false,
+          'message': 'Server returned non-JSON response',
+          'raw': preview,
+        };
+      }
 
       return {
         'success': response.statusCode == 200,
@@ -1285,6 +1448,84 @@ class ApiService {
     }
   }
 
+  /// Get payment QR payload for a booking
+  /// GET /api/payments/qr/{bookingId}/
+  Future<Map<String, dynamic>> getPaymentQr(int bookingId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/payments/qr/$bookingId/'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Confirm payment and complete booking
+  /// POST /api/payments/confirm/
+  Future<Map<String, dynamic>> confirmPayment({
+    required int bookingId,
+    required String paymentMethod,
+    String? transactionRef,
+    String? paymentStatus,
+    bool useWallet = false,
+    int? userId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/payments/confirm/'),
+            headers: _headers,
+            body: jsonEncode({
+              'booking_id': bookingId,
+              'payment_method': paymentMethod,
+              if (transactionRef != null && transactionRef.isNotEmpty)
+                'transaction_ref': transactionRef,
+              if (paymentStatus != null && paymentStatus.isNotEmpty)
+                'payment_status': paymentStatus,
+              'use_wallet': useWallet,
+              if (userId != null) 'user_id': userId,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : payload as Map<String, dynamic>;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
   /// Get worker notifications
   /// GET /api/workers/notifications/
   Future<Map<String, dynamic>> getWorkerNotifications() async {
@@ -1354,7 +1595,6 @@ class ApiService {
           .post(
             Uri.parse('$baseUrl/bookings/$bookingId/initiate-otp/'),
             headers: _headers,
-            body: jsonEncode({'booking_id': bookingId}),
           )
           .timeout(const Duration(seconds: 15));
 
@@ -1390,7 +1630,7 @@ class ApiService {
           .post(
             Uri.parse('$baseUrl/bookings/$bookingId/verify-otp/'),
             headers: _headers,
-            body: jsonEncode({'booking_id': bookingId, 'otp': otp}),
+            body: jsonEncode({'otp': otp}),
           )
           .timeout(const Duration(seconds: 15));
 
@@ -1401,6 +1641,144 @@ class ApiService {
           ? payload['data']
           : payload;
 
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Worker marks in-progress job as done and moves it to awaiting_payment
+  /// POST /api/bookings/{booking_id}/mark-done/
+  Future<Map<String, dynamic>> markJobDone({required int bookingId}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/bookings/$bookingId/mark-done/'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic>
+          ? payload['data'] ?? payload
+          : payload;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Save/update account FCM token
+  /// POST /api/accounts/fcm-token/
+  Future<Map<String, dynamic>> saveFcmToken(String fcmToken) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/accounts/fcm-token/'),
+            headers: _headers,
+            body: jsonEncode({'fcm_token': fcmToken}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': payload,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Get worker weekly availability schedule
+  /// GET /api/workers/availability/
+  Future<Map<String, dynamic>> getWorkerAvailabilitySchedule() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/workers/availability/'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic> && payload['data'] is List
+          ? payload['data'] as List
+          : <dynamic>[];
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <dynamic>[]};
+    }
+  }
+
+  /// Save worker weekly availability schedule
+  /// POST /api/workers/availability/
+  Future<Map<String, dynamic>> saveWorkerAvailabilitySchedule(
+    List<Map<String, dynamic>> availability,
+  ) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/workers/availability/'),
+            headers: _headers,
+            body: jsonEncode({'availability': availability}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': payload,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Validate IFSC via backend endpoint
+  /// GET /api/workers/validate-ifsc/?ifsc=SBIN0001234
+  Future<Map<String, dynamic>> validateIfsc(String ifsc) async {
+    try {
+      final uri = Uri.parse(
+        '$baseUrl/workers/validate-ifsc/',
+      ).replace(queryParameters: {'ifsc': ifsc});
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic>
+          ? (payload['data'] ?? payload)
+          : payload;
       return {
         'success': response.statusCode == 200,
         'statusCode': response.statusCode,
