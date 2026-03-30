@@ -5,6 +5,8 @@ import '../../providers/booking_provider.dart';
 import '../../providers/service_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../widgets/booking_card.dart';
+import 'rate_worker_screen.dart';
+import 'review_management_screen.dart';
 import 'payment_screen.dart';
 
 class BookingStatusScreen extends StatefulWidget {
@@ -140,10 +142,15 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
   }
 
   Widget _buildBookingList(List<dynamic> bookings, String type) {
+    final bookingProvider = Provider.of<BookingProvider>(
+      context,
+      listen: false,
+    );
     final serviceProvider = Provider.of<ServiceProvider>(
       context,
       listen: false,
     );
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     if (bookings.isEmpty) {
       return Center(
@@ -176,11 +183,17 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
         );
         final service = serviceProvider.getServiceById(booking.serviceId);
 
+        // Check if review exists for completed bookings
+        final hasReview = type == 'completed'
+            ? serviceProvider.getReviewForBooking(booking.id) != null
+            : false;
+
         return BookingCard(
           booking: booking,
           workerName: workerUser?.name ?? 'Worker ${booking.workerId}',
           serviceName: service?.serviceName ?? 'Service',
           workerPhoto: worker?.profilePhoto,
+          hasReview: hasReview,
           onTap: () {
             // Navigate to booking details
           },
@@ -190,15 +203,64 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
           onComplete: type == 'ongoing'
               ? () {
                   if (booking.status == 'awaiting_payment') {
-                    Navigator.push(
+                    final userId = Provider.of<UserProvider>(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => PaymentScreen(
+                      listen: false,
+                    ).currentUser?.id;
+                    bookingProvider
+                        .confirmCompletion(
                           bookingId: booking.id,
-                          amount: booking.totalAmount,
-                        ),
-                      ),
-                    );
+                          userId: userId,
+                        )
+                        .then((result) {
+                          if (!context.mounted) return;
+                          final paymentRequired =
+                              result['paymentRequired'] == true;
+                          if (paymentRequired) {
+                            final amount =
+                                (result['amount'] as num?)?.toDouble() ??
+                                booking.totalAmount;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PaymentScreen(
+                                  bookingId: booking.id,
+                                  amount: amount,
+                                ),
+                              ),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please complete payment to finish this job.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  RateWorkerScreen(bookingId: booking.id),
+                            ),
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Booking completed successfully.'),
+                            ),
+                          );
+                        })
+                        .catchError((e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                e.toString().replaceAll('Exception: ', ''),
+                              ),
+                            ),
+                          );
+                        });
                     return;
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -210,17 +272,25 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
                   );
                 }
               : null,
-          onPayNow: booking.status == 'awaiting_payment'
-              ? () {
-                  Navigator.push(
+          onPayNow: null,
+          onRate: type == 'completed' && !hasReview
+              ? () async {
+                  final submitted = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => PaymentScreen(
-                        bookingId: booking.id,
-                        amount: booking.totalAmount,
-                      ),
+                      builder: (context) =>
+                          ReviewManagementScreen(bookingId: booking.id),
                     ),
                   );
+                  if (!context.mounted) return;
+                  if (submitted == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Thank you for your feedback!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
                 }
               : null,
         );

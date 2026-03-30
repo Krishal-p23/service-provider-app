@@ -120,7 +120,10 @@ class UserProvider extends ChangeNotifier {
         return {
           'success': true,
           'sessionId': result['data']?['data']?['session_id'],
+          'phone': result['data']?['data']?['phone'],
           'message': result['data']?['message'] ?? 'OTP sent successfully',
+          'otp': result['data']?['data']?['otp'],
+          'smsStatus': result['data']?['data']?['sms_status'],
         };
       }
 
@@ -162,6 +165,9 @@ class UserProvider extends ChangeNotifier {
           'success': true,
           'sessionId': result['data']?['data']?['session_id'],
           'message': result['data']?['message'] ?? 'OTP sent successfully',
+          'otp': result['data']?['data']?['otp'],
+          'smsStatus': result['data']?['data']?['sms_status'],
+          'phone': result['data']?['data']?['phone'],
         };
       }
 

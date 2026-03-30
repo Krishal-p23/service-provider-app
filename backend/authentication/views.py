@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.db import connection
+from django.conf import settings
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 import json
@@ -360,6 +361,7 @@ def otp_start(request):
 
     try:
         action = (data.get("action") or "").strip().lower()
+        print(f"[OTP START] action={action} sms_enabled={getattr(settings, 'SMS_OTP_ENABLED', False)}")
         if action not in ["register", "login"]:
             return JsonResponse(
                 {
@@ -395,18 +397,26 @@ def otp_start(request):
             print(
                 f"[DEMO OTP] register role={payload['role']} email={payload['email']} otp={otp}"
             )
-            send_otp_sms(payload.get("phone", ""), otp, "register")
+
+            # Send OTP via SMS if enabled
+            phone_number = payload.get("phone", "")
+            sms_result = send_otp_sms(phone_number, otp, purpose="registration")
+
+            response_data = {
+                "session_id": session_id,
+                "expires_in": OTP_EXPIRY_SECONDS,
+                "action": "register",
+                "phone": phone_number,
+                "sms_status": sms_result,
+            }
+            if getattr(settings, "OTP_EXPOSE_IN_API", True):
+                response_data["otp"] = otp
 
             return JsonResponse(
                 {
                     "status": "success",
                     "message": "OTP sent successfully",
-                    "data": {
-                        "session_id": session_id,
-                        "expires_in": OTP_EXPIRY_SECONDS,
-                        "action": "register",
-                        "otp": otp,
-                    },
+                    "data": response_data,
                 },
                 status=200,
             )
@@ -428,18 +438,26 @@ def otp_start(request):
         print(
             f"[DEMO OTP] login role={login_payload['role']} email={login_payload['email']} otp={otp}"
         )
-        send_otp_sms(login_payload.get("phone", ""), otp, "login")
+
+        # Send OTP via SMS if enabled
+        phone_number = login_payload.get("phone", "")
+        sms_result = send_otp_sms(phone_number, otp, purpose="login")
+
+        response_data = {
+            "session_id": session_id,
+            "expires_in": OTP_EXPIRY_SECONDS,
+            "action": "login",
+            "phone": phone_number,
+            "sms_status": sms_result,
+        }
+        if getattr(settings, "OTP_EXPOSE_IN_API", True):
+            response_data["otp"] = otp
 
         return JsonResponse(
             {
                 "status": "success",
                 "message": "OTP sent successfully",
-                "data": {
-                    "session_id": session_id,
-                    "expires_in": OTP_EXPIRY_SECONDS,
-                    "action": "login",
-                    "otp": otp,
-                },
+                "data": response_data,
             },
             status=200,
         )
@@ -505,29 +523,30 @@ def otp_verify(request):
             status=400,
         )
 
-    if otp_session["otp"] != otp:
-        attempts = otp_session["attempts"] + 1
-        if attempts >= 5:
-            _delete_otp_session(session_id)
+    if not getattr(settings, "FIREBASE_PHONE_AUTH_ENABLED", True):
+        if otp_session["otp"] != otp:
+            attempts = otp_session["attempts"] + 1
+            if attempts >= 5:
+                _delete_otp_session(session_id)
+                return JsonResponse(
+                    {
+                        "status": "error",
+                        "message": "Too many invalid OTP attempts",
+                        "code": "OTP_ATTEMPTS_EXCEEDED",
+                    },
+                    status=429,
+                )
+
+            _update_otp_attempts(session_id, attempts)
+
             return JsonResponse(
                 {
                     "status": "error",
-                    "message": "Too many invalid OTP attempts",
-                    "code": "OTP_ATTEMPTS_EXCEEDED",
+                    "message": "Invalid OTP",
+                    "code": "INVALID_OTP",
                 },
-                status=429,
+                status=400,
             )
-
-        _update_otp_attempts(session_id, attempts)
-
-        return JsonResponse(
-            {
-                "status": "error",
-                "message": "Invalid OTP",
-                "code": "INVALID_OTP",
-            },
-            status=400,
-        )
 
     try:
         payload = otp_session["payload"]
@@ -632,25 +651,32 @@ def otp_resend(request):
             status=400,
         )
 
-    otp = _generate_demo_otp()
+    otp = otp_session["otp"]
     expires_at = timezone.now() + timedelta(seconds=OTP_EXPIRY_SECONDS)
     _refresh_otp_session(session_id, otp, expires_at)
 
     payload = otp_session["payload"]
-    send_otp_sms(payload.get("phone", ""), otp, otp_session["action"])
     print(
         f"[DEMO OTP] resend action={otp_session['action']} role={payload.get('role')} email={payload.get('email')} otp={otp}"
     )
+
+    phone_number = payload.get("phone", "")
+    sms_result = send_otp_sms(phone_number, otp, purpose="resend")
+
+    response_data = {
+        "session_id": session_id,
+        "expires_in": OTP_EXPIRY_SECONDS,
+        "phone": phone_number,
+        "sms_status": sms_result,
+    }
+    if getattr(settings, "OTP_EXPOSE_IN_API", True):
+        response_data["otp"] = otp
 
     return JsonResponse(
         {
             "status": "success",
             "message": "OTP resent successfully",
-            "data": {
-                "session_id": session_id,
-                "expires_in": OTP_EXPIRY_SECONDS,
-                "otp": otp,
-            },
+            "data": response_data,
         },
         status=200,
     )

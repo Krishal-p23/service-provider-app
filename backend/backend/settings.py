@@ -22,6 +22,18 @@ load_dotenv(Path(__file__).resolve().parent.parent / '.env')
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _env_list(name: str, default: str = '') -> list[str]:
+    raw_value = os.getenv(name, default)
+    return [item.strip() for item in raw_value.split(',') if item.strip()]
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -32,10 +44,9 @@ if not SECRET_KEY:
     raise ImproperlyConfigured("SECRET_KEY is not set")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+DEBUG = _env_bool('DEBUG', False)
 
-_allowed_hosts_env = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,10.0.2.2,testserver')
-ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts_env.split(',') if host.strip()]
+ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,10.0.2.2,testserver')
 
 # Render provides this env var for deployed service hostname.
 _render_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME', '').strip()
@@ -48,13 +59,14 @@ if DEBUG and '*' not in ALLOWED_HOSTS:
     # Keep local development flexible without blocking emulator/LAN traffic.
     ALLOWED_HOSTS.append('*')
 
-# CORS Settings for Flutter
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-    "http://localhost:3000",
-    "http://127.0.0.1:8080",
-]
-CORS_ALLOW_ALL_ORIGINS = True  # For development only - disable in production
+# CORS + CSRF settings
+CORS_ALLOW_ALL_ORIGINS = _env_bool('CORS_ALLOW_ALL_ORIGINS', DEBUG)
+CORS_ALLOWED_ORIGINS = _env_list(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:8080,http://localhost:3000,http://127.0.0.1:8080',
+)
+CORS_ALLOW_CREDENTIALS = _env_bool('CORS_ALLOW_CREDENTIALS', False)
+CSRF_TRUSTED_ORIGINS = _env_list('CSRF_TRUSTED_ORIGINS', '')
 
 
 # Application definition
@@ -112,21 +124,29 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# Using Supabase PostgreSQL Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres.jgdojkbhcxzploxzpzxa',
-        'PASSWORD': 'xpgwvUKtz/m*7!X',
-        'HOST': 'aws-1-ap-south-1.pooler.supabase.com',
-        'PORT': '6543',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
-        'CONN_MAX_AGE': 600,  # Connection pooling
+DB_ENGINE = os.getenv('DB_ENGINE', 'django.db.backends.postgresql')
+if DB_ENGINE.endswith('sqlite3'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.getenv('DB_NAME', str(BASE_DIR / 'db.sqlite3')),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': DB_ENGINE,
+            'NAME': os.getenv('DB_NAME', 'postgres'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'OPTIONS': {
+                'sslmode': os.getenv('DB_SSLMODE', 'prefer'),
+            },
+            'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '600')),
+        }
+    }
 
 
 
@@ -182,30 +202,67 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Security headers/cookies
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = _env_bool('SECURE_SSL_REDIRECT', not DEBUG)
+SESSION_COOKIE_SECURE = _env_bool('SESSION_COOKIE_SECURE', not DEBUG)
+CSRF_COOKIE_SECURE = _env_bool('CSRF_COOKIE_SECURE', not DEBUG)
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = _env_bool('CSRF_COOKIE_HTTPONLY', False)
+SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0' if DEBUG else '31536000'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', not DEBUG)
+SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', not DEBUG)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = os.getenv('SECURE_REFERRER_POLICY', 'strict-origin-when-cross-origin')
+
 # REST Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',  # Session auth for browser
+        'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # Temporarily allow all for debugging
+        'rest_framework.permissions.AllowAny' if DEBUG else 'rest_framework.permissions.IsAuthenticated',
     ],
 }
 
 # Didit Identity Verification Settings
 # Session-based KYC flow
-DIDIT_ENABLED = os.getenv('DIDIT_ENABLED', 'False').lower() == 'true'
+DIDIT_ENABLED = _env_bool('DIDIT_ENABLED', False)
 DIDIT_API_KEY = os.getenv('DIDIT_API_KEY', '')
 DIDIT_API_ID = os.getenv('DIDIT_API_ID', '')
 DIDIT_WORKFLOW_ID = os.getenv('DIDIT_WORKFLOW_ID', '')
 DIDIT_WEBHOOK_SECRET = os.getenv('DIDIT_WEBHOOK_SECRET', '')
 DIDIT_BASE_URL = os.getenv('DIDIT_BASE_URL', 'https://verification.didit.me')
 DIDIT_AUTH_URL = os.getenv('DIDIT_AUTH_URL', 'https://auth.didit.me')
-DIDIT_ALLOW_MOCK_FALLBACK = os.getenv('DIDIT_ALLOW_MOCK_FALLBACK', 'True').lower() == 'true'
+DIDIT_ALLOW_MOCK_FALLBACK = _env_bool('DIDIT_ALLOW_MOCK_FALLBACK', DEBUG)
 BACKEND_BASE_URL = os.getenv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
 
 # Third-party integrations
-FAST2SMS_API_KEY = os.getenv('FAST2SMS_API_KEY', '')
+# Twilio SMS Settings (for OTP delivery) - set SMS_OTP_ENABLED=True to enable
+SMS_OTP_ENABLED = _env_bool('SMS_OTP_ENABLED', False)  # Master flag: enable/disable SMS OTP sending
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
+TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER', '')  # e.g., '+14782155819'
+
+# Keep non-OTP SMS off by default to protect Twilio credits.
+SMS_NON_OTP_NOTIFICATIONS_ENABLED = _env_bool('SMS_NON_OTP_NOTIFICATIONS_ENABLED', False)
+
+# MailerSend worker notification email (new booking + cancellation)
+WEBLAB_WORKER_JOB_EMAIL_ENABLED = _env_bool('WEBLAB_WORKER_JOB_EMAIL_ENABLED', False)
+MAILERSEND_API_TOKEN = os.getenv('MAILERSEND_API_TOKEN', '')
+MAILERSEND_FROM_EMAIL = os.getenv('MAILERSEND_FROM_EMAIL', '')
+MAILERSEND_FROM_NAME = os.getenv('MAILERSEND_FROM_NAME', 'Service Provider App')
+
+# Razorpay WebLab switch (keep OFF to preserve current flow)
+WEBLAB_RAZORPAY_ENABLED = _env_bool('WEBLAB_RAZORPAY_ENABLED', False)
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', '')
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', '')
+
+FIREBASE_PHONE_AUTH_ENABLED = _env_bool('FIREBASE_PHONE_AUTH_ENABLED', False)
+# Keep OTP visible in API responses only for demo/testing flows.
+OTP_EXPOSE_IN_API = _env_bool('OTP_EXPOSE_IN_API', False)
 SUREPASS_API_TOKEN = os.getenv('SUREPASS_API_TOKEN', '')
 SUREPASS_BASE_URL = os.getenv('SUREPASS_BASE_URL', 'https://kyc-api.surepass.io/api/v1')
 BUSINESS_UPI_ID = os.getenv('BUSINESS_UPI_ID', '')
@@ -214,3 +271,4 @@ FCM_SERVER_KEY = os.getenv('FCM_SERVER_KEY', '')
 
 # Booking policy
 CANCELLATION_FEE_PERCENT = float(os.getenv('CANCELLATION_FEE_PERCENT', '20'))
+ADMIN_CUT_PERCENT = float(os.getenv('ADMIN_CUT_PERCENT', '2'))

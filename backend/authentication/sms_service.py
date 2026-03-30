@@ -1,36 +1,73 @@
-import requests
 from django.conf import settings
 
 
 def send_otp_sms(phone_number: str, otp: str, purpose: str = "verification") -> dict:
-    """Send OTP SMS via Fast2SMS or fallback to console logging in development."""
+    """
+    Send OTP SMS via Twilio (if SMS_OTP_ENABLED=True) or log to console.
+    When flag is False, returns success but doesn't send (keeps current flow).
+    """
+    # Normalize phone number - remove non-digits
     normalized_phone = ''.join(ch for ch in str(phone_number or '') if ch.isdigit())
-    if len(normalized_phone) > 10:
-        normalized_phone = normalized_phone[-10:]
+    
+    # If number has country code, keep full length; otherwise pad to 10
+    if len(normalized_phone) == 10:
+        # Indian number without country code
+        full_phone = f"+91{normalized_phone}"
+    elif len(normalized_phone) == 12 and normalized_phone.startswith('91'):
+        # Indian number with country code (91)
+        full_phone = f"+{normalized_phone}"
+    else:
+        full_phone = f"+{normalized_phone}" if normalized_phone else ""
+    
+    # Check if SMS OTP is enabled
+    sms_enabled = getattr(settings, 'SMS_OTP_ENABLED', False)
 
-    if len(normalized_phone) != 10:
-        return {'success': False, 'message': 'Invalid phone number'}
+    # Always print one clear line so you can confirm API path was hit.
+    print(f"[OTP SMS ATTEMPT] enabled={sms_enabled} purpose={purpose} phone={normalized_phone}")
+    
+    if not sms_enabled:
+        # SMS is disabled - log to console only (for testing)
+        print(f"[SMS OTP DISABLED] Phone: {normalized_phone} | OTP: {otp} | Purpose: {purpose}")
+        return {'success': True, 'message': 'SMS disabled by feature flag'}
+    
+    # Send via Twilio
+    return _send_via_twilio(full_phone, otp, purpose)
 
-    if not settings.FAST2SMS_API_KEY:
-        print(f"[SMS FALLBACK] Phone: {normalized_phone} | OTP: {otp} | Purpose: {purpose}")
-        return {'success': True, 'message': 'OTP logged to console (no API key set)'}
 
-    url = "https://www.fast2sms.com/dev/bulkV2"
-    payload = {
-        "variables_values": otp,
-        "route": "otp",
-        "numbers": normalized_phone,
-    }
-    headers = {
-        "authorization": settings.FAST2SMS_API_KEY,
-        "Content-Type": "application/json",
-    }
-
+def _send_via_twilio(phone_number: str, otp: str, purpose: str) -> dict:
+    """
+    Send SMS via Twilio.
+    Returns dict with success/failure info.
+    """
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        data = response.json()
-        if data.get("return"):
-            return {'success': True, 'message': 'OTP sent'}
-        return {'success': False, 'message': data.get('message', 'SMS failed')}
-    except Exception as exc:
-        return {'success': False, 'message': str(exc)}
+        account_sid = getattr(settings, 'TWILIO_ACCOUNT_SID', '')
+        auth_token = getattr(settings, 'TWILIO_AUTH_TOKEN', '')
+        from_number = getattr(settings, 'TWILIO_PHONE_NUMBER', '')
+        
+        if not (account_sid and auth_token and from_number):
+            # Twilio not configured - log to console
+            print(f"[SMS TWILIO NOT CONFIGURED] Phone: {phone_number} | OTP: {otp}")
+            return {'success': True, 'message': 'Twilio not configured, logged to console'}
+        
+        from twilio.rest import Client
+        
+        client = Client(account_sid, auth_token)
+        message_body = f"Your OTP is: {otp}. Valid for 5 minutes. Do not share with anyone."
+        
+        message = client.messages.create(
+            from_=from_number,
+            to=phone_number,
+            body=message_body
+        )
+        
+        # Print to console for development testing (single line)
+        print(f"[SMS OTP] Phone: {phone_number} | OTP: {otp} | SID: {message.sid}")
+        
+        return {
+            'success': True,
+            'message': 'OTP sent via SMS',
+            'provider': 'twilio'
+        }
+    except Exception as e:
+        print(f"[SMS TWILIO ERROR] {str(e)}")
+        return {'success': False, 'message': f'SMS failed: {str(e)}'}

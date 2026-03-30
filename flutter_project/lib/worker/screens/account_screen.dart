@@ -10,8 +10,6 @@ import 'bank_transfers_screen.dart';
 import 'bank_details_screen.dart';
 import 'past_services_screen.dart';
 import 'my_reviews_screen.dart';
-import 'privacy_policy_screen.dart';
-import 'terms_conditions_screen.dart';
 import 'help_support_screen.dart';
 import 'settings_screen.dart';
 import 'availability_screen.dart';
@@ -490,34 +488,6 @@ class WorkerAccountScreen extends StatelessWidget {
                     color: AppTheme.getTextColor(context),
                   ),
                 ),
-              ),
-
-              _buildActionTile(
-                Icons.privacy_tip_outlined,
-                'Privacy Policy',
-                'Read our privacy policy',
-                () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const PrivacyPolicyScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              _buildActionTile(
-                Icons.article_outlined,
-                'Terms & Conditions',
-                'Read terms and conditions',
-                () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TermsConditionsScreen(),
-                    ),
-                  );
-                },
               ),
 
               _buildActionTile(

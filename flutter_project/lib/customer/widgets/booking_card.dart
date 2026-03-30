@@ -11,6 +11,8 @@ class BookingCard extends StatelessWidget {
   final VoidCallback? onCancel;
   final VoidCallback? onComplete;
   final VoidCallback? onPayNow;
+  final VoidCallback? onRate;
+  final bool hasReview;
 
   const BookingCard({
     super.key,
@@ -22,6 +24,8 @@ class BookingCard extends StatelessWidget {
     this.onCancel,
     this.onComplete,
     this.onPayNow,
+    this.onRate,
+    this.hasReview = false,
   });
 
   Color _getStatusColor(String status, ThemeData theme) {
@@ -54,7 +58,7 @@ class BookingCard extends StatelessWidget {
       case 'completed':
         return 'Completed';
       case 'awaiting_payment':
-        return 'Awaiting Payment';
+        return 'Awaiting Confirmation';
       case 'cancelled':
         return 'Cancelled';
       default:
@@ -231,7 +235,8 @@ class BookingCard extends StatelessWidget {
               if (booking.status == 'pending' ||
                   booking.status == 'confirmed' ||
                   booking.status == 'in_progress' ||
-                  booking.status == 'awaiting_payment') ...[
+                  booking.status == 'awaiting_payment' ||
+                  booking.status == 'completed') ...[
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -272,6 +277,34 @@ class BookingCard extends StatelessWidget {
                         child: ElevatedButton(
                           onPressed: onPayNow,
                           child: const Text('Pay Now'),
+                        ),
+                      ),
+                    ],
+
+                    // Rate & Review button for completed bookings
+                    if (booking.status == 'completed' && onRate != null && !hasReview) ...[
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: onRate,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Rate & Review'),
+                        ),
+                      ),
+                    ],
+
+                    // Already Reviewed badge for completed bookings with reviews
+                    if (booking.status == 'completed' && hasReview) ...[
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: null,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green,
+                            side: const BorderSide(color: Colors.green),
+                          ),
+                          child: const Text('Already Reviewed'),
                         ),
                       ),
                     ],

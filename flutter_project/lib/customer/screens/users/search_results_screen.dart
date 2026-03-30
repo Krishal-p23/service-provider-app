@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/service_provider.dart';
+import '../../models/service.dart';
 import '../../../providers/user_provider.dart';
 import '../../widgets/service_provider_card.dart';
 import '../../../theme/app_theme.dart';
@@ -9,8 +10,14 @@ import 'service_provider_details_screen.dart';
 class SearchResultsScreen extends StatefulWidget {
   final String query;
   final int? categoryId;
+  final int? serviceId;
 
-  const SearchResultsScreen({super.key, required this.query, this.categoryId});
+  const SearchResultsScreen({
+    super.key,
+    required this.query,
+    this.categoryId,
+    this.serviceId,
+  });
 
   @override
   State<SearchResultsScreen> createState() => _SearchResultsScreenState();
@@ -21,6 +28,41 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   double? _minRating;
   bool _showFilters = false;
   bool _requestedWorkers = false;
+
+  int? _resolveSelectedServiceId(ServiceProvider serviceProvider) {
+    if (widget.serviceId != null) {
+      return widget.serviceId;
+    }
+
+    if (widget.categoryId != null) {
+      return null;
+    }
+
+    final query = widget.query.trim().toLowerCase();
+    if (query.isEmpty) {
+      return null;
+    }
+
+    Service? exactMatch;
+    for (final service in serviceProvider.services) {
+      if (service.serviceName.trim().toLowerCase() == query) {
+        exactMatch = service;
+        break;
+      }
+    }
+    if (exactMatch != null) {
+      return exactMatch.id;
+    }
+
+    for (final service in serviceProvider.services) {
+      final name = service.serviceName.trim().toLowerCase();
+      if (name.contains(query) || query.contains(name)) {
+        return service.id;
+      }
+    }
+
+    return null;
+  }
 
   @override
   void didChangeDependencies() {
@@ -33,13 +75,18 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       listen: false,
     );
     final userLocation = userProvider.currentUserLocation;
+    final selectedServiceId = _resolveSelectedServiceId(serviceProvider);
 
     _requestedWorkers = true;
     final normalizedQuery = widget.query.trim();
-    final effectiveSearch = widget.categoryId == null && normalizedQuery.isNotEmpty
+    final effectiveSearch =
+        selectedServiceId == null &&
+            widget.categoryId == null &&
+            normalizedQuery.isNotEmpty
         ? normalizedQuery
         : null;
     serviceProvider.fetchWorkers(
+      serviceId: selectedServiceId,
       categoryId: widget.categoryId,
       search: effectiveSearch,
       lat: userLocation?.latitude,
@@ -55,6 +102,13 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     final serviceProvider = Provider.of<ServiceProvider>(context);
     final userProvider = Provider.of<UserProvider>(context);
     final currentUser = userProvider.currentUser;
+    final selectedServiceId = _resolveSelectedServiceId(serviceProvider);
+    final selectedService = selectedServiceId != null
+        ? serviceProvider.getServiceById(selectedServiceId)
+        : null;
+    final selectedServiceName = widget.categoryId == null
+        ? widget.query.trim()
+        : null;
 
     if (currentUser == null) {
       return Scaffold(
@@ -66,7 +120,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     // Get filtered workers
     final workersData = serviceProvider.filterWorkers(
       userId: currentUser.id,
-      serviceId: null,
+      serviceId: selectedServiceId,
       sortBy: _sortBy,
       minRating: _minRating,
     );
@@ -370,6 +424,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                               builder: (context) =>
                                   ServiceProviderDetailsScreen(
                                     workerId: worker.id,
+                                    selectedServiceId: selectedServiceId,
+                                    selectedServiceName:
+                                        selectedService?.serviceName ??
+                                        selectedServiceName,
+                                    selectedCategoryId: widget.categoryId,
                                   ),
                             ),
                           );
@@ -381,6 +440,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                               builder: (context) =>
                                   ServiceProviderDetailsScreen(
                                     workerId: worker.id,
+                                    selectedServiceId: selectedServiceId,
+                                    selectedServiceName:
+                                        selectedService?.serviceName ??
+                                        selectedServiceName,
+                                    selectedCategoryId: widget.categoryId,
                                   ),
                             ),
                           );

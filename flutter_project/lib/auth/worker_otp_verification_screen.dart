@@ -35,6 +35,7 @@ class _WorkerOTPVerificationScreenState
   bool _isResending = false;
   int _resendTimer = 30;
   Timer? _timer;
+  String? _demoOtp;
 
   @override
   void initState() {
@@ -43,6 +44,57 @@ class _WorkerOTPVerificationScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNodes[0].requestFocus();
     });
+  }
+
+  String _formatPhoneNumber(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 10) {
+      return '+91$digits';
+    }
+    if (digits.length == 12 && digits.startsWith('91')) {
+      return '+$digits';
+    }
+    if (phone.startsWith('+')) {
+      return phone;
+    }
+    return '+$digits';
+  }
+
+  Future<void> _completeBackendVerification() async {
+    if (!mounted) return;
+    final workerProvider = context.read<WorkerProvider>();
+    final result = await workerProvider.verifyAuthOtp(
+      sessionId: widget.sessionId,
+      otp: _getOTP(),
+    );
+
+    if (!mounted) return;
+    if (result['success']) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.isLoginFlow
+                ? 'Worker login successful'
+                : 'Worker registration successful',
+          ),
+          backgroundColor: AppTheme.successColor,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/worker-dashboard',
+        (route) => false,
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text((result['message'] ?? 'Verification failed').toString()),
+        backgroundColor: AppTheme.errorColor,
+      ),
+    );
   }
 
   @override
@@ -101,43 +153,22 @@ class _WorkerOTPVerificationScreenState
       _isLoading = true;
     });
 
-    if (!mounted) return;
-
-    final workerProvider = context.read<WorkerProvider>();
-    final result = await workerProvider.verifyAuthOtp(
-      sessionId: widget.sessionId,
-      otp: otp,
-    );
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (mounted) {
-      if (result['success']) {
+    try {
+      await _completeBackendVerification();
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              widget.isLoginFlow
-                  ? 'Worker login successful'
-                  : 'Worker registration successful',
-            ),
-            backgroundColor: AppTheme.successColor,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/worker-dashboard',
-          (route) => false,
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'OTP verification failed'),
+            content: Text('OTP verification failed: $e'),
             backgroundColor: AppTheme.errorColor,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -153,6 +184,12 @@ class _WorkerOTPVerificationScreenState
     if (mounted) {
       setState(() {
         _isResending = false;
+        if (result['success'] == true) {
+          _demoOtp = result['otp']?.toString() ?? '';
+          print(
+            '[DEMO OTP - RESENT] Session: ${widget.sessionId} - OTP: $_demoOtp',
+          );
+        }
       });
 
       ScaffoldMessenger.of(context).showSnackBar(

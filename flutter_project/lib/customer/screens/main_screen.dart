@@ -3,7 +3,6 @@ import 'package:flutter_project/customer/widgets/custom_bottom_nav_bar.dart';
 import 'package:flutter_project/customer/screens/home_screen.dart';
 import 'package:flutter_project/customer/screens/account_screen.dart';
 import 'package:flutter_project/customer/screens/history_screen.dart';
-// import 'package:flutter_project/customer/screens/wallet_screen.dart'; // Hidden for MVP
 import 'package:flutter_project/customer/screens/menu_screen.dart';
 
 class MainScreen extends StatefulWidget {

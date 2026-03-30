@@ -389,12 +389,17 @@
 //   }
 // }
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/booking_provider.dart';
 import '../providers/service_provider.dart';
 import '../../providers/user_provider.dart';
 import 'package:intl/intl.dart';
+import 'users/rate_worker_screen.dart';
+import 'users/review_management_screen.dart';
+import 'users/payment_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -407,9 +412,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final _searchController = TextEditingController();
   String _selectedStatus = 'All';
   String _selectedSort = 'Recent';
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshBookings();
+    });
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _refreshBookings();
+    });
+  }
+
+  Future<void> _refreshBookings() async {
+    if (!mounted) return;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final bookingProvider = Provider.of<BookingProvider>(
+      context,
+      listen: false,
+    );
+    final currentUser = userProvider.currentUser;
+    if (currentUser == null) return;
+    await bookingProvider.fetchUserBookings(currentUser.id);
+  }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -800,6 +830,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     String statusLabel = _getStatusLabel(booking.status);
     bool canCancel =
         booking.status == 'pending' || booking.status == 'confirmed';
+    final canConfirmComplete = booking.status == 'awaiting_payment';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -947,6 +978,80 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ),
             ],
+            if (canConfirmComplete) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final bookingProvider = Provider.of<BookingProvider>(
+                      context,
+                      listen: false,
+                    );
+                    final userProvider = Provider.of<UserProvider>(
+                      context,
+                      listen: false,
+                    );
+                    try {
+                      final result = await bookingProvider.confirmCompletion(
+                        bookingId: booking.id,
+                        userId: userProvider.currentUser?.id,
+                      );
+                      if (!context.mounted) return;
+                      final paymentRequired = result['paymentRequired'] == true;
+                      if (paymentRequired) {
+                        final amount =
+                            (result['amount'] as num?)?.toDouble() ??
+                            booking.totalAmount;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PaymentScreen(
+                              bookingId: booking.id,
+                              amount: amount,
+                            ),
+                          ),
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Please complete payment to finish this job.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      final submitted = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              ReviewManagementScreen(bookingId: booking.id),
+                        ),
+                      );
+                      if (!context.mounted) return;
+                      if (submitted == true) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Thank you for your feedback!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            e.toString().replaceAll('Exception: ', ''),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Confirm Complete'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -963,6 +1068,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return Colors.purple;
       case 'completed':
         return Colors.green;
+      case 'awaiting_payment':
+        return Colors.deepOrange;
       case 'cancelled':
         return Colors.red;
       default:
@@ -980,6 +1087,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return 'In Progress';
       case 'completed':
         return 'Completed';
+      case 'awaiting_payment':
+        return 'Awaiting Confirmation';
       case 'cancelled':
         return 'Cancelled';
       default:

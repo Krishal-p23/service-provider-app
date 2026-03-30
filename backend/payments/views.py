@@ -5,7 +5,49 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import json
 import uuid
+import requests
 from urllib.parse import quote_plus
+
+from .upi_qr import generate_upi_qr
+
+
+def _create_razorpay_order(amount: float, booking_id: int):
+	"""Create Razorpay order when keys are configured. Returns None on graceful fallback."""
+	key_id = getattr(settings, "RAZORPAY_KEY_ID", "")
+	key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "")
+	if not key_id or not key_secret:
+		print(f"[RAZORPAY ORDER SKIPPED] Missing keys for booking_id={booking_id}")
+		return None
+
+	paise = int(round(amount * 100))
+	payload = {
+		"amount": paise,
+		"currency": "INR",
+		"receipt": f"booking_{booking_id}",
+		"notes": {"booking_id": str(booking_id)},
+	}
+
+	try:
+		response = requests.post(
+			"https://api.razorpay.com/v1/orders",
+			json=payload,
+			auth=(key_id, key_secret),
+			timeout=12,
+		)
+		if response.status_code in {200, 201}:
+			data = response.json()
+			return {
+				"order_id": data.get("id"),
+				"amount": data.get("amount"),
+				"currency": data.get("currency"),
+			}
+		print(
+			f"[RAZORPAY ORDER FAILED] booking_id={booking_id} status={response.status_code} body={response.text}"
+		)
+		return None
+	except Exception as exc:
+		print(f"[RAZORPAY ORDER ERROR] booking_id={booking_id} error={exc}")
+		return None
 
 
 def _get_balance(user_id):
@@ -233,6 +275,109 @@ def get_payment_qr(request, booking_id):
 			},
 			status=500,
 		)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_payment_qr(request):
+	"""POST /api/payments/qr/generate/ - return QR image + UPI link for checkout."""
+	try:
+		payload = json.loads(request.body or "{}")
+	except json.JSONDecodeError:
+		return JsonResponse(
+			{
+				"status": "error",
+				"message": "Invalid JSON",
+				"code": "INVALID_JSON",
+			},
+			status=400,
+		)
+
+	booking_id = payload.get("booking_id")
+	amount_value = payload.get("amount")
+	worker_upi = str(payload.get("worker_upi") or "").strip()
+	use_admin_upi = bool(payload.get("use_admin_upi", True))
+
+	if booking_id is None or amount_value is None:
+		return JsonResponse(
+			{
+				"status": "error",
+				"message": "booking_id and amount are required",
+				"code": "MISSING_FIELDS",
+			},
+			status=400,
+		)
+
+	try:
+		total_amount = float(amount_value)
+	except (TypeError, ValueError):
+		return JsonResponse(
+			{
+				"status": "error",
+				"message": "amount must be numeric",
+				"code": "VALIDATION_ERROR",
+			},
+			status=400,
+		)
+
+	if total_amount <= 0:
+		return JsonResponse(
+			{
+				"status": "error",
+				"message": "amount must be greater than 0",
+				"code": "VALIDATION_ERROR",
+			},
+			status=400,
+		)
+
+	commission_percent = float(getattr(settings, "ADMIN_CUT_PERCENT", 2) or 2)
+	admin_amount = round(total_amount * (commission_percent / 100.0), 2)
+	worker_amount = round(total_amount - admin_amount, 2)
+
+	receiver_upi = settings.BUSINESS_UPI_ID if use_admin_upi else worker_upi
+	receiver_name = settings.BUSINESS_NAME or "HomeServices"
+
+	if not receiver_upi:
+		return JsonResponse(
+			{
+				"status": "error",
+				"message": "Receiver UPI ID is not configured",
+				"code": "UPI_NOT_CONFIGURED",
+			},
+			status=400,
+		)
+
+	ref = str(uuid.uuid4())[:12].upper()
+	description = f"Booking-{booking_id}"
+	razorpay_enabled = bool(getattr(settings, "WEBLAB_RAZORPAY_ENABLED", False))
+	razorpay_order = _create_razorpay_order(total_amount, int(booking_id)) if razorpay_enabled else None
+
+	qr_image, upi_link = generate_upi_qr(
+		amount=total_amount,
+		payee_upi=receiver_upi,
+		payee_name=receiver_name,
+		transaction_ref=ref,
+		description=description,
+	)
+
+	return JsonResponse(
+		{
+			"status": "success",
+			"data": {
+				"qr_image": qr_image,
+				"upi_link": upi_link,
+				"total": total_amount,
+				"worker_gets": worker_amount,
+				"admin_gets": admin_amount,
+				"ref": ref,
+				"payment_gateway": "razorpay" if razorpay_enabled else "upi",
+				"razorpay_enabled": razorpay_enabled,
+				"razorpay": razorpay_order,
+				"settlement_mode": "admin_first" if use_admin_upi else "direct_to_worker",
+			},
+		},
+		status=200,
+	)
 
 
 @csrf_exempt

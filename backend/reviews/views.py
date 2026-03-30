@@ -5,6 +5,94 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
 
+@csrf_exempt
+@require_http_methods(["GET"])
+def check_review_status(request, booking_id):
+	"""GET /api/reviews/check/<booking_id>/ - check if review exists for booking."""
+	try:
+		user_id = request.GET.get('user_id')
+		if not user_id:
+			return JsonResponse(
+				{
+					"status": "error",
+					"message": "user_id query parameter is required",
+					"code": "MISSING_USER_ID",
+				},
+				status=400,
+			)
+
+		with connection.cursor() as cursor:
+			# Check ifbooking exists and get its status
+			cursor.execute(
+				"""
+				SELECT id, status FROM bookings WHERE id = %s
+				""",
+				[booking_id],
+			)
+			booking_row = cursor.fetchone()
+
+			if not booking_row:
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Booking not found",
+						"code": "BOOKING_NOT_FOUND",
+					},
+					status=404,
+				)
+
+			booking_id_check, booking_status = booking_row
+
+			# Check if review exists for this booking by current user
+			cursor.execute(
+				"""
+				SELECT id, rating, comment, created_at
+				FROM reviews
+				WHERE booking_id = %s AND user_id = %s
+				LIMIT 1
+				""",
+				[booking_id, user_id],
+			)
+			review_row = cursor.fetchone()
+
+			if review_row:
+				return JsonResponse(
+					{
+						"status": "success",
+						"data": {
+							"review_exists": True,
+							"review_id": review_row[0],
+							"rating": review_row[1],
+							"has_comment": bool(review_row[2]),
+							"created_at": review_row[3].isoformat() if review_row[3] else None,
+						},
+					},
+					status=200,
+				)
+			else:
+				return JsonResponse(
+					{
+						"status": "success",
+						"data": {
+							"review_exists": False,
+							"can_review": booking_status and booking_status.lower() == "completed",
+						},
+					},
+					status=200,
+				)
+
+	except Exception as e:
+		return JsonResponse(
+			{
+				"status": "error",
+				"message": "Failed to check review status",
+				"code": "CHECK_REVIEW_ERROR",
+				"details": str(e),
+			},
+			status=500,
+		)
+
+
 def _serialize_review_row(row):
 	return {
 		"id": row[0],
@@ -147,6 +235,71 @@ def create_review(request):
 
 	try:
 		with connection.cursor() as cursor:
+			cursor.execute(
+				"""
+				SELECT user_id, worker_id, status
+				FROM bookings
+				WHERE id = %s
+				""",
+				[payload["booking_id"]],
+			)
+			booking_row = cursor.fetchone()
+
+			if not booking_row:
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Booking not found",
+						"code": "BOOKING_NOT_FOUND",
+					},
+					status=404,
+				)
+
+			booking_user_id, booking_worker_id, booking_status = booking_row
+			if (
+				int(booking_user_id) != int(payload["user_id"]) or
+				int(booking_worker_id) != int(payload["worker_id"])
+			):
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Review payload does not match booking",
+						"code": "BOOKING_REVIEW_MISMATCH",
+					},
+					status=400,
+				)
+
+			if str(booking_status or "").lower() != "completed":
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Review can only be added after booking completion",
+						"code": "BOOKING_NOT_COMPLETED",
+					},
+					status=409,
+				)
+
+			cursor.execute(
+				"""
+				SELECT id
+				FROM reviews
+				WHERE booking_id = %s AND user_id = %s
+				LIMIT 1
+				""",
+				[payload["booking_id"], payload["user_id"]],
+			)
+			existing = cursor.fetchone()
+			if existing:
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Review already submitted for this booking",
+						"code": "REVIEW_ALREADY_EXISTS",
+						"data": {"review_id": existing[0]},
+					},
+					status=409,
+				)
+
 			cursor.execute(
 				"""
 				INSERT INTO reviews (booking_id, user_id, worker_id, rating, comment, created_at)

@@ -109,6 +109,10 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rate Service'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _skipReview,
+        ),
         actions: [
           TextButton(onPressed: _skipReview, child: const Text('Skip')),
         ],

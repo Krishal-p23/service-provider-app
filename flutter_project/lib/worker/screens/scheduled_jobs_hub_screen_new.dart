@@ -506,7 +506,10 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
     }
 
     final message =
-        result['data']?['message']?.toString() ?? 'Failed to mark job done.';
+        result['message']?.toString() ??
+        result['data']?['message']?.toString() ??
+        result['data']?['error']?.toString() ??
+        'Failed to mark job done.';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
@@ -538,12 +541,24 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
 
     if (initiateResult['success'] != true) {
       final message =
+          initiateResult['message']?.toString() ??
           initiateResult['data']?['message']?.toString() ??
+          initiateResult['data']?['error']?.toString() ??
           'Failed to generate OTP. Please try again.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
       return;
+    }
+
+    final demoOtp = initiateResult['data']?['demo_otp']?.toString();
+    if (demoOtp != null && demoOtp.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Demo OTP: $demoOtp'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
 
     Navigator.push(
@@ -744,7 +759,9 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
                         }
 
                         final message =
+                            result['message']?.toString() ??
                             result['data']?['message']?.toString() ??
+                            result['data']?['error']?.toString() ??
                             'Failed to reschedule booking.';
                         setDialogState(() {
                           isSubmitting = false;

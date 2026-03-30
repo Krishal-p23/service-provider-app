@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -29,6 +31,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isProcessing = false;
   bool _isLoading = true;
   String? _upiString;
+  String? _qrImageDataUri;
   String? _bookingStatus;
   String? _error;
   double _walletBalance = 0;
@@ -53,7 +56,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     try {
       await _apiService.initialize();
-      final qrResult = await _apiService.getPaymentQr(widget.bookingId);
+      final qrResult = await _apiService.generatePaymentQr(
+        bookingId: widget.bookingId,
+        amount: widget.amount,
+      );
       if (qrResult['success'] != true) {
         throw Exception(
           qrResult['data']?['message'] ?? 'Failed to load payment QR',
@@ -75,7 +81,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (!mounted) return;
 
       setState(() {
-        _upiString = qrData['upi_string']?.toString();
+        _upiString = qrData['upi_link']?.toString();
+        _qrImageDataUri = qrData['qr_image']?.toString();
         _bookingStatus = qrData['booking_status']?.toString();
         _isLoading = false;
       });
@@ -150,6 +157,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final qrImageBytes =
+        _qrImageDataUri != null && _qrImageDataUri!.startsWith('data:image')
+        ? base64Decode(_qrImageDataUri!.split(',').last)
+        : null;
     final canPayNow =
         _bookingStatus == null || _bookingStatus == 'awaiting_payment';
     final canWalletPay = _walletBalance >= widget.amount;
@@ -195,7 +206,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                   const SizedBox(height: 24),
 
-                  if (_upiString != null) ...[
+                  if (_upiString != null || qrImageBytes != null) ...[
                     Text('UPI QR Payment', style: theme.textTheme.displaySmall),
                     const SizedBox(height: 12),
                     Center(
@@ -205,11 +216,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: theme.dividerColor),
                         ),
-                        child: QrImageView(
-                          data: _upiString!,
-                          size: 220,
-                          backgroundColor: Colors.white,
-                        ),
+                        child: qrImageBytes != null
+                            ? Image.memory(
+                                qrImageBytes,
+                                width: 220,
+                                height: 220,
+                                fit: BoxFit.contain,
+                              )
+                            : QrImageView(
+                                data: _upiString!,
+                                size: 220,
+                                backgroundColor: Colors.white,
+                              ),
                       ),
                     ),
                     const SizedBox(height: 12),

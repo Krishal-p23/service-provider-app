@@ -52,11 +52,18 @@ class User {
   }
 
   factory User.fromJson(Map<String, dynamic> json) {
+    final parsedPhone =
+        json['phone']?.toString() ??
+        json['mobile']?.toString() ??
+        json['mobile_number']?.toString() ??
+        json['phone_number']?.toString() ??
+        '';
+
     return User(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       email: json['email'] ?? '',
-      phone: json['phone'] ?? '',
+      phone: parsedPhone,
       passwordHash: json['password_hash'] ?? '',
       role: json['role'] ?? 'USER',
       createdAt: json['created_at'] != null

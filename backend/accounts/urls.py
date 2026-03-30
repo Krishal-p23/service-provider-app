@@ -1,11 +1,9 @@
-from django.urls import path
-from .views import demo_api, get_users, register, login
+from django.urls import include, path
 
 app_name = 'accounts'
 
+# Keep this app as a compatibility alias. All account/auth APIs are served by
+# authentication.urls to avoid duplicate implementations.
 urlpatterns = [
-    path('demo/', demo_api, name='demo_api'),
-    path('users/', get_users, name='get_users'),
-    path('register/', register, name='register'),
-    path('login/', login, name='login'),
+    path('', include('authentication.urls')),
 ]

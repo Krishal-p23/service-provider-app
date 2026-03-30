@@ -377,14 +377,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/service_provider.dart';
+import '../../models/service.dart';
 import '../../../providers/user_provider.dart';
 import 'booking_details_screen.dart';
 import 'package:intl/intl.dart';
 
 class ServiceProviderDetailsScreen extends StatelessWidget {
   final int workerId;
+  final int? selectedServiceId;
+  final String? selectedServiceName;
+  final int? selectedCategoryId;
 
-  const ServiceProviderDetailsScreen({super.key, required this.workerId});
+  const ServiceProviderDetailsScreen({
+    super.key,
+    required this.workerId,
+    this.selectedServiceId,
+    this.selectedServiceName,
+    this.selectedCategoryId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -417,9 +427,41 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
     final rating = workerDetails['rating'];
     final reviewCount = workerDetails['reviewCount'];
     final reviews = workerDetails['reviews'];
-    final services = workerDetails['services'];
+    final rawServices = workerDetails['services'] as List<dynamic>? ?? [];
     final distance = workerDetails['distance'];
     final completedJobs = workerDetails['completedJobs'];
+
+    final allServices = rawServices.whereType<Service>().toList();
+    List<Service> visibleServices = allServices;
+
+    // Filter by category ID if provided
+    if (selectedCategoryId != null) {
+      visibleServices = allServices
+          .where((service) => service.categoryId == selectedCategoryId)
+          .toList();
+    } else if (selectedServiceId != null) {
+      visibleServices = allServices
+          .where((service) => service.id == selectedServiceId)
+          .toList();
+    } else if (selectedServiceName != null &&
+        selectedServiceName!.trim().isNotEmpty) {
+      final query = selectedServiceName!.trim().toLowerCase();
+      visibleServices = allServices.where((service) {
+        final serviceName = service.serviceName.trim().toLowerCase();
+        return serviceName == query ||
+            serviceName.contains(query) ||
+            query.contains(serviceName);
+      }).toList();
+    }
+
+    final fallbackSelectedService = selectedServiceId != null
+        ? serviceProvider.getServiceById(selectedServiceId!)
+        : null;
+    final displayServices = visibleServices.isNotEmpty
+        ? visibleServices
+        : (fallbackSelectedService != null
+              ? [fallbackSelectedService]
+              : <Service>[]);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Service Provider')),
@@ -559,7 +601,7 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
             ],
 
             // Services Offered
-            if (services.isNotEmpty) ...[
+            if (displayServices.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -570,7 +612,7 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                       style: theme.textTheme.displaySmall,
                     ),
                     const SizedBox(height: 12),
-                    ...services.map(
+                    ...displayServices.map(
                       (service) => Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
@@ -719,7 +761,7 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: services.isNotEmpty
+                  onPressed: displayServices.isNotEmpty
                       ? () {
                           if (!worker.isAvailable) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -737,7 +779,7 @@ class ServiceProviderDetailsScreen extends StatelessWidget {
                             MaterialPageRoute(
                               builder: (context) => BookingDetailsScreen(
                                 workerId: workerId,
-                                serviceId: services.first.id,
+                                serviceId: displayServices.first.id,
                               ),
                             ),
                           );

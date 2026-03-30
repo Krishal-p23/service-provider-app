@@ -87,9 +87,9 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
-        // Update local job provider
+        // Refresh from backend so activated job remains accessible across navigation.
         final jobProvider = Provider.of<JobProvider>(context, listen: false);
-        jobProvider.activateJob(widget.job);
+        await jobProvider.loadScheduledJobs();
 
         setState(() {
           _isVerifying = false;
@@ -131,19 +131,40 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
-        Navigator.of(context).pop(true);
+        setState(() {
+          _isMarkingDone = false;
+        });
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Job marked complete. Awaiting customer payment.'),
+            content: Text('Job marked done. Awaiting customer confirmation.'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
         );
+        Navigator.of(context).pop(true);
+      } else if (result['statusCode'] == 409 &&
+          (result['data']?['current_status']?.toString().toLowerCase() ==
+              'awaiting_payment')) {
+        // Already marked done in a previous attempt.
+        setState(() {
+          _isMarkingDone = false;
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Job is already awaiting customer confirmation.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.of(context).pop(true);
       } else {
         setState(() {
           _isMarkingDone = false;
           _errorMessage =
-              result['data']?['message']?.toString() ??
+              result['message']?.toString() ??
+              result['data']?['error']?.toString() ??
               'Failed to mark job complete';
         });
       }

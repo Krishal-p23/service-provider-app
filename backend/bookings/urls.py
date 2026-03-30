@@ -7,6 +7,7 @@ from .views import (
 	booking_detail,
 	worker_availability,
 	mark_job_done,
+	confirm_booking_completion,
 	initiate_job_otp,
 	verify_job_otp_endpoint,
 )
@@ -21,6 +22,7 @@ urlpatterns = [
 	path('<int:booking_id>/status/', update_booking_status, name='update_booking_status'),
 	path('<int:booking_id>/reschedule/', reschedule_booking, name='reschedule_booking'),
 	path('<int:booking_id>/mark-done/', mark_job_done, name='mark_job_done'),
+	path('<int:booking_id>/confirm-complete/', confirm_booking_completion, name='confirm_booking_completion'),
 	path('<int:booking_id>/initiate-otp/', initiate_job_otp, name='initiate_job_otp'),
 	path('<int:booking_id>/verify-otp/', verify_job_otp_endpoint, name='verify_job_otp'),
 ]

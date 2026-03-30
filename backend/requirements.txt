@@ -8,3 +8,5 @@ python-dotenv==1.0.0
 requests==2.31.0
 Pillow==12.1.1
 whitenoise==6.4.0
+qrcode==7.4.2
+zxing-cpp==2.3.0; python_version < "3.14"

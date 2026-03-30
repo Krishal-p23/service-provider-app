@@ -6,9 +6,49 @@ from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 from django.conf import settings
 import requests
+import uuid
+from .email_service import send_worker_job_email
 
 
 ACTIVE_BOOKING_STATUSES = ("pending", "confirmed", "in_progress")
+BOOKING_ALLOWED_STATUSES = (
+	"pending",
+	"confirmed",
+	"in_progress",
+	"awaiting_payment",
+	"completed",
+	"cancelled",
+)
+
+
+def _ensure_booking_status_constraint():
+	"""Ensure Postgres status check constraint allows awaiting_payment lifecycle."""
+	if connection.vendor != "postgresql":
+		return
+
+	with connection.cursor() as cursor:
+		cursor.execute(
+			"""
+			ALTER TABLE bookings
+			DROP CONSTRAINT IF EXISTS bookings_status_check
+			"""
+		)
+		cursor.execute(
+			"""
+			ALTER TABLE bookings
+			ADD CONSTRAINT bookings_status_check
+			CHECK (
+				LOWER(status) IN (
+					'pending',
+					'confirmed',
+					'in_progress',
+					'awaiting_payment',
+					'completed',
+					'cancelled'
+				)
+			)
+			"""
+		)
 
 
 def _ensure_worker_availability_table():
@@ -348,12 +388,12 @@ def create_booking(request):
 			)
 			row = cursor.fetchone()
 
-			cursor.execute("SELECT phone FROM users WHERE id = %s", [payload["user_id"]])
+			cursor.execute("SELECT phone, name FROM users WHERE id = %s", [payload["user_id"]])
 			customer_phone_row = cursor.fetchone()
 
 			cursor.execute(
 				"""
-				SELECT u.fcm_token
+				SELECT u.fcm_token, u.email, u.name
 				FROM workers w
 				JOIN users u ON u.id = w.user_id
 				WHERE w.id = %s
@@ -363,12 +403,23 @@ def create_booking(request):
 			worker_fcm_row = cursor.fetchone()
 
 		from authentication.sms_service import send_otp_sms
-		if customer_phone_row and customer_phone_row[0]:
-			# Fast2SMS OTP route is used for development fallback logging.
-			send_otp_sms(
-				str(customer_phone_row[0]),
-				str(booking_id),
-				purpose="confirmation",
+		if (
+			getattr(settings, "SMS_NON_OTP_NOTIFICATIONS_ENABLED", False)
+			and customer_phone_row
+			and customer_phone_row[0]
+		):
+			send_otp_sms(str(customer_phone_row[0]), str(booking_id), purpose="confirmation")
+
+		customer_name = customer_phone_row[1] if customer_phone_row and len(customer_phone_row) > 1 else "Customer"
+		if worker_fcm_row and len(worker_fcm_row) > 1 and worker_fcm_row[1]:
+			send_worker_job_email(
+				worker_email=str(worker_fcm_row[1]),
+				worker_name=str(worker_fcm_row[2] or "Worker") if len(worker_fcm_row) > 2 else "Worker",
+				customer_name=str(customer_name or "Customer"),
+				service_name=str(row[9] or "Service"),
+				scheduled_date=str(row[4] or ""),
+				booking_id=booking_id,
+				event="new_booking",
 			)
 
 		if worker_fcm_row and worker_fcm_row[0]:
@@ -518,6 +569,7 @@ def worker_availability(request):
 @require_http_methods(["PATCH", "PUT"])
 def update_booking_status(request, booking_id):
 	"""PATCH /api/bookings/<id>/status/ - update booking status."""
+	_ensure_booking_status_constraint()
 	try:
 		payload = json.loads(request.body)
 	except json.JSONDecodeError:
@@ -620,32 +672,54 @@ def update_booking_status(request, booking_id):
 					[status, cancelled_by, booking_id],
 				)
 
-				cursor.execute("SELECT phone FROM users WHERE id = %s", [user_id])
+				cursor.execute("SELECT phone, name FROM users WHERE id = %s", [user_id])
 				customer_phone_row = cursor.fetchone()
 				cursor.execute(
 					"""
-					SELECT u.phone
+					SELECT u.phone, u.email, u.name, s.service_name, b.scheduled_date
 					FROM workers w
 					JOIN users u ON u.id = w.user_id
+					JOIN bookings b ON b.worker_id = w.id AND b.id = %s
+					JOIN services s ON s.id = b.service_id
 					WHERE w.id = %s
 					""",
-					[worker_id],
+					[booking_id, worker_id],
 				)
 				worker_phone_row = cursor.fetchone()
 
 				from authentication.sms_service import send_otp_sms
 
-				if customer_phone_row and customer_phone_row[0]:
+				if (
+					getattr(settings, "SMS_NON_OTP_NOTIFICATIONS_ENABLED", False)
+					and customer_phone_row
+					and customer_phone_row[0]
+				):
 					send_otp_sms(
 						str(customer_phone_row[0]),
 						str(booking_id),
 						purpose="cancellation_customer",
 					)
-				if worker_phone_row and worker_phone_row[0]:
+				if (
+					getattr(settings, "SMS_NON_OTP_NOTIFICATIONS_ENABLED", False)
+					and worker_phone_row
+					and worker_phone_row[0]
+				):
 					send_otp_sms(
 						str(worker_phone_row[0]),
 						str(booking_id),
 						purpose="cancellation_worker",
+					)
+
+				customer_name = customer_phone_row[1] if customer_phone_row and len(customer_phone_row) > 1 else "Customer"
+				if worker_phone_row and len(worker_phone_row) > 1 and worker_phone_row[1]:
+					send_worker_job_email(
+						worker_email=str(worker_phone_row[1]),
+						worker_name=str(worker_phone_row[2] or "Worker") if len(worker_phone_row) > 2 else "Worker",
+						customer_name=str(customer_name or "Customer"),
+						service_name=str(worker_phone_row[3] or "Service") if len(worker_phone_row) > 3 else "Service",
+						scheduled_date=str(worker_phone_row[4] or "") if len(worker_phone_row) > 4 else "",
+						booking_id=booking_id,
+						event="booking_cancelled",
 					)
 			else:
 				cursor.execute(
@@ -778,6 +852,7 @@ def reschedule_booking(request, booking_id):
 		)
 
 	try:
+		_ensure_booking_status_constraint()
 		_ensure_booking_reschedule_columns()
 
 		with connection.cursor() as cursor:
@@ -804,11 +879,11 @@ def reschedule_booking(request, booking_id):
 			user_id, worker_id, service_id, old_scheduled_date, current_status, total_amount, created_at = row
 			current_status = str(current_status or "").lower()
 
-			if current_status not in {"pending", "confirmed"}:
+			if current_status not in {"pending", "confirmed", "in_progress"}:
 				return JsonResponse(
 					{
 						"status": "error",
-						"message": "Only pending/confirmed jobs can be rescheduled",
+						"message": "Only pending/confirmed/in_progress jobs can be rescheduled",
 						"code": "INVALID_BOOKING_STATUS",
 						"data": {"current_status": current_status},
 					},
@@ -909,6 +984,7 @@ def reschedule_booking(request, booking_id):
 def mark_job_done(request, booking_id):
 	"""POST /api/bookings/<booking_id>/mark-done/ - worker marks in-progress job as awaiting payment."""
 	try:
+		_ensure_booking_status_constraint()
 		with connection.cursor() as cursor:
 			cursor.execute(
 				"""
@@ -956,7 +1032,7 @@ def mark_job_done(request, booking_id):
 		return JsonResponse(
 			{
 				"status": "success",
-				"message": "Job marked done. Awaiting customer payment.",
+				"message": "Job marked done. Awaiting customer confirmation.",
 				"data": {
 					"booking_id": booking_id,
 					"status": "awaiting_payment",
@@ -970,6 +1046,183 @@ def mark_job_done(request, booking_id):
 				"status": "error",
 				"message": "Failed to mark job done",
 				"code": "MARK_DONE_ERROR",
+				"details": str(e),
+			},
+			status=500,
+		)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def confirm_booking_completion(request, booking_id):
+	"""POST /api/bookings/<booking_id>/confirm-complete/ - customer confirms completion in demo flow."""
+	_ensure_booking_status_constraint()
+	try:
+		payload = json.loads(request.body or "{}")
+	except json.JSONDecodeError:
+		return JsonResponse(
+			{"status": "error", "message": "Invalid JSON", "code": "INVALID_JSON"},
+			status=400,
+		)
+
+	requested_user_id = payload.get("user_id")
+	requested_payment_mode = str(payload.get("payment_mode") or "").strip().lower()
+	razorpay_enabled = bool(getattr(settings, "WEBLAB_RAZORPAY_ENABLED", False))
+
+	try:
+		with connection.cursor() as cursor:
+			cursor.execute(
+				"""
+				SELECT id, user_id, status, total_amount
+				FROM bookings
+				WHERE id = %s
+				""",
+				[booking_id],
+			)
+			row = cursor.fetchone()
+
+			if not row:
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Booking not found",
+						"code": "BOOKING_NOT_FOUND",
+					},
+					status=404,
+				)
+
+			_, booking_user_id, current_status, amount = row
+			current_status = str(current_status or "").lower()
+
+			if requested_user_id is not None and int(requested_user_id) != int(booking_user_id):
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "You are not allowed to confirm this booking",
+						"code": "FORBIDDEN",
+					},
+					status=403,
+				)
+
+			if current_status == "completed":
+				return JsonResponse(
+					{
+						"status": "success",
+						"message": "Booking already completed",
+						"data": {
+							"booking_id": int(booking_id),
+							"status": "completed",
+						},
+					},
+					status=200,
+				)
+
+			if current_status not in {"awaiting_payment", "in_progress"}:
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Booking is not ready for completion confirmation",
+						"code": "INVALID_BOOKING_STATUS",
+						"data": {"current_status": current_status},
+					},
+					status=409,
+				)
+
+			# WebLab path: force payment step before completion for online mode.
+			# When customer chooses cash, allow completion in one step.
+			if razorpay_enabled and current_status == "awaiting_payment":
+				if requested_payment_mode in {"cash", "cod"}:
+					transaction_ref = f"COD-{uuid.uuid4().hex[:12].upper()}"
+					cursor.execute(
+						"""
+						INSERT INTO payments (booking_id, payment_method, payment_status, transaction_id, paid_at)
+						VALUES (%s, %s, %s, %s, NOW())
+						""",
+						[booking_id, "COD", "paid", transaction_ref],
+					)
+
+					cursor.execute(
+						"""
+						UPDATE bookings
+						SET status = %s
+						WHERE id = %s
+						""",
+						["completed", booking_id],
+					)
+
+					return JsonResponse(
+						{
+							"status": "success",
+							"message": "Booking completed successfully",
+							"data": {
+								"booking_id": int(booking_id),
+								"status": "completed",
+								"payment_status": "paid",
+								"payment_method": "COD",
+								"transaction_ref": transaction_ref,
+								"amount": float(amount or 0),
+							},
+						},
+						status=200,
+					)
+
+				# Require online payment confirmation endpoint before completion.
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Payment required before completion",
+						"code": "PAYMENT_REQUIRED",
+						"data": {
+							"booking_id": int(booking_id),
+							"status": current_status,
+							"amount": float(amount or 0),
+							"allow_cash": True,
+							"allow_online": True,
+							"payment_gateway": "razorpay",
+						},
+					},
+					status=402,
+				)
+
+			transaction_ref = f"DEMO-{uuid.uuid4().hex[:12].upper()}"
+			cursor.execute(
+				"""
+				INSERT INTO payments (booking_id, payment_method, payment_status, transaction_id, paid_at)
+				VALUES (%s, %s, %s, %s, NOW())
+				""",
+				[booking_id, "UPI", "paid", transaction_ref],
+			)
+
+			cursor.execute(
+				"""
+				UPDATE bookings
+				SET status = %s
+				WHERE id = %s
+				""",
+				["completed", booking_id],
+			)
+
+		return JsonResponse(
+			{
+				"status": "success",
+				"message": "Booking completed successfully",
+				"data": {
+					"booking_id": int(booking_id),
+					"status": "completed",
+					"payment_status": "paid",
+					"payment_method": "UPI",
+					"transaction_ref": transaction_ref,
+					"amount": float(amount or 0),
+				},
+			},
+			status=200,
+		)
+	except Exception as e:
+		return JsonResponse(
+			{
+				"status": "error",
+				"message": "Failed to confirm completion",
+				"code": "CONFIRM_COMPLETION_ERROR",
 				"details": str(e),
 			},
 			status=500,
@@ -1025,18 +1278,29 @@ def initiate_job_otp(request, booking_id):
 			cursor.execute("SELECT phone FROM users WHERE id = %s", [customer_id])
 			phone_row = cursor.fetchone()
 
+		sms_result = {"success": False, "message": "Customer phone not found"}
 		if phone_row and phone_row[0]:
-			send_otp_sms(str(phone_row[0]), otp, "job_start")
+			if getattr(settings, "JOB_OTP_SMS_ENABLED", False):
+				sms_result = send_otp_sms(str(phone_row[0]), otp, "job_start")
+			else:
+				sms_result = {"success": True, "message": "SMS skipped by feature flag"}
+
+		data = {
+			"booking_id": booking_id,
+			"validity_minutes": 10,
+			"message": f"OTP sent to customer. Valid for 10 minutes.",
+			"sms_status": sms_result,
+		}
+
+		# Development fallback when SMS OTP is disabled or API OTP exposure is enabled.
+		if getattr(settings, "OTP_EXPOSE_IN_API", True):
+			data["demo_otp"] = otp
 
 		return JsonResponse(
 			{
 				"status": "success",
 				"message": "OTP initiated successfully",
-				"data": {
-					"booking_id": booking_id,
-					"validity_minutes": 10,
-					"message": f"OTP sent to customer. Valid for 10 minutes.",
-				},
+				"data": data,
 			},
 			status=200,
 		)
@@ -1056,6 +1320,7 @@ def initiate_job_otp(request, booking_id):
 @require_http_methods(["POST"])
 def verify_job_otp_endpoint(request, booking_id):
 	"""POST /api/bookings/<booking_id>/verify-otp/ - Verify OTP and activate job."""
+	_ensure_booking_status_constraint()
 	try:
 		payload = json.loads(request.body)
 	except json.JSONDecodeError:

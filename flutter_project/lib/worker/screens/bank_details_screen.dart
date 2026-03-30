@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../customer/services/api_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -12,6 +15,7 @@ class BankDetailsScreen extends StatefulWidget {
 class _BankDetailsScreenState extends State<BankDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
   final ApiService _apiService = ApiService();
+  final ImagePicker _imagePicker = ImagePicker();
 
   final TextEditingController _accountHolderController =
       TextEditingController();
@@ -26,6 +30,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
   bool _isSaving = false;
   bool _isVerified = false;
   bool _isValidatingIfsc = false;
+  bool _isUploadingQr = false;
   String? _ifscBankName;
   String? _ifscError;
 
@@ -38,6 +43,66 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
       }
     });
     _loadBankDetails();
+  }
+
+  Future<void> _uploadUpiQrFromGallery() async {
+    try {
+      final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (picked == null) return;
+
+      if (!await File(picked.path).exists()) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selected image is not available')),
+        );
+        return;
+      }
+
+      setState(() {
+        _isUploadingQr = true;
+      });
+
+      await _apiService.initialize();
+      final result = await _apiService.submitWorkerUpiQr(
+        imagePath: picked.path,
+      );
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        final data = result['data'] as Map<String, dynamic>? ?? {};
+        final upiId = data['upi_id']?.toString() ?? '';
+        if (upiId.isNotEmpty) {
+          _upiController.text = upiId;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']?.toString() ?? 'UPI QR uploaded'),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result['message']?.toString() ??
+                  'Could not read UPI from QR image',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to upload UPI QR image')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingQr = false;
+        });
+      }
+    }
   }
 
   @override
@@ -252,19 +317,27 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                     _buildField(
                       controller: _accountHolderController,
                       label: 'Account Holder Name',
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty)
-                          ? 'Enter account holder name'
-                          : null,
+                      validator: (value) {
+                        final hasUpi = _upiController.text.trim().isNotEmpty;
+                        if (hasUpi) return null;
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Enter account holder name';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 12),
                     _buildField(
                       controller: _bankNameController,
                       label: 'Bank Name',
-                      validator: (value) =>
-                          (value == null || value.trim().isEmpty)
-                          ? 'Enter bank name'
-                          : null,
+                      validator: (value) {
+                        final hasUpi = _upiController.text.trim().isNotEmpty;
+                        if (hasUpi) return null;
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Enter bank name';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 12),
                     _buildField(
@@ -272,6 +345,8 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                       label: 'Account Number',
                       keyboardType: TextInputType.number,
                       validator: (value) {
+                        final hasUpi = _upiController.text.trim().isNotEmpty;
+                        if (hasUpi) return null;
                         final v = value?.trim() ?? '';
                         if (v.isEmpty) return 'Enter account number';
                         if (v.length < 8)
@@ -292,6 +367,8 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                         });
                       },
                       validator: (value) {
+                        final hasUpi = _upiController.text.trim().isNotEmpty;
+                        if (hasUpi) return null;
                         final v = value?.trim() ?? '';
                         if (v.isEmpty) return 'Enter IFSC code';
                         if (v.length < 8) return 'Enter a valid IFSC code';
@@ -324,6 +401,34 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                       controller: _upiController,
                       label: 'UPI ID (Optional)',
                       validator: (_) => null,
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _isUploadingQr
+                            ? null
+                            : _uploadUpiQrFromGallery,
+                        icon: _isUploadingQr
+                            ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.qr_code_2),
+                        label: Text(
+                          _isUploadingQr
+                              ? 'Reading UPI QR...'
+                              : 'Upload UPI QR (Gallery)',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Upload your personal UPI QR to auto-fill payout UPI ID.',
+                      style: TextStyle(fontSize: 12, color: textSecondary),
                     ),
                     const SizedBox(height: 24),
                     SizedBox(

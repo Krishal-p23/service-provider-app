@@ -11,6 +11,7 @@ import logging
 from datetime import datetime, timedelta
 import requests
 from .didit_service import DiditVerificationService
+from .upi_qr_reader import extract_upi_from_qr
 
 logger = logging.getLogger(__name__)
 
@@ -552,6 +553,42 @@ def _ensure_worker_bank_details_table():
             )
 
 
+def _ensure_worker_upi_details_table():
+    """Create worker_upi_details table if missing (SQLite/Postgres)."""
+    vendor = connection.vendor
+    with connection.cursor() as cursor:
+        if vendor == "postgresql":
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS worker_upi_details (
+                    id SERIAL PRIMARY KEY,
+                    worker_id INTEGER NOT NULL UNIQUE REFERENCES workers(id) ON DELETE CASCADE,
+                    upi_id VARCHAR(120) NOT NULL,
+                    upi_name VARCHAR(120) NULL,
+                    upi_raw TEXT NULL,
+                    is_verified BOOLEAN NOT NULL DEFAULT TRUE,
+                    submitted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+        else:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS worker_upi_details (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    worker_id INTEGER NOT NULL UNIQUE,
+                    upi_id TEXT NOT NULL,
+                    upi_name TEXT NULL,
+                    upi_raw TEXT NULL,
+                    is_verified BOOLEAN NOT NULL DEFAULT 1,
+                    submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+
 def _ensure_worker_availability_table():
     """Create worker_availability table if missing (SQLite/Postgres)."""
     vendor = connection.vendor
@@ -988,12 +1025,15 @@ def bank_details(request):
         account_number = str(payload.get("account_number", "")).strip()
         ifsc_code = str(payload.get("ifsc_code", "")).strip().upper()
         upi_id = str(payload.get("upi_id", "")).strip()
+        has_full_bank_details = bool(
+            account_holder_name and bank_name and account_number and ifsc_code
+        )
 
-        if not account_holder_name or not bank_name or not account_number or not ifsc_code:
+        if not has_full_bank_details and not upi_id:
             return JsonResponse(
                 {
                     "status": "error",
-                    "message": "account_holder_name, bank_name, account_number and ifsc_code are required",
+                    "message": "Provide either full bank details or a UPI ID",
                     "code": "VALIDATION_ERROR",
                 },
                 status=400,
@@ -1002,19 +1042,20 @@ def bank_details(request):
         # TODO: Replace IFSC-only validation with Cashfree penny drop for production.
         # Cashfree sandbox: https://dev.cashfree.com/bank-account-verification
         # Requires CASHFREE_APP_ID and CASHFREE_SECRET_KEY in .env
-        ifsc_validation = validate_ifsc(ifsc_code)
-        if not ifsc_validation.get("valid"):
-            return JsonResponse(
-                {
-                    "status": "error",
-                    "message": ifsc_validation.get("message", "Invalid IFSC code"),
-                    "code": "INVALID_IFSC",
-                },
-                status=400,
-            )
+        if has_full_bank_details:
+            ifsc_validation = validate_ifsc(ifsc_code)
+            if not ifsc_validation.get("valid"):
+                return JsonResponse(
+                    {
+                        "status": "error",
+                        "message": ifsc_validation.get("message", "Invalid IFSC code"),
+                        "code": "INVALID_IFSC",
+                    },
+                    status=400,
+                )
 
-        if ifsc_validation.get("bank"):
-            bank_name = str(ifsc_validation.get("bank")).strip()
+            if ifsc_validation.get("bank"):
+                bank_name = str(ifsc_validation.get("bank")).strip()
 
         vendor = connection.vendor
         with connection.cursor() as cursor:
@@ -1090,6 +1131,136 @@ def bank_details(request):
                 "status": "error",
                 "message": "Failed to process bank details",
                 "code": "BANK_DETAILS_ERROR",
+                "details": str(e),
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def submit_worker_upi_qr(request):
+    """
+    POST /api/workers/submit-upi-qr/
+    Parse uploaded UPI QR and save UPI ID for future worker payouts.
+    """
+    try:
+        user_id = get_current_user_id(request)
+        if not user_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Unauthorized. User ID not found",
+                    "code": "UNAUTHORIZED",
+                },
+                status=401,
+            )
+
+        worker_id = _get_worker_id_by_user_id(user_id)
+        if not worker_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Worker profile not found",
+                    "code": "WORKER_NOT_FOUND",
+                },
+                status=404,
+            )
+
+        qr_image = request.FILES.get('qr_image')
+        if not qr_image:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "No QR image uploaded",
+                    "code": "MISSING_FILE",
+                },
+                status=400,
+            )
+
+        result = extract_upi_from_qr(qr_image)
+        if not result.get('success'):
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": result.get('error', 'Could not parse QR code'),
+                    "code": "INVALID_UPI_QR",
+                },
+                status=400,
+            )
+
+        _ensure_worker_upi_details_table()
+        _ensure_worker_bank_details_table()
+        upi_id = result['upi_id']
+        upi_name = result.get('name') or ''
+        upi_raw = result.get('raw') or ''
+
+        with connection.cursor() as cursor:
+            if connection.vendor == 'postgresql':
+                cursor.execute(
+                    """
+                    INSERT INTO worker_upi_details (worker_id, upi_id, upi_name, upi_raw, is_verified, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (worker_id)
+                    DO UPDATE SET
+                        upi_id = EXCLUDED.upi_id,
+                        upi_name = EXCLUDED.upi_name,
+                        upi_raw = EXCLUDED.upi_raw,
+                        is_verified = EXCLUDED.is_verified,
+                        updated_at = NOW()
+                    """,
+                    [worker_id, upi_id, upi_name or None, upi_raw or None, True],
+                )
+                cursor.execute(
+                    """
+                    UPDATE worker_bank_details
+                    SET upi_id = %s, updated_at = NOW()
+                    WHERE worker_id = %s
+                    """,
+                    [upi_id, worker_id],
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO worker_upi_details (worker_id, upi_id, upi_name, upi_raw, is_verified, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT(worker_id)
+                    DO UPDATE SET
+                        upi_id = excluded.upi_id,
+                        upi_name = excluded.upi_name,
+                        upi_raw = excluded.upi_raw,
+                        is_verified = excluded.is_verified,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    [worker_id, upi_id, upi_name or None, upi_raw or None, 1],
+                )
+                cursor.execute(
+                    """
+                    UPDATE worker_bank_details
+                    SET upi_id = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE worker_id = %s
+                    """,
+                    [upi_id, worker_id],
+                )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": "UPI ID saved successfully",
+                "data": {
+                    "upi_id": upi_id,
+                    "name": upi_name,
+                    "verified": True,
+                },
+            },
+            status=200,
+        )
+    except Exception as e:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to save worker UPI QR",
+                "code": "UPI_QR_SAVE_ERROR",
                 "details": str(e),
             },
             status=500,
@@ -1589,6 +1760,9 @@ def jobs(request):
             if status_filter:
                 query += " AND LOWER(b.status) = %s"
                 params.append(status_filter)
+            else:
+                query += " AND LOWER(b.status) IN (%s, %s, %s, %s)"
+                params.extend(["pending", "confirmed", "in_progress", "awaiting_payment"])
             
             query += " ORDER BY b.scheduled_date ASC"
             

@@ -14,3 +14,18 @@ backend/payments/_pycache__/
 backend/payments/migrations/_pycache__/
 backend/authentication/_pycache__/
 backend/authentication/migrations/_pycache__/
+
+# Global Python cache/bytecode
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local environment files (keep templates)
+backend/.env
+backend/.env.local
+backend/.env.prod
+
+# Flutter build outputs
+flutter_project/.dart_tool/
+flutter_project/build/

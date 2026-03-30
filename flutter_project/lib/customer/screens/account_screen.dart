@@ -101,13 +101,16 @@ class AccountScreen extends StatelessWidget {
                     subtitle: userProvider.currentUser!.phone.isNotEmpty
                         ? userProvider.currentUser!.phone
                         : 'No mobile number added',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/edit-profile');
+                    },
                   ),
                   _buildListTile(
                     context,
                     icon: Icons.location_on,
                     title: 'Saved Address',
-                    subtitle: userProvider.currentUserLocation != null &&
+                    subtitle:
+                        userProvider.currentUserLocation != null &&
                             userProvider.currentUserLocation!.address.isNotEmpty
                         ? userProvider.currentUserLocation!.address
                         : 'No address added',
@@ -211,22 +214,6 @@ class AccountScreen extends StatelessWidget {
               ),
 
             if (isLoggedIn)
-              _buildSection(
-                context,
-                title: 'Settings',
-                children: [
-                  _buildListTile(
-                    context,
-                    icon: Icons.settings,
-                    title: 'App Settings',
-                    onTap: () {
-                      Navigator.pushNamed(context, '/settings');
-                    },
-                  ),
-                ],
-              ),
-
-            if (isLoggedIn)
               Padding(
                 padding: const EdgeInsets.all(AppTheme.spacingLarge),
                 child: OutlinedButton.icon(
@@ -268,10 +255,7 @@ class AccountScreen extends StatelessWidget {
                   icon: const Icon(Icons.logout),
                   label: const Text(
                     'Logout',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
@@ -308,13 +292,15 @@ class AccountScreen extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
-                ),
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).primaryColor,
+            ),
           ),
         ),
         Card(
-          margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacingMedium),
+          margin: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spacingMedium,
+          ),
           child: Column(children: children),
         ),
       ],
@@ -332,11 +318,7 @@ class AccountScreen extends StatelessWidget {
       leading: Icon(icon),
       title: Text(title),
       subtitle: subtitle != null
-          ? Text(
-              subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
+          ? Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis)
           : null,
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,

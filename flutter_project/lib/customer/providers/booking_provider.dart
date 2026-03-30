@@ -191,6 +191,55 @@ class BookingProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<Map<String, dynamic>> confirmCompletion({
+    required int bookingId,
+    int? userId,
+  }) async {
+    await _apiService.initialize();
+    final result = await _apiService.confirmBookingCompletion(
+      bookingId: bookingId,
+      userId: userId,
+    );
+
+    final data = result['data'];
+    final code = result['code']?.toString().toUpperCase();
+    if (result['statusCode'] == 402 || code == 'PAYMENT_REQUIRED') {
+      final amount = data is Map<String, dynamic>
+          ? (data['amount'] as num?)?.toDouble() ?? 0
+          : 0.0;
+      return {
+        'completed': false,
+        'paymentRequired': true,
+        'bookingId': bookingId,
+        'amount': amount,
+      };
+    }
+
+    if (result['success'] != true) {
+      final message =
+          result['message']?.toString() ??
+          (data is Map<String, dynamic>
+              ? (data['message'] ??
+                        data['error'] ??
+                        'Failed to confirm completion')
+                    .toString()
+              : 'Failed to confirm completion');
+      throw Exception(message);
+    }
+
+    final idx = _bookings.indexWhere((b) => b.id == bookingId);
+    if (idx >= 0) {
+      _bookings[idx] = _bookings[idx].copyWith(status: 'completed');
+      notifyListeners();
+    }
+
+    return {
+      'completed': true,
+      'paymentRequired': false,
+      'bookingId': bookingId,
+    };
+  }
+
   Future<void> _recordPaymentIfAvailable(int bookingId) async {
     // TODO: Wire to backend payment record API when endpoint is available.
     // This placeholder keeps completion flow centralized until Part 2 payment APIs are implemented.

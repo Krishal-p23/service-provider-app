@@ -2,18 +2,23 @@
 Database connection module using SQLAlchemy
 Connects to the PostgreSQL database via Supabase
 """
+import os
 from sqlalchemy.pool import NullPool
 from sqlalchemy import create_engine, text
+from dotenv import load_dotenv
 
-# Database credentials
-USER = "postgres.jgdojkbhcxzploxzpzxa"
-PASSWORD = "xpgwvUKtz/m*7!X"
-HOST = "aws-1-ap-south-1.pooler.supabase.com"
-PORT = "6543"
-DBNAME = "postgres"
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
+
+# Database credentials are sourced from environment variables.
+USER = os.getenv('DB_USER', 'postgres')
+PASSWORD = os.getenv('DB_PASSWORD', '')
+HOST = os.getenv('DB_HOST', 'localhost')
+PORT = os.getenv('DB_PORT', '5432')
+DBNAME = os.getenv('DB_NAME', 'postgres')
+SSLMODE = os.getenv('DB_SSLMODE', 'prefer')
 
 # Construct the SQLAlchemy connection string
-DATABASE_URL = f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require"
+DATABASE_URL = f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode={SSLMODE}"
 
 # Create engine with connection pooling disabled for testing
 engine = create_engine(DATABASE_URL, poolclass=NullPool)

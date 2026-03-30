@@ -50,12 +50,24 @@ class _WorkerLoginTabState extends State<WorkerLoginTab> {
 
       if (result['success'] == true && mounted) {
         final sessionId = (result['sessionId'] ?? '').toString();
+        final phone = (result['phone'] ?? '').toString();
+
+        if (phone.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Phone number not found for this account.'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+          return;
+        }
+
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => WorkerOTPVerificationScreen(
               sessionId: sessionId,
-              phone: _emailController.text.trim(),
+              phone: phone,
               serviceType: 'Login',
               isLoginFlow: true,
             ),

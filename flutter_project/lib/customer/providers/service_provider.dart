@@ -453,6 +453,30 @@ class ServiceProvider with ChangeNotifier {
     return _workerReviews[workerId] ?? <Review>[];
   }
 
+  // Check if a booking has been reviewed
+  bool hasReviewForBooking(int bookingId) {
+    for (final reviews in _workerReviews.values) {
+      for (final review in reviews) {
+        if (review.bookingId == bookingId) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // Get review for a specific booking
+  Review? getReviewForBooking(int bookingId) {
+    for (final reviews in _workerReviews.values) {
+      for (final review in reviews) {
+        if (review.bookingId == bookingId) {
+          return review;
+        }
+      }
+    }
+    return null;
+  }
+
   // Add review for worker
   Future<void> addReview({
     required int bookingId,
@@ -470,19 +494,22 @@ class ServiceProvider with ChangeNotifier {
       comment: comment,
     );
 
-    if (response['success'] == true) {
-      final review = Review.fromJson(response['data'] as Map<String, dynamic>);
-      final existing = _workerReviews[workerId] ?? <Review>[];
-      _workerReviews[workerId] = [review, ...existing];
-      _workerReviewCounts[workerId] = (_workerReviewCounts[workerId] ?? 0) + 1;
-      final allRatings = _workerReviews[workerId]!
-          .map((r) => r.rating)
-          .toList();
-      if (allRatings.isNotEmpty) {
-        _workerRatings[workerId] =
-            allRatings.reduce((a, b) => a + b) / allRatings.length;
-      }
+    if (response['success'] != true) {
+      final message =
+          response['message']?.toString() ?? 'Failed to submit review';
+      throw Exception(message);
     }
+
+    final review = Review.fromJson(response['data'] as Map<String, dynamic>);
+    final existing = _workerReviews[workerId] ?? <Review>[];
+    _workerReviews[workerId] = [review, ...existing];
+    _workerReviewCounts[workerId] = (_workerReviewCounts[workerId] ?? 0) + 1;
+    final allRatings = _workerReviews[workerId]!.map((r) => r.rating).toList();
+    if (allRatings.isNotEmpty) {
+      _workerRatings[workerId] =
+          allRatings.reduce((a, b) => a + b) / allRatings.length;
+    }
+
     notifyListeners();
   }
 }

@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import profile, jobs, stats, auth_debug, earnings_summary, past_services, bank_details, notifications, notifications_mark_all_read, availability, validate_ifsc_endpoint, start_kyc_session, kyc_callback, kyc_webhook, kyc_mock_page, kyc_mock_approve, kyc_mock_reject, services_selection
+from .views import profile, jobs, stats, auth_debug, earnings_summary, past_services, bank_details, notifications, notifications_mark_all_read, availability, validate_ifsc_endpoint, start_kyc_session, kyc_callback, kyc_webhook, kyc_mock_page, kyc_mock_approve, kyc_mock_reject, services_selection, submit_worker_upi_qr
 from .verification_views import WorkerDocumentUploadView, AdminDocumentVerificationView
 
 app_name = 'workers'
@@ -11,6 +11,7 @@ urlpatterns = [
     path('earnings-summary/', earnings_summary, name='earnings_summary'),
     path('past-services/', past_services, name='past_services'),
     path('bank-details/', bank_details, name='bank_details'),
+    path('submit-upi-qr/', submit_worker_upi_qr, name='submit_worker_upi_qr'),
     path('services/', services_selection, name='services_selection'),
     path('availability/', availability, name='availability'),
     path('validate-ifsc/', validate_ifsc_endpoint, name='validate_ifsc'),

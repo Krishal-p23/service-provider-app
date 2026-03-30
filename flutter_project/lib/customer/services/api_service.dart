@@ -692,10 +692,18 @@ class ApiService {
       return {
         'success': response.statusCode == 201,
         'statusCode': response.statusCode,
+        'message': payload is Map<String, dynamic>
+            ? payload['message']?.toString()
+            : null,
         'data': data,
       };
     } catch (e) {
-      return {'success': false, 'statusCode': 500, 'data': <String, dynamic>{}};
+      return {
+        'success': false,
+        'statusCode': 500,
+        'message': 'Network error',
+        'data': <String, dynamic>{},
+      };
     }
   }
 
@@ -756,16 +764,21 @@ class ApiService {
                 ? payload['data'] as Map<String, dynamic>
                 : payload)
           : <String, dynamic>{};
+      final message = payload is Map<String, dynamic>
+          ? payload['message']?.toString()
+          : null;
 
       return {
         'success': response.statusCode == 200,
         'statusCode': response.statusCode,
+        'message': message,
         'data': data,
       };
     } catch (e) {
       return {
         'success': false,
         'statusCode': 500,
+        'message': 'Network error',
         'data': {'error': 'Network error: $e'},
       };
     }
@@ -887,6 +900,37 @@ class ApiService {
 
       return {
         'success': response.statusCode == 201,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {'success': false, 'statusCode': 500, 'data': <String, dynamic>{}};
+    }
+  }
+
+  /// Check if review exists for a booking
+  /// GET /api/reviews/check/<booking_id>/?user_id=<user_id>
+  Future<Map<String, dynamic>> checkReviewStatus({
+    required int bookingId,
+    required int userId,
+  }) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/reviews/check/$bookingId/?user_id=$userId'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
         'statusCode': response.statusCode,
         'data': data,
       };
@@ -1264,6 +1308,57 @@ class ApiService {
     }
   }
 
+  /// Submit worker UPI QR image and extract UPI ID on backend
+  /// POST /api/workers/submit-upi-qr/
+  Future<Map<String, dynamic>> submitWorkerUpiQr({
+    required String imagePath,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/workers/submit-upi-qr/'),
+      );
+
+      if (_accessToken != null) {
+        request.headers['Authorization'] = 'Bearer $_accessToken';
+      }
+
+      request.files.add(
+        await http.MultipartFile.fromPath('qr_image', imagePath),
+      );
+
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 20),
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+      final payload = jsonDecode(response.body);
+
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
+
+      final message = payload is Map<String, dynamic>
+          ? payload['message']?.toString()
+          : null;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'message': message,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'message': 'Network error',
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
   /// Get wallet balance for a user
   /// GET /api/wallet/balance/{userId}/
   Future<Map<String, dynamic>> getUserWalletBalance(int userId) async {
@@ -1449,11 +1544,51 @@ class ApiService {
   }
 
   /// Get payment QR payload for a booking
-  /// GET /api/payments/qr/{bookingId}/
+  /// GET /api/wallet/qr/{bookingId}/
   Future<Map<String, dynamic>> getPaymentQr(int bookingId) async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/payments/qr/$bookingId/'), headers: _headers)
+          .get(Uri.parse('$baseUrl/wallet/qr/$bookingId/'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Generate payment QR payload with image + UPI link
+  /// POST /api/wallet/qr/generate/
+  Future<Map<String, dynamic>> generatePaymentQr({
+    required int bookingId,
+    required double amount,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/wallet/qr/generate/'),
+            headers: _headers,
+            body: jsonEncode({
+              'booking_id': bookingId,
+              'amount': amount,
+              'use_admin_upi': true,
+            }),
+          )
           .timeout(const Duration(seconds: 15));
 
       final payload = jsonDecode(response.body);
@@ -1478,7 +1613,7 @@ class ApiService {
   }
 
   /// Confirm payment and complete booking
-  /// POST /api/payments/confirm/
+  /// POST /api/wallet/confirm/
   Future<Map<String, dynamic>> confirmPayment({
     required int bookingId,
     required String paymentMethod,
@@ -1490,7 +1625,7 @@ class ApiService {
     try {
       final response = await http
           .post(
-            Uri.parse('$baseUrl/payments/confirm/'),
+            Uri.parse('$baseUrl/wallet/confirm/'),
             headers: _headers,
             body: jsonEncode({
               'booking_id': bookingId,
@@ -1604,16 +1739,21 @@ class ApiService {
               payload['data'] is Map<String, dynamic>
           ? payload['data']
           : payload;
+      final message = payload is Map<String, dynamic>
+          ? payload['message']?.toString()
+          : null;
 
       return {
         'success': response.statusCode == 200,
         'statusCode': response.statusCode,
+        'message': message,
         'data': data,
       };
     } catch (e) {
       return {
         'success': false,
         'statusCode': 500,
+        'message': 'Network error',
         'data': {'error': 'Network error: $e'},
       };
     }
@@ -1640,16 +1780,21 @@ class ApiService {
               payload['data'] is Map<String, dynamic>
           ? payload['data']
           : payload;
+      final message = payload is Map<String, dynamic>
+          ? payload['message']?.toString()
+          : null;
 
       return {
         'success': response.statusCode == 200,
         'statusCode': response.statusCode,
+        'message': message,
         'data': data,
       };
     } catch (e) {
       return {
         'success': false,
         'statusCode': 500,
+        'message': 'Network error',
         'data': {'error': 'Network error: $e'},
       };
     }
@@ -1670,16 +1815,64 @@ class ApiService {
       final data = payload is Map<String, dynamic>
           ? payload['data'] ?? payload
           : payload;
+      final message = payload is Map<String, dynamic>
+          ? payload['message']?.toString()
+          : null;
+      final code = payload is Map<String, dynamic>
+          ? payload['code']?.toString()
+          : null;
 
       return {
         'success': response.statusCode == 200,
         'statusCode': response.statusCode,
+        'message': message,
+        'code': code,
         'data': data,
       };
     } catch (e) {
       return {
         'success': false,
         'statusCode': 500,
+        'message': 'Network error',
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
+  /// Customer confirms job completion in demo flow (no QR/payment gateway)
+  /// POST /api/bookings/{booking_id}/confirm-complete/
+  Future<Map<String, dynamic>> confirmBookingCompletion({
+    required int bookingId,
+    int? userId,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/bookings/$bookingId/confirm-complete/'),
+            headers: _headers,
+            body: jsonEncode({if (userId != null) 'user_id': userId}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final payload = jsonDecode(response.body);
+      final data = payload is Map<String, dynamic>
+          ? payload['data'] ?? payload
+          : payload;
+      final message = payload is Map<String, dynamic>
+          ? payload['message']?.toString()
+          : null;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'message': message,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'message': 'Network error',
         'data': {'error': 'Network error: $e'},
       };
     }
