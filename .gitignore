@@ -1,4 +1,5 @@
 backend/.env
+backend/.env.example
 backend/backend/_pycache__/
 backend/services/_pycache__/
 backend/services/migrations/_pycache__/
@@ -25,6 +26,7 @@ backend/authentication/migrations/_pycache__/
 backend/.env
 backend/.env.local
 backend/.env.prod
+!backend/.env.example
 
 # Flutter build outputs
 flutter_project/.dart_tool/
