@@ -4,10 +4,13 @@ from django.conf import settings
 from django.db import connection
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.core.files.storage import default_storage
 import json
 import hmac
 import hashlib
 import logging
+import os
+import uuid
 from datetime import datetime, timedelta
 import requests
 from .didit_service import DiditVerificationService
@@ -1516,6 +1519,90 @@ def profile(request):
 
 
 @csrf_exempt
+@require_http_methods(["POST"])
+def profile_photo(request):
+    """
+    POST /api/workers/profile-photo/
+    Upload optional worker profile photo and save URL in workers.profile_photo.
+    Multipart field name: profile_photo
+    """
+    try:
+        user_id = get_current_user_id(request)
+        if not user_id:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Unauthorized. User ID not found",
+                    "code": "UNAUTHORIZED",
+                },
+                status=401,
+            )
+
+        uploaded_file = request.FILES.get("profile_photo")
+        if not uploaded_file:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "profile_photo file is required",
+                    "code": "MISSING_FILE",
+                },
+                status=400,
+            )
+
+        ext = os.path.splitext(uploaded_file.name or "")[1].lower()
+        if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Only jpg, jpeg, png or webp images are allowed",
+                    "code": "INVALID_FILE_TYPE",
+                },
+                status=400,
+            )
+
+        filename = f"worker_profiles/{user_id}_{uuid.uuid4().hex}{ext}"
+        stored_path = default_storage.save(filename, uploaded_file)
+        media_relative = f"{settings.MEDIA_URL.rstrip('/')}/{stored_path}"
+        absolute_url = request.build_absolute_uri(media_relative)
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE workers SET profile_photo = %s WHERE user_id = %s",
+                [absolute_url, user_id],
+            )
+            if cursor.rowcount == 0:
+                return JsonResponse(
+                    {
+                        "status": "error",
+                        "message": "Worker profile not found",
+                        "code": "PROFILE_NOT_FOUND",
+                    },
+                    status=404,
+                )
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": "Profile photo updated",
+                "data": {
+                    "profile_photo": absolute_url,
+                },
+            },
+            status=200,
+        )
+    except Exception as e:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Failed to upload profile photo",
+                "code": "PROFILE_PHOTO_UPLOAD_ERROR",
+                "details": str(e),
+            },
+            status=500,
+        )
+
+
+@csrf_exempt
 @require_http_methods(["GET", "POST"])
 def services_selection(request):
     """
@@ -1742,11 +1829,31 @@ def jobs(request):
                     s.service_name,
                     u.name as customer_name,
                     u.phone as customer_phone,
-                    sc.category_name
+                    sc.category_name,
+                    COALESCE(ul_customer.address, '') as customer_address,
+                    CASE
+                        WHEN ul_customer.latitude IS NOT NULL
+                         AND ul_customer.longitude IS NOT NULL
+                         AND ul_worker.latitude IS NOT NULL
+                         AND ul_worker.longitude IS NOT NULL
+                        THEN (
+                            6371 * acos(
+                                cos(radians(ul_worker.latitude))
+                                * cos(radians(ul_customer.latitude))
+                                * cos(radians(ul_customer.longitude) - radians(ul_worker.longitude))
+                                + sin(radians(ul_worker.latitude))
+                                * sin(radians(ul_customer.latitude))
+                            )
+                        )
+                        ELSE NULL
+                    END as customer_distance_km
                 FROM bookings b
                 JOIN services s ON b.service_id = s.id
                 JOIN service_categories sc ON s.category_id = sc.id
                 JOIN users u ON b.user_id = u.id
+                JOIN workers w ON w.id = b.worker_id
+                LEFT JOIN user_locations ul_customer ON ul_customer.user_id = b.user_id
+                LEFT JOIN user_locations ul_worker ON ul_worker.user_id = w.user_id
                 WHERE b.worker_id = %s
             """
             
@@ -1780,7 +1887,9 @@ def jobs(request):
                     "scheduled_time": row[3].isoformat() if isinstance(row[3], datetime) else str(row[3]),
                     "status": row[4],
                     "amount": float(row[5]),
-                    "category_name": row[9]
+                    "category_name": row[9],
+                    "address": row[10],
+                    "customer_distance_km": float(row[11]) if row[11] is not None else None,
                 })
         
         return JsonResponse({

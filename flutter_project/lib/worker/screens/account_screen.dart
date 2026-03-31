@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../providers/worker_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../customer/services/api_service.dart';
@@ -17,6 +18,52 @@ import 'worker_services_screen.dart';
 
 class WorkerAccountScreen extends StatelessWidget {
   const WorkerAccountScreen({super.key});
+
+  String _resolveWorkerPhotoUrl(String? rawUrl) {
+    final candidate = (rawUrl ?? '').trim();
+    if (candidate.isEmpty) return '';
+    if (candidate.startsWith('http://') || candidate.startsWith('https://')) {
+      return candidate;
+    }
+
+    final apiRoot = ApiService.baseUrl;
+    final backendRoot = apiRoot.endsWith('/api')
+        ? apiRoot.substring(0, apiRoot.length - 4)
+        : apiRoot;
+
+    if (candidate.startsWith('/')) {
+      return '$backendRoot$candidate';
+    }
+    return '$backendRoot/$candidate';
+  }
+
+  Future<void> _pickAndUploadProfilePhoto(BuildContext context) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1080,
+    );
+
+    if (picked == null || !context.mounted) {
+      return;
+    }
+
+    final workerProvider = context.read<WorkerProvider>();
+    final ok = await workerProvider.uploadProfilePhoto(picked.path);
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Profile photo updated'
+              : (workerProvider.error ?? 'Failed to upload profile photo'),
+        ),
+        backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
+      ),
+    );
+  }
 
   Future<void> _openBankTransfers(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -127,6 +174,9 @@ class WorkerAccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final workerProvider = context.watch<WorkerProvider>();
     final user = workerProvider.currentUser;
+    final workerPhotoUrl = _resolveWorkerPhotoUrl(
+      workerProvider.workerProfile?.profilePhoto,
+    );
     final savedAddress = workerProvider.currentUserLocation?.address;
     final surfaceColor = AppTheme.getSurfaceColor(context);
     final textColor = AppTheme.getTextColor(context);
@@ -173,18 +223,59 @@ class WorkerAccountScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
                   children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppTheme.workerPrimaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(40),
-                      ),
-                      child: const Icon(
-                        Icons.person,
-                        size: 40,
-                        color: AppTheme.workerPrimaryColor,
-                      ),
+                    Stack(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: AppTheme.workerPrimaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(40),
+                          ),
+                          child: workerPhotoUrl.isNotEmpty
+                              ? ClipOval(
+                                  child: Image.network(
+                                    workerPhotoUrl,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: AppTheme.workerPrimaryColor,
+                                ),
+                        ),
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _pickAndUploadProfilePhoto(context),
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.workerPrimaryColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Theme.of(context).scaffoldBackgroundColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(width: 16),
                     Expanded(

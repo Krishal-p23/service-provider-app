@@ -992,6 +992,57 @@ class ApiService {
     }
   }
 
+  /// Upload worker profile photo
+  /// POST /api/workers/profile-photo/
+  Future<Map<String, dynamic>> uploadWorkerProfilePhoto({
+    required String imagePath,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/workers/profile-photo/'),
+      );
+
+      if (_accessToken != null) {
+        request.headers['Authorization'] = 'Bearer $_accessToken';
+      }
+
+      request.files.add(
+        await http.MultipartFile.fromPath('profile_photo', imagePath),
+      );
+
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 20),
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+      final payload = jsonDecode(response.body);
+
+      final data =
+          payload is Map<String, dynamic> &&
+              payload['data'] is Map<String, dynamic>
+          ? payload['data']
+          : payload;
+
+      final message = payload is Map<String, dynamic>
+          ? payload['message']?.toString()
+          : null;
+
+      return {
+        'success': response.statusCode == 200,
+        'statusCode': response.statusCode,
+        'message': message,
+        'data': data,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'statusCode': 500,
+        'message': 'Network error',
+        'data': {'error': 'Network error: $e'},
+      };
+    }
+  }
+
   /// Get selectable service list for current worker
   /// GET /api/workers/services/
   Future<Map<String, dynamic>> getWorkerServicesSelection() async {

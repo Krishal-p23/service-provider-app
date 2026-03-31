@@ -5,7 +5,7 @@ import '../models/user.dart';
 class ServiceProviderCard extends StatelessWidget {
   final Worker worker;
   final User? user;
-  final double distance;
+  final double? distance;
   final double rating;
   final int completedJobs;
   final String? category;
@@ -119,7 +119,9 @@ class ServiceProviderCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${distance.toStringAsFixed(1)} km away',
+                              distance != null
+                                  ? '${distance!.toStringAsFixed(1)} km away'
+                                  : 'Distance unavailable',
                               style: theme.textTheme.bodySmall,
                             ),
                           ],

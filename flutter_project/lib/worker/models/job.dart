@@ -3,6 +3,7 @@ class Job {
   final String title;
   final String customerName;
   final String address;
+  final double? customerDistanceKm;
   final DateTime scheduledTime;
   final String duration;
   final String status;
@@ -14,6 +15,7 @@ class Job {
     required this.title,
     required this.customerName,
     required this.address,
+    this.customerDistanceKm,
     required this.scheduledTime,
     required this.duration,
     required this.status,

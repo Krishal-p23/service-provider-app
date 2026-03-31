@@ -20,6 +20,7 @@ class ServiceProvider with ChangeNotifier {
   final Map<int, List<int>> _workerServiceIds = {};
   final Map<int, List<Review>> _workerReviews = {};
   final Map<int, double?> _workerDistancesKm = {};
+  bool _lastFetchUsedCoordinates = false;
 
   bool _isLoading = false;
   String? _error;
@@ -29,6 +30,8 @@ class ServiceProvider with ChangeNotifier {
   List<Worker> get workers => _workers;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get hasDistanceData => _workerDistancesKm.values.any((d) => d != null);
+  bool get canSortByDistance => _lastFetchUsedCoordinates && hasDistanceData;
 
   ServiceProvider() {
     loadDataFromApi();
@@ -45,6 +48,7 @@ class ServiceProvider with ChangeNotifier {
   }) async {
     _isLoading = true;
     _error = null;
+    _lastFetchUsedCoordinates = lat != null && lng != null;
     notifyListeners();
 
     try {
@@ -191,6 +195,7 @@ class ServiceProvider with ChangeNotifier {
   }) async {
     _isLoading = true;
     _error = null;
+    _lastFetchUsedCoordinates = lat != null && lng != null;
     notifyListeners();
 
     try {
@@ -226,6 +231,13 @@ class ServiceProvider with ChangeNotifier {
     return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
   }
 
+  int _compareNullableDistanceAsc(double? a, double? b) {
+    if (a == null && b == null) return 0;
+    if (a == null) return 1;
+    if (b == null) return -1;
+    return a.compareTo(b);
+  }
+
   // Get workers sorted by distance
   List<Map<String, dynamic>> getWorkersByDistance(
     int userId, {
@@ -235,13 +247,10 @@ class ServiceProvider with ChangeNotifier {
         ? getWorkersByService(serviceId)
         : getAvailableWorkers();
 
-    // Get user location
-    // Location integration can be added later; for now use deterministic placeholder distances.
     List<Map<String, dynamic>> workersWithDistance = [];
 
     for (var worker in workerList) {
-      final distance =
-          _workerDistancesKm[worker.id] ?? ((worker.id % 10) + 1.0);
+      final distance = _workerDistancesKm[worker.id];
       final rating = _workerRatings[worker.id] ?? 0.0;
 
       workersWithDistance.add({
@@ -252,7 +261,12 @@ class ServiceProvider with ChangeNotifier {
     }
 
     // Sort by distance
-    workersWithDistance.sort((a, b) => a['distance'].compareTo(b['distance']));
+    workersWithDistance.sort(
+      (a, b) => _compareNullableDistanceAsc(
+        a['distance'] as double?,
+        b['distance'] as double?,
+      ),
+    );
 
     return workersWithDistance;
   }
@@ -268,7 +282,10 @@ class ServiceProvider with ChangeNotifier {
     workersWithDistance.sort((a, b) {
       final ratingCompare = b['rating'].compareTo(a['rating']);
       if (ratingCompare != 0) return ratingCompare;
-      return a['distance'].compareTo(b['distance']);
+      return _compareNullableDistanceAsc(
+        a['distance'] as double?,
+        b['distance'] as double?,
+      );
     });
 
     return workersWithDistance;
@@ -291,16 +308,31 @@ class ServiceProvider with ChangeNotifier {
     // Apply sorting
     switch (sortBy) {
       case 'distance':
-        workersData.sort((a, b) => a['distance'].compareTo(b['distance']));
+        workersData = workersData.where((w) => w['distance'] != null).toList();
+        workersData.sort(
+          (a, b) => _compareNullableDistanceAsc(
+            a['distance'] as double?,
+            b['distance'] as double?,
+          ),
+        );
         break;
       case 'distance_desc':
-        workersData.sort((a, b) => b['distance'].compareTo(a['distance']));
+        workersData = workersData.where((w) => w['distance'] != null).toList();
+        workersData.sort(
+          (a, b) => _compareNullableDistanceAsc(
+            b['distance'] as double?,
+            a['distance'] as double?,
+          ),
+        );
         break;
       case 'rating':
         workersData.sort((a, b) {
           final ratingCompare = b['rating'].compareTo(a['rating']);
           if (ratingCompare != 0) return ratingCompare;
-          return a['distance'].compareTo(b['distance']);
+          return _compareNullableDistanceAsc(
+            a['distance'] as double?,
+            b['distance'] as double?,
+          );
         });
         break;
     }
@@ -324,9 +356,6 @@ class ServiceProvider with ChangeNotifier {
     final reviewCount = _workerReviewCounts[workerId] ?? reviews.length;
     final workerServices = _services;
 
-    // Calculate distance
-    double distance = (workerId % 10) + 1.0; // Mock distance
-
     return {
       'worker': worker,
       'user': user,
@@ -334,7 +363,7 @@ class ServiceProvider with ChangeNotifier {
       'reviewCount': reviewCount,
       'reviews': reviews,
       'services': workerServices,
-      'distance': _workerDistancesKm[workerId] ?? distance,
+      'distance': _workerDistancesKm[workerId],
       'completedJobs': _workerCompletedJobs[workerId] ?? 0,
     };
   }
@@ -379,6 +408,10 @@ class ServiceProvider with ChangeNotifier {
       _workerReviewCounts[worker.id] =
           (data['review_count'] ?? reviews.length) as int;
       _workerCompletedJobs[worker.id] = (data['completed_jobs'] ?? 0) as int;
+        final distanceRaw = data['distance_km'] ?? data['distance'];
+        _workerDistancesKm[worker.id] = distanceRaw is num
+          ? distanceRaw.toDouble()
+          : double.tryParse(distanceRaw?.toString() ?? '');
       _workerReviews[worker.id] = reviews;
 
       final existingIndex = _workers.indexWhere((w) => w.id == worker.id);
@@ -397,9 +430,7 @@ class ServiceProvider with ChangeNotifier {
         'reviewCount': _workerReviewCounts[worker.id] ?? reviews.length,
         'reviews': reviews,
         'services': workerServices,
-        'distance':
-            _workerDistancesKm[worker.id] ??
-            ((data['distance'] ?? (worker.id % 10) + 1.0) as num).toDouble(),
+        'distance': _workerDistancesKm[worker.id],
         'completedJobs': _workerCompletedJobs[worker.id] ?? 0,
       };
     } catch (_) {

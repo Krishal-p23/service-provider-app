@@ -367,6 +367,9 @@ class WorkerProvider extends ChangeNotifier {
           userId: data['user_id'] ?? 0,
           isVerified: data['is_verified'] ?? false,
           isAvailable: data['is_available'] ?? true,
+          experienceYears: data['experience_years'] as int?,
+          bio: data['bio']?.toString(),
+          profilePhoto: data['profile_photo']?.toString(),
         );
       } else {
         // Fallback: create basic profile
@@ -447,6 +450,50 @@ class WorkerProvider extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       _error = 'Profile update error: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Upload optional worker profile photo.
+  Future<bool> uploadProfilePhoto(String imagePath) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.uploadWorkerProfilePhoto(
+        imagePath: imagePath,
+      );
+
+      _isLoading = false;
+      if (result['success']) {
+        final data = result['data'];
+        final photo = data is Map<String, dynamic>
+            ? data['profile_photo']?.toString()
+            : null;
+
+        if (_workerProfile != null) {
+          _workerProfile = _workerProfile!.copyWith(profilePhoto: photo);
+        }
+
+        _error = null;
+        notifyListeners();
+        return true;
+      }
+
+      final failureData = result['data'];
+      _error = failureData is Map<String, dynamic>
+          ? (failureData['message'] ??
+                    failureData['error'] ??
+                    'Failed to upload profile photo')
+                .toString()
+          : 'Failed to upload profile photo';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Profile photo upload error: $e';
       notifyListeners();
       return false;
     }

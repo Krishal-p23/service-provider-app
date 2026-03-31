@@ -108,6 +108,15 @@ class JobActionOverlay extends StatelessWidget {
                     label: 'Address',
                     value: job.address,
                   ),
+                  if (job.customerDistanceKm != null) ...[
+                    const SizedBox(height: 12),
+                    _buildDetailRow(
+                      context,
+                      icon: Icons.near_me,
+                      label: 'Distance',
+                      value: '${job.customerDistanceKm!.toStringAsFixed(1)} km from you',
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   _buildDetailRow(
                     context,

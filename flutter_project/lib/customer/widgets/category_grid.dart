@@ -518,8 +518,14 @@ class CategoryGrid extends StatelessWidget {
     );
 
     if (userWantsLocation == true && context.mounted) {
-      // Request location permission
-      await LocationService.handleLocationRequest(context);
+      final locationData = await LocationService.handleLocationRequest(context);
+      if (locationData != null) {
+        await userProvider.updateUserLocation(
+          latitude: (locationData['latitude'] as num).toDouble(),
+          longitude: (locationData['longitude'] as num).toDouble(),
+          address: (locationData['address'] ?? '').toString(),
+        );
+      }
     }
     
     // Always proceed with navigation regardless of location choice

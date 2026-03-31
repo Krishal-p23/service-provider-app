@@ -405,6 +405,26 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
                       ),
                     ],
                   ),
+                  if (job.customerDistanceKm != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.near_me_outlined,
+                          size: 14,
+                          color: secondaryTextColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${job.customerDistanceKm!.toStringAsFixed(1)} km from you',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: secondaryTextColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [

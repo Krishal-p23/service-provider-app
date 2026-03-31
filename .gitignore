@@ -1,5 +1,6 @@
 backend/.env
 backend/Usb_conn.env
+backend/usb_conn.env
 backend/backend/_pycache__/
 backend/services/_pycache__/
 backend/services/migrations/_pycache__/

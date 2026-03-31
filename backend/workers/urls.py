@@ -1,11 +1,12 @@
 from django.urls import path
-from .views import profile, jobs, stats, auth_debug, earnings_summary, past_services, bank_details, notifications, notifications_mark_all_read, availability, validate_ifsc_endpoint, start_kyc_session, kyc_callback, kyc_webhook, kyc_mock_page, kyc_mock_approve, kyc_mock_reject, services_selection, submit_worker_upi_qr
+from .views import profile, profile_photo, jobs, stats, auth_debug, earnings_summary, past_services, bank_details, notifications, notifications_mark_all_read, availability, validate_ifsc_endpoint, start_kyc_session, kyc_callback, kyc_webhook, kyc_mock_page, kyc_mock_approve, kyc_mock_reject, services_selection, submit_worker_upi_qr
 from .verification_views import WorkerDocumentUploadView, AdminDocumentVerificationView
 
 app_name = 'workers'
 
 urlpatterns = [
     path('profile/', profile, name='profile'),
+    path('profile-photo/', profile_photo, name='profile_photo'),
     path('jobs/', jobs, name='jobs'),
     path('stats/', stats, name='stats'),
     path('earnings-summary/', earnings_summary, name='earnings_summary'),

@@ -28,6 +28,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   double? _minRating;
   bool _showFilters = false;
   bool _requestedWorkers = false;
+  bool _distanceFallbackShown = false;
 
   int? _resolveSelectedServiceId(ServiceProvider serviceProvider) {
     if (widget.serviceId != null) {
@@ -109,6 +110,33 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     final selectedServiceName = widget.categoryId == null
         ? widget.query.trim()
         : null;
+
+    final distanceSortSelected =
+        _sortBy == 'distance' || _sortBy == 'distance_desc';
+    final canSortByDistance = serviceProvider.canSortByDistance;
+
+    if (distanceSortSelected && !serviceProvider.isLoading && !canSortByDistance) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_sortBy == 'distance' || _sortBy == 'distance_desc') {
+          setState(() => _sortBy = 'rating');
+        }
+        if (!_distanceFallbackShown) {
+          _distanceFallbackShown = true;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Distance sort needs your saved location. Showing rating sort for now.',
+              ),
+            ),
+          );
+        }
+      });
+    }
+
+    if (canSortByDistance && _distanceFallbackShown) {
+      _distanceFallbackShown = false;
+    }
 
     if (currentUser == null) {
       return Scaffold(
@@ -217,6 +245,18 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         ],
                         onChanged: (value) {
                           if (value != null) {
+                            final wantsDistance =
+                                value == 'distance' || value == 'distance_desc';
+                            if (wantsDistance && !serviceProvider.canSortByDistance) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Please set your location to sort workers by distance.',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
                             setState(() => _sortBy = value);
                           }
                         },

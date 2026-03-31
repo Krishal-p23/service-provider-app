@@ -480,7 +480,14 @@ class ServiceSearchDelegate extends SearchDelegate {
     );
 
     if (userWantsLocation == true && context.mounted) {
-      await LocationService.handleLocationRequest(context);
+      final locationData = await LocationService.handleLocationRequest(context);
+      if (locationData != null) {
+        await userProvider.updateUserLocation(
+          latitude: (locationData['latitude'] as num).toDouble(),
+          longitude: (locationData['longitude'] as num).toDouble(),
+          address: (locationData['address'] ?? '').toString(),
+        );
+      }
     }
   }
 
