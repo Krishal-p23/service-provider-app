@@ -244,12 +244,14 @@ BACKEND_BASE_URL = os.getenv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
 PAPERTRAIL_ENABLED = _env_bool('PAPERTRAIL_ENABLED', False)
 PAPERTRAIL_HOST = os.getenv('PAPERTRAIL_HOST', '').strip()
 PAPERTRAIL_PORT = int(os.getenv('PAPERTRAIL_PORT', '0') or 0)
+PAPERTRAIL_TOKEN = os.getenv('PAPERTRAIL_TOKEN', '').strip()
+PAPERTRAIL_ENDPOINT = os.getenv('PAPERTRAIL_ENDPOINT', 'https://logs.collector.na-01.cloud.solarwinds.com/v1/logs').strip()
 PAPERTRAIL_APP_NAME = os.getenv('PAPERTRAIL_APP_NAME', 'servigo-backend').strip() or 'servigo-backend'
 PAPERTRAIL_LEVEL = os.getenv('PAPERTRAIL_LEVEL', 'INFO').upper()
 
 # Debug: Print Papertrail config on startup (visible in Render logs)
 import sys
-print(f'[PAPERTRAIL DEBUG] ENABLED={PAPERTRAIL_ENABLED}, HOST={PAPERTRAIL_HOST}, PORT={PAPERTRAIL_PORT}, APP_NAME={PAPERTRAIL_APP_NAME}, LEVEL={PAPERTRAIL_LEVEL}', file=sys.stderr)
+print(f'[PAPERTRAIL DEBUG] ENABLED={PAPERTRAIL_ENABLED}, HOST={PAPERTRAIL_HOST}, PORT={PAPERTRAIL_PORT}, TOKEN_SET={bool(PAPERTRAIL_TOKEN)}, ENDPOINT={PAPERTRAIL_ENDPOINT}, APP_NAME={PAPERTRAIL_APP_NAME}, LEVEL={PAPERTRAIL_LEVEL}', file=sys.stderr)
 
 # Third-party integrations
 # Twilio SMS Settings (for OTP delivery) - set SMS_OTP_ENABLED=True to enable
@@ -295,7 +297,17 @@ _logging_handlers = {
 
 _root_handlers = ['console']
 
-if PAPERTRAIL_ENABLED and PAPERTRAIL_HOST and PAPERTRAIL_PORT > 0:
+if PAPERTRAIL_ENABLED and PAPERTRAIL_TOKEN and PAPERTRAIL_ENDPOINT:
+    print(f'[PAPERTRAIL DEBUG] Registering SolarWindsHTTPLogHandler to {PAPERTRAIL_ENDPOINT}', file=sys.stderr)
+    _logging_handlers['papertrail_http'] = {
+        'class': 'backend.logging_handlers.SolarWindsHTTPLogHandler',
+        'formatter': 'papertrail',
+        'token': PAPERTRAIL_TOKEN,
+        'endpoint': PAPERTRAIL_ENDPOINT,
+        'timeout': 3.0,
+    }
+    _root_handlers.append('papertrail_http')
+elif PAPERTRAIL_ENABLED and PAPERTRAIL_HOST and PAPERTRAIL_PORT > 0:
     print(f'[PAPERTRAIL DEBUG] Registering SysLogHandler to {PAPERTRAIL_HOST}:{PAPERTRAIL_PORT}', file=sys.stderr)
     _logging_handlers['papertrail'] = {
         'class': 'logging.handlers.SysLogHandler',
@@ -305,7 +317,7 @@ if PAPERTRAIL_ENABLED and PAPERTRAIL_HOST and PAPERTRAIL_PORT > 0:
     }
     _root_handlers.append('papertrail')
 else:
-    print(f'[PAPERTRAIL DEBUG] Papertrail handler NOT registered. Condition check: ENABLED={PAPERTRAIL_ENABLED}, HOST_SET={bool(PAPERTRAIL_HOST)}, PORT_GT_0={PAPERTRAIL_PORT > 0}', file=sys.stderr)
+    print(f'[PAPERTRAIL DEBUG] Papertrail handler NOT registered. Condition check: ENABLED={PAPERTRAIL_ENABLED}, TOKEN_SET={bool(PAPERTRAIL_TOKEN)}, ENDPOINT_SET={bool(PAPERTRAIL_ENDPOINT)}, HOST_SET={bool(PAPERTRAIL_HOST)}, PORT_GT_0={PAPERTRAIL_PORT > 0}', file=sys.stderr)
 
 LOGGING = {
     'version': 1,
