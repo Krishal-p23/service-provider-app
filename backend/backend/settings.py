@@ -247,6 +247,10 @@ PAPERTRAIL_PORT = int(os.getenv('PAPERTRAIL_PORT', '0') or 0)
 PAPERTRAIL_APP_NAME = os.getenv('PAPERTRAIL_APP_NAME', 'servigo-backend').strip() or 'servigo-backend'
 PAPERTRAIL_LEVEL = os.getenv('PAPERTRAIL_LEVEL', 'INFO').upper()
 
+# Debug: Print Papertrail config on startup (visible in Render logs)
+import sys
+print(f'[PAPERTRAIL DEBUG] ENABLED={PAPERTRAIL_ENABLED}, HOST={PAPERTRAIL_HOST}, PORT={PAPERTRAIL_PORT}, APP_NAME={PAPERTRAIL_APP_NAME}, LEVEL={PAPERTRAIL_LEVEL}', file=sys.stderr)
+
 # Third-party integrations
 # Twilio SMS Settings (for OTP delivery) - set SMS_OTP_ENABLED=True to enable
 SMS_OTP_ENABLED = _env_bool('SMS_OTP_ENABLED', False)  # Master flag: enable/disable SMS OTP sending
@@ -292,6 +296,7 @@ _logging_handlers = {
 _root_handlers = ['console']
 
 if PAPERTRAIL_ENABLED and PAPERTRAIL_HOST and PAPERTRAIL_PORT > 0:
+        print(f'[PAPERTRAIL DEBUG] Registering SysLogHandler to {PAPERTRAIL_HOST}:{PAPERTRAIL_PORT}', file=sys.stderr)
     _logging_handlers['papertrail'] = {
         'class': 'logging.handlers.SysLogHandler',
         'formatter': 'papertrail',
@@ -299,6 +304,8 @@ if PAPERTRAIL_ENABLED and PAPERTRAIL_HOST and PAPERTRAIL_PORT > 0:
         'socktype': 2,  # socket.SOCK_DGRAM
     }
     _root_handlers.append('papertrail')
+else:
+    print(f'[PAPERTRAIL DEBUG] Papertrail handler NOT registered. Condition check: ENABLED={PAPERTRAIL_ENABLED}, HOST_SET={bool(PAPERTRAIL_HOST)}, PORT_GT_0={PAPERTRAIL_PORT > 0}', file=sys.stderr)
 
 LOGGING = {
     'version': 1,
