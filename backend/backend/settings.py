@@ -348,6 +348,21 @@ LOGGING = {
             'level': PAPERTRAIL_LEVEL,
             'propagate': False,
         },
+        'authentication': {
+            'handlers': _root_handlers,
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'authentication.views': {
+            'handlers': _root_handlers,
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'authentication.sms_service': {
+            'handlers': _root_handlers,
+            'level': 'INFO',
+            'propagate': False,
+        },
         'gunicorn.error': {
             'handlers': _root_handlers,
             'level': PAPERTRAIL_LEVEL,
