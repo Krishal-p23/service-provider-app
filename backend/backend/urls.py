@@ -45,12 +45,24 @@ def test_logging(request):
     logger.info('[TEST LOG] Testing Papertrail logging from servigo-backend')
     logger.warning('[TEST LOG] This is a warning message')
     logger.error('[TEST LOG] This is an error message')
-    return JsonResponse({'message': 'Test log messages sent. Check Papertrail within 5 seconds.'}, status=200)
+    root_logger = logging.getLogger()
+    handler_names = [type(handler).__name__ for handler in root_logger.handlers]
+    return JsonResponse(
+        {
+            'message': 'Test log messages sent. Check Papertrail within 5 seconds.',
+            'root_handlers': handler_names,
+            'root_level': logging.getLevelName(root_logger.level),
+            'papertrail_enabled': getattr(settings, 'PAPERTRAIL_ENABLED', False),
+            'papertrail_token_set': bool(getattr(settings, 'PAPERTRAIL_TOKEN', '')),
+            'papertrail_endpoint': getattr(settings, 'PAPERTRAIL_ENDPOINT', ''),
+        },
+        status=200,
+    )
 
 urlpatterns = [
     path('', root_status, name='root_status'),
     path('health/', health_check, name='health_check'),
-        path('test-logging/', test_logging, name='test_logging'),
+    path('test-logging/', test_logging, name='test_logging'),
     path('admin/', admin.site.urls),
     path('api/accounts/', include('authentication.urls')),
     path('api/locations/', locations_collection, name='locations_collection'),

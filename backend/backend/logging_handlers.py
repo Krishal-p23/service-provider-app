@@ -1,4 +1,5 @@
 import logging
+import sys
 from urllib.error import URLError, HTTPError
 from urllib.request import Request, urlopen
 
@@ -32,3 +33,5 @@ class SolarWindsHTTPLogHandler(logging.Handler):
                 pass
         except (URLError, HTTPError, TimeoutError, OSError):
             self.handleError(record)
+            # Keep an explicit stderr breadcrumb in production where logging may suppress handler errors.
+            print('Papertrail HTTP handler failed to deliver log record.', file=sys.stderr)

@@ -335,4 +335,26 @@ LOGGING = {
         'handlers': _root_handlers,
         'level': PAPERTRAIL_LEVEL,
     },
+    'loggers': {
+        'django': {
+            'handlers': _root_handlers,
+            'level': PAPERTRAIL_LEVEL,
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': _root_handlers,
+            'level': PAPERTRAIL_LEVEL,
+            'propagate': False,
+        },
+        'gunicorn.error': {
+            'handlers': _root_handlers,
+            'level': PAPERTRAIL_LEVEL,
+            'propagate': False,
+        },
+        'gunicorn.access': {
+            'handlers': _root_handlers,
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
 }
