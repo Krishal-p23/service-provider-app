@@ -160,10 +160,15 @@ def _generate_demo_otp():
 
 
 def _build_user_payload(user_tuple):
+    phone = ""
+    if len(user_tuple) > 5 and user_tuple[5] is not None:
+        phone = str(user_tuple[5])
+
     return {
         "id": user_tuple[0],
         "email": user_tuple[1],
         "name": user_tuple[2],
+        "phone": phone,
         "role": user_tuple[4],
     }
 
@@ -202,7 +207,7 @@ def _create_user_record(name, email, phone, password, role):
             """
             INSERT INTO users (name, email, phone, password_hash, role, created_at)
             VALUES (%s, %s, %s, %s, %s, NOW())
-            RETURNING id, email, name, password_hash, role
+            RETURNING id, email, name, password_hash, role, phone
             """,
             [name, email, phone, password_hash, role],
         )
@@ -606,6 +611,7 @@ def otp_verify(request):
             payload["name"],
             payload["password_hash"],
             payload["role"],
+            payload.get("phone", ""),
         )
         if str(payload.get("role") or "").strip().lower() == "worker":
             _ensure_worker_profile_row(payload["id"], payload.get("name", ""))
@@ -866,7 +872,7 @@ def login(request):
             with connection.cursor() as cursor:
                 # Fetch user by email
                 cursor.execute(
-                    "SELECT id, email, name, password_hash, role FROM users WHERE email = %s",
+                    "SELECT id, email, name, password_hash, role, phone FROM users WHERE email = %s",
                     [email],
                 )
                 user = cursor.fetchone()
@@ -879,7 +885,7 @@ def login(request):
                 }, status=401)
             
             # Verify password
-            user_id, user_email, user_name, password_hash, user_role = user
+            user_id, user_email, user_name, password_hash, user_role, user_phone = user
 
             if not verify_password(password, password_hash):
                 return JsonResponse({
@@ -898,6 +904,7 @@ def login(request):
                     "id": user_id,
                     "email": user_email,
                     "name": user_name,
+                    "phone": user_phone,
                     "role": user_role
                 }
             }, status=200)
