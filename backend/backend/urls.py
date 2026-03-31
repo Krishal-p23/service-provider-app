@@ -18,9 +18,10 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse, Http404
 from authentication.views import locations_collection, location_by_id, location_by_user
 import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +60,30 @@ def test_logging(request):
         status=200,
     )
 
+
+def download_apk(request):
+    """Serve latest APK for distribution from a stable public URL."""
+    candidates = [
+        Path(settings.BASE_DIR) / 'static' / 'downloads' / 'servigo-app.apk',
+        Path(settings.STATIC_ROOT) / 'downloads' / 'servigo-app.apk',
+    ]
+
+    apk_path = next((path for path in candidates if path.exists()), None)
+    if apk_path is None:
+        raise Http404('APK not found')
+
+    return FileResponse(
+        open(apk_path, 'rb'),
+        as_attachment=True,
+        filename='servigo-app.apk',
+        content_type='application/vnd.android.package-archive',
+    )
+
 urlpatterns = [
     path('', root_status, name='root_status'),
     path('health/', health_check, name='health_check'),
     path('test-logging/', test_logging, name='test_logging'),
+    path('downloads/servigo-app.apk', download_apk, name='download_apk'),
     path('admin/', admin.site.urls),
     path('api/accounts/', include('authentication.urls')),
     path('api/locations/', locations_collection, name='locations_collection'),
