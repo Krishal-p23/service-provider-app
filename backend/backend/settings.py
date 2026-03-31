@@ -277,6 +277,8 @@ RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', '')
 FIREBASE_PHONE_AUTH_ENABLED = _env_bool('FIREBASE_PHONE_AUTH_ENABLED', False)
 # Keep OTP visible in API responses only for demo/testing flows.
 OTP_EXPOSE_IN_API = _env_bool('OTP_EXPOSE_IN_API', False)
+# Allow OTP values to be emitted into backend logs (and therefore Papertrail).
+OTP_LOG_TO_PAPERTRAIL = _env_bool('OTP_LOG_TO_PAPERTRAIL', False)
 SUREPASS_API_TOKEN = os.getenv('SUREPASS_API_TOKEN', '')
 SUREPASS_BASE_URL = os.getenv('SUREPASS_BASE_URL', 'https://kyc-api.surepass.io/api/v1')
 BUSINESS_UPI_ID = os.getenv('BUSINESS_UPI_ID', '')

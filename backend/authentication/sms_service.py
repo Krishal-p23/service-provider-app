@@ -1,4 +1,8 @@
 from django.conf import settings
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def send_otp_sms(phone_number: str, otp: str, purpose: str = "verification") -> dict:
@@ -22,12 +26,13 @@ def send_otp_sms(phone_number: str, otp: str, purpose: str = "verification") -> 
     # Check if SMS OTP is enabled
     sms_enabled = getattr(settings, 'SMS_OTP_ENABLED', False)
 
-    # Always print one clear line so you can confirm API path was hit.
-    print(f"[OTP SMS ATTEMPT] enabled={sms_enabled} purpose={purpose} phone={normalized_phone}")
+    logger.info("[OTP SMS ATTEMPT] enabled=%s purpose=%s phone=%s", sms_enabled, purpose, normalized_phone)
     
     if not sms_enabled:
-        # SMS is disabled - log to console only (for testing)
-        print(f"[SMS OTP DISABLED] Phone: {normalized_phone} | OTP: {otp} | Purpose: {purpose}")
+        if getattr(settings, 'OTP_LOG_TO_PAPERTRAIL', False):
+            logger.warning("[SMS OTP DISABLED] phone=%s otp=%s purpose=%s", normalized_phone, otp, purpose)
+        else:
+            logger.info("[SMS OTP DISABLED] phone=%s otp_hidden=true purpose=%s", normalized_phone, purpose)
         return {'success': True, 'message': 'SMS disabled by feature flag'}
     
     # Send via Twilio
@@ -45,8 +50,10 @@ def _send_via_twilio(phone_number: str, otp: str, purpose: str) -> dict:
         from_number = getattr(settings, 'TWILIO_PHONE_NUMBER', '')
         
         if not (account_sid and auth_token and from_number):
-            # Twilio not configured - log to console
-            print(f"[SMS TWILIO NOT CONFIGURED] Phone: {phone_number} | OTP: {otp}")
+            if getattr(settings, 'OTP_LOG_TO_PAPERTRAIL', False):
+                logger.warning("[SMS TWILIO NOT CONFIGURED] phone=%s otp=%s", phone_number, otp)
+            else:
+                logger.info("[SMS TWILIO NOT CONFIGURED] phone=%s otp_hidden=true", phone_number)
             return {'success': True, 'message': 'Twilio not configured, logged to console'}
         
         from twilio.rest import Client
@@ -60,8 +67,10 @@ def _send_via_twilio(phone_number: str, otp: str, purpose: str) -> dict:
             body=message_body
         )
         
-        # Print to console for development testing (single line)
-        print(f"[SMS OTP] Phone: {phone_number} | OTP: {otp} | SID: {message.sid}")
+        if getattr(settings, 'OTP_LOG_TO_PAPERTRAIL', False):
+            logger.warning("[SMS OTP] phone=%s otp=%s sid=%s", phone_number, otp, message.sid)
+        else:
+            logger.info("[SMS OTP] phone=%s otp_hidden=true sid=%s", phone_number, message.sid)
         
         return {
             'success': True,
@@ -69,5 +78,5 @@ def _send_via_twilio(phone_number: str, otp: str, purpose: str) -> dict:
             'provider': 'twilio'
         }
     except Exception as e:
-        print(f"[SMS TWILIO ERROR] {str(e)}")
+        logger.exception("[SMS TWILIO ERROR] %s", str(e))
         return {'success': False, 'message': f'SMS failed: {str(e)}'}

@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 import random
 import uuid
+import logging
 from datetime import timedelta
 from django.utils import timezone
 from .auth_utils import hash_password, verify_password, validate_email, validate_phone, validate_password
@@ -15,6 +16,7 @@ from .sms_service import send_otp_sms
 # Create your views here.
 
 OTP_EXPIRY_SECONDS = 300
+logger = logging.getLogger(__name__)
 
 
 def _ensure_auth_otp_table():
@@ -361,7 +363,11 @@ def otp_start(request):
 
     try:
         action = (data.get("action") or "").strip().lower()
-        print(f"[OTP START] action={action} sms_enabled={getattr(settings, 'SMS_OTP_ENABLED', False)}")
+        logger.info(
+            "[OTP START] action=%s sms_enabled=%s",
+            action,
+            getattr(settings, 'SMS_OTP_ENABLED', False),
+        )
         if action not in ["register", "login"]:
             return JsonResponse(
                 {
@@ -394,9 +400,19 @@ def otp_start(request):
                 payload=payload,
             )
 
-            print(
-                f"[DEMO OTP] register role={payload['role']} email={payload['email']} otp={otp}"
-            )
+            if getattr(settings, 'OTP_LOG_TO_PAPERTRAIL', False):
+                logger.warning(
+                    "[DEMO OTP] register role=%s email=%s otp=%s",
+                    payload['role'],
+                    payload['email'],
+                    otp,
+                )
+            else:
+                logger.info(
+                    "[DEMO OTP] register role=%s email=%s otp_hidden=true",
+                    payload['role'],
+                    payload['email'],
+                )
 
             # Send OTP via SMS if enabled
             phone_number = payload.get("phone", "")
@@ -435,9 +451,19 @@ def otp_start(request):
             payload=login_payload,
         )
 
-        print(
-            f"[DEMO OTP] login role={login_payload['role']} email={login_payload['email']} otp={otp}"
-        )
+        if getattr(settings, 'OTP_LOG_TO_PAPERTRAIL', False):
+            logger.warning(
+                "[DEMO OTP] login role=%s email=%s otp=%s",
+                login_payload['role'],
+                login_payload['email'],
+                otp,
+            )
+        else:
+            logger.info(
+                "[DEMO OTP] login role=%s email=%s otp_hidden=true",
+                login_payload['role'],
+                login_payload['email'],
+            )
 
         # Send OTP via SMS if enabled
         phone_number = login_payload.get("phone", "")
@@ -462,7 +488,7 @@ def otp_start(request):
             status=200,
         )
     except Exception as e:
-        print(f"OTP start error: {e}")
+        logger.exception("OTP start error: %s", e)
         return JsonResponse(
             {
                 "status": "error",
@@ -593,7 +619,7 @@ def otp_verify(request):
             status=200,
         )
     except Exception as e:
-        print(f"OTP verify error: {e}")
+        logger.exception("OTP verify error: %s", e)
         return JsonResponse(
             {
                 "status": "error",
@@ -656,9 +682,21 @@ def otp_resend(request):
     _refresh_otp_session(session_id, otp, expires_at)
 
     payload = otp_session["payload"]
-    print(
-        f"[DEMO OTP] resend action={otp_session['action']} role={payload.get('role')} email={payload.get('email')} otp={otp}"
-    )
+    if getattr(settings, 'OTP_LOG_TO_PAPERTRAIL', False):
+        logger.warning(
+            "[DEMO OTP] resend action=%s role=%s email=%s otp=%s",
+            otp_session['action'],
+            payload.get('role'),
+            payload.get('email'),
+            otp,
+        )
+    else:
+        logger.info(
+            "[DEMO OTP] resend action=%s role=%s email=%s otp_hidden=true",
+            otp_session['action'],
+            payload.get('role'),
+            payload.get('email'),
+        )
 
     phone_number = payload.get("phone", "")
     sms_result = send_otp_sms(phone_number, otp, purpose="resend")
