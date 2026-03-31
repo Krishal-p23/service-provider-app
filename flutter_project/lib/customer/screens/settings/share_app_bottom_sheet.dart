@@ -1,8 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Required import
+import 'package:share_plus/share_plus.dart';
 
 class ShareAppBottomSheet extends StatelessWidget {
   const ShareAppBottomSheet({super.key});
+
+  static const String _defaultShareUrl = String.fromEnvironment(
+    'APP_SHARE_URL',
+    defaultValue: 'https://servigopro.onrender.com/downloads/servigo-app.apk',
+  );
+
+  static const String _shareText =
+      'Try Servigo app. Download here: $_defaultShareUrl';
+
+  Future<void> _share(BuildContext context, {String? channelHint}) async {
+    try {
+      await Share.share(
+        channelHint == null
+            ? _shareText
+            : '$_shareText\nShared via $channelHint',
+        subject: 'Servigo App',
+      );
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open share options')),
+        );
+      }
+    }
+  }
+
+  Future<void> _copyLink(BuildContext context) async {
+    await Clipboard.setData(const ClipboardData(text: _defaultShareUrl));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('APK link copied to clipboard')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,10 +118,18 @@ class ShareAppBottomSheet extends StatelessWidget {
                 icon: option['icon'] as IconData,
                 label: option['label'] as String,
                 color: option['color'] as Color,
-                onTap: () {
+                onTap: () async {
+                  final label = option['label'] as String;
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Sharing via ${option['label']}')),
+
+                  if (label == 'Copy Link') {
+                    await _copyLink(context);
+                    return;
+                  }
+
+                  await _share(
+                    context,
+                    channelHint: label == 'More' ? null : label,
                   );
                 },
               );

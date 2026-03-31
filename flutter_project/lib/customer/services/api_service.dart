@@ -5,21 +5,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// API Service for backend communication
 /// Handles all HTTP requests to Django backend
 class ApiService {
-  // Override with: --dart-define=API_BASE_URL=http://<host>:8000/api
+  // Override with: --dart-define=API_BASE_URL=https://<host>/api
   static const String _envBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: '',
   );
 
-  // Use environment-provided URL or fallback to production tunnel
+  // Use environment-provided URL or fallback to production backend.
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl;
     }
 
-    // Default to Cloudflare tunnel URL (works on physical devices and anywhere)
-    // Can be overridden with: --dart-define=API_BASE_URL=http://192.168.1.5:8000/api
-    return 'https://handmade-enemies-concentrations-electro.trycloudflare.com/api';
+    // Default to Render production API URL.
+    return 'https://servigopro.onrender.com/api';
   }
 
   // Singleton pattern

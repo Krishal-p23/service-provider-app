@@ -6,7 +6,7 @@ class WorkerVerificationApiService {
   final dio_lib.Dio _dio;
 
   // Base URL with environment override support
-  // Override with: --dart-define=API_BASE_URL=http://<host>:8000/api
+  // Override with: --dart-define=API_BASE_URL=https://<host>/api
   static const String _envBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: '',
@@ -16,8 +16,8 @@ class WorkerVerificationApiService {
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl;
     }
-    // Default to localhost for desktop/emulator
-    return 'http://127.0.0.1:8000/api';
+    // Default to Render production API URL.
+    return 'https://servigopro.onrender.com/api';
   }
 
   // Document type constants matching backend

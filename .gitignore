@@ -1,5 +1,5 @@
 backend/.env
-backend/.env.example
+backend/Usb_conn.env
 backend/backend/_pycache__/
 backend/services/_pycache__/
 backend/services/migrations/_pycache__/

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_project/customer/screens/settings/share_app_bottom_sheet.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/theme_provider.dart';
 import '../../theme/app_theme.dart';
@@ -208,6 +209,20 @@ class AccountScreen extends StatelessWidget {
                     title: 'My Reviews',
                     onTap: () {
                       Navigator.pushNamed(context, '/reviews');
+                    },
+                  ),
+                  _buildListTile(
+                    context,
+                    icon: Icons.share,
+                    title: 'Share App',
+                    subtitle: 'Share APK download link with friends',
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => const ShareAppBottomSheet(),
+                      );
                     },
                   ),
                 ],

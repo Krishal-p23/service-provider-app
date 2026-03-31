@@ -18,9 +18,27 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from authentication.views import locations_collection, location_by_id, location_by_user
 
+
+def root_status(request):
+    return JsonResponse(
+        {
+            'service': 'servigo-backend',
+            'status': 'ok',
+            'message': 'Backend is running. Use /api/... endpoints.',
+        },
+        status=200,
+    )
+
+
+def health_check(request):
+    return JsonResponse({'ok': True}, status=200)
+
 urlpatterns = [
+    path('', root_status, name='root_status'),
+    path('health/', health_check, name='health_check'),
     path('admin/', admin.site.urls),
     path('api/accounts/', include('authentication.urls')),
     path('api/locations/', locations_collection, name='locations_collection'),
