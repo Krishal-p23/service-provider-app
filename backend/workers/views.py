@@ -1831,6 +1831,8 @@ def jobs(request):
                     u.phone as customer_phone,
                     sc.category_name,
                     COALESCE(ul_customer.address, '') as customer_address,
+                    ul_customer.latitude as customer_latitude,
+                    ul_customer.longitude as customer_longitude,
                     CASE
                         WHEN ul_customer.latitude IS NOT NULL
                          AND ul_customer.longitude IS NOT NULL
@@ -1889,7 +1891,9 @@ def jobs(request):
                     "amount": float(row[5]),
                     "category_name": row[9],
                     "address": row[10],
-                    "customer_distance_km": float(row[11]) if row[11] is not None else None,
+                    "customer_latitude": float(row[11]) if row[11] is not None else None,
+                    "customer_longitude": float(row[12]) if row[12] is not None else None,
+                    "customer_distance_km": float(row[13]) if row[13] is not None else None,
                 })
         
         return JsonResponse({

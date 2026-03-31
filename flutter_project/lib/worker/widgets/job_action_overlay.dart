@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../utils/map_launcher.dart';
 import '../models/job.dart';
 
 class JobActionOverlay extends StatelessWidget {
@@ -19,6 +20,22 @@ class JobActionOverlay extends StatelessWidget {
     required this.onReschedule,
     required this.onDelete,
   });
+
+  Future<void> _openCustomerNavigation(BuildContext context) async {
+    if (job.customerLatitude == null || job.customerLongitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Customer coordinates are not available for this job.'),
+        ),
+      );
+      return;
+    }
+
+    await MapLauncher.openNavigationToLocation(
+      latitude: job.customerLatitude!,
+      longitude: job.customerLongitude!,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +143,17 @@ class JobActionOverlay extends StatelessWidget {
                     valueColor: primaryColor,
                     valueBold: true,
                   ),
+                  if (job.customerLatitude != null && job.customerLongitude != null) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _openCustomerNavigation(context),
+                        icon: const Icon(Icons.navigation_outlined),
+                        label: const Text('Open In Google Maps'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

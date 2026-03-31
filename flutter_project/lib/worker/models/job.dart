@@ -3,6 +3,8 @@ class Job {
   final String title;
   final String customerName;
   final String address;
+  final double? customerLatitude;
+  final double? customerLongitude;
   final double? customerDistanceKm;
   final DateTime scheduledTime;
   final String duration;
@@ -15,6 +17,8 @@ class Job {
     required this.title,
     required this.customerName,
     required this.address,
+    this.customerLatitude,
+    this.customerLongitude,
     this.customerDistanceKm,
     required this.scheduledTime,
     required this.duration,

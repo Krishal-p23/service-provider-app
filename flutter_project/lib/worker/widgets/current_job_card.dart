@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../utils/map_launcher.dart';
 import '../models/job.dart';
 import 'gradient_button.dart';
 
@@ -14,6 +15,22 @@ class CurrentJobCard extends StatelessWidget {
     required this.onReschedule,
     required this.onDelete,
   });
+
+  Future<void> _openCustomerNavigation(BuildContext context) async {
+    if (job.customerLatitude == null || job.customerLongitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Customer coordinates are not available for this job.'),
+        ),
+      );
+      return;
+    }
+
+    await MapLauncher.openNavigationToLocation(
+      latitude: job.customerLatitude!,
+      longitude: job.customerLongitude!,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,26 +135,35 @@ class CurrentJobCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Row(
-                        children: [
-                           Icon(
-                            Icons.location_on,
-                            color: isDark ? Colors.white70 : Colors.black54,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              job.address,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isDark ? Colors.white70 : Colors.black54,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                      InkWell(
+                        onTap: () => _openCustomerNavigation(context),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Row(
+                          children: [
+                             Icon(
+                              Icons.location_on,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                              size: 16,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                job.address,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark ? Colors.white70 : Colors.black54,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(
+                              Icons.navigation_outlined,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                              size: 16,
+                            ),
+                          ],
+                        ),
                       ),
                       if (job.customerDistanceKm != null) ...[
                         const SizedBox(height: 6),

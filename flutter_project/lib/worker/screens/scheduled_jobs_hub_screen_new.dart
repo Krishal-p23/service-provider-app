@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../customer/services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/map_launcher.dart';
 import '../models/job.dart';
 import '../providers/job_provider.dart';
 import '../widgets/current_job_card.dart';
@@ -18,6 +19,23 @@ class ScheduledJobsHubScreenNew extends StatefulWidget {
 }
 
 class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
+  Future<void> _openCustomerNavigation(Job job) async {
+    if (job.customerLatitude == null || job.customerLongitude == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Customer coordinates are not available for this job.'),
+        ),
+      );
+      return;
+    }
+
+    await MapLauncher.openNavigationToLocation(
+      latitude: job.customerLatitude!,
+      longitude: job.customerLongitude!,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -384,26 +402,35 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 14,
-                        color: secondaryTextColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          job.address,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: secondaryTextColor,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  InkWell(
+                    onTap: () => _openCustomerNavigation(job),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: secondaryTextColor,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            job.address,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: secondaryTextColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(
+                          Icons.navigation_outlined,
+                          size: 14,
+                          color: secondaryTextColor,
+                        ),
+                      ],
+                    ),
                   ),
                   if (job.customerDistanceKm != null) ...[
                     const SizedBox(height: 4),
