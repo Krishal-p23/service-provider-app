@@ -296,12 +296,12 @@ _logging_handlers = {
 _root_handlers = ['console']
 
 if PAPERTRAIL_ENABLED and PAPERTRAIL_HOST and PAPERTRAIL_PORT > 0:
-        print(f'[PAPERTRAIL DEBUG] Registering SysLogHandler to {PAPERTRAIL_HOST}:{PAPERTRAIL_PORT}', file=sys.stderr)
+    print(f'[PAPERTRAIL DEBUG] Registering SysLogHandler to {PAPERTRAIL_HOST}:{PAPERTRAIL_PORT}', file=sys.stderr)
     _logging_handlers['papertrail'] = {
         'class': 'logging.handlers.SysLogHandler',
         'formatter': 'papertrail',
         'address': (PAPERTRAIL_HOST, PAPERTRAIL_PORT),
-        'socktype': 2,  # socket.SOCK_DGRAM
+        'socktype': 1,  # socket.SOCK_STREAM (TCP) - more reliable than UDP for remote syslog
     }
     _root_handlers.append('papertrail')
 else:

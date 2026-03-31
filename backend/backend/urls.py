@@ -20,6 +20,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
 from authentication.views import locations_collection, location_by_id, location_by_user
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def root_status(request):
@@ -36,9 +39,18 @@ def root_status(request):
 def health_check(request):
     return JsonResponse({'ok': True}, status=200)
 
+
+def test_logging(request):
+    """Test endpoint to verify logging is working. Check Papertrail logs immediately after calling this."""
+    logger.info('[TEST LOG] Testing Papertrail logging from servigo-backend')
+    logger.warning('[TEST LOG] This is a warning message')
+    logger.error('[TEST LOG] This is an error message')
+    return JsonResponse({'message': 'Test log messages sent. Check Papertrail within 5 seconds.'}, status=200)
+
 urlpatterns = [
     path('', root_status, name='root_status'),
     path('health/', health_check, name='health_check'),
+        path('test-logging/', test_logging, name='test_logging'),
     path('admin/', admin.site.urls),
     path('api/accounts/', include('authentication.urls')),
     path('api/locations/', locations_collection, name='locations_collection'),
