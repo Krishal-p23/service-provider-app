@@ -625,6 +625,17 @@ def update_booking_status(request, booking_id):
 			old_status = str(old_status or "").lower()
 
 			if status == "cancelled":
+				# Prevent cancellation if booking is already in progress, completed, or already cancelled
+				if old_status in {"in_progress", "awaiting_payment", "completed", "cancelled"}:
+					return JsonResponse(
+						{
+							"status": "error",
+							"message": f"Cannot cancel booking in {old_status} status",
+							"code": "INVALID_CANCELLATION_STATE",
+						},
+						status=409,
+					)
+
 				cancelled_by = str(payload.get("cancelled_by") or "user").strip().lower()
 				if cancelled_by not in {"user", "admin", "worker"}:
 					cancelled_by = "user"

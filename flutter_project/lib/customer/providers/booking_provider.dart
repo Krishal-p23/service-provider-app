@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/booking.dart';
 import '../services/api_service.dart';
@@ -8,9 +9,17 @@ class BookingProvider with ChangeNotifier {
   List<Booking> _bookings = [];
   int? _loadedUserId;
   bool _isLoading = false;
+  Timer? _pollingTimer;
+  static const Duration _pollingInterval = Duration(seconds: 3);
 
   List<Booking> get bookings => _bookings;
   bool get isLoading => _isLoading;
+
+  @override
+  void dispose() {
+    _stopPolling();
+    super.dispose();
+  }
 
   Future<void> fetchUserBookings(int userId) async {
     if (_isLoading) return;
@@ -296,6 +305,38 @@ class BookingProvider with ChangeNotifier {
     if (idx >= 0) {
       _bookings[idx] = _bookings[idx].copyWith(status: 'in_progress');
       notifyListeners();
+    }
+  }
+
+  /// Start polling for booking updates
+  void startPolling(int userId) {
+    if (_pollingTimer != null) return; // Already polling
+
+    _pollingTimer = Timer.periodic(_pollingInterval, (_) async {
+      await _refreshBookingsSilently(userId);
+    });
+  }
+
+  /// Stop polling for booking updates
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
+  /// Refresh bookings silently without showing loading indicator
+  Future<void> _refreshBookingsSilently(int userId) async {
+    try {
+      await _apiService.initialize();
+      final result = await _apiService.getUserBookings(userId);
+      if (result['success'] == true) {
+        _bookings = (result['data'] as List)
+            .map((item) => Booking.fromJson(item as Map<String, dynamic>))
+            .toList();
+        _loadedUserId = userId;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Silent failure, don't interrupt user experience
     }
   }
 }

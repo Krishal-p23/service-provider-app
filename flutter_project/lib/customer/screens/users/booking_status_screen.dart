@@ -19,18 +19,33 @@ class BookingStatusScreen extends StatefulWidget {
 class _BookingStatusScreenState extends State<BookingStatusScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshBookings();
+      _loadBookingsAndStartPolling();
     });
-    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      _refreshBookings();
-    });
+  }
+
+  Future<void> _loadBookingsAndStartPolling() async {
+    if (!mounted) return;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final bookingProvider = Provider.of<BookingProvider>(
+      context,
+      listen: false,
+    );
+    final currentUser = userProvider.currentUser;
+    if (currentUser == null) {
+      return;
+    }
+
+    // Initial load
+    await bookingProvider.fetchUserBookings(currentUser.id);
+
+    // Start polling for real-time updates (e.g., when worker activates job via OTP)
+    bookingProvider.startPolling(currentUser.id);
   }
 
   Future<void> _refreshBookings() async {
@@ -49,7 +64,6 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
