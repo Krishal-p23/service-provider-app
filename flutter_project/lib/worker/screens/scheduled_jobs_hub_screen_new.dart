@@ -6,7 +6,6 @@ import '../../theme/app_theme.dart';
 import '../../utils/map_launcher.dart';
 import '../models/job.dart';
 import '../providers/job_provider.dart';
-import '../widgets/current_job_card.dart';
 import '../widgets/job_action_overlay.dart';
 import '../screens/job_otp_verification_screen.dart';
 
@@ -63,25 +62,6 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
         builder: (context, jobProvider, child) {
           return Column(
             children: [
-              // Current Job Card (shown only when there's an active job)
-              if (jobProvider.activeJob != null)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: CurrentJobCard(
-                    job: jobProvider.activeJob!,
-                    onReschedule: () => _handleReschedule(
-                      context,
-                      jobProvider,
-                      jobProvider.activeJob!,
-                    ),
-                    onDelete: () => _handleDelete(
-                      context,
-                      jobProvider,
-                      jobProvider.activeJob!,
-                    ),
-                  ),
-                ),
-
               // Scheduled Jobs Card with Filter
               Expanded(
                 child: Padding(
@@ -290,6 +270,8 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
         ? Colors.grey.shade400
         : Colors.grey.shade600;
     final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
+    final isActivated = job.status.toLowerCase() == 'in_progress';
+    final isWaitingForPayment = job.status.toLowerCase() == 'awaiting_payment';
 
     return GestureDetector(
       onTap: () => _showJobActionOverlay(context, job, isTopJob, jobProvider),
@@ -297,11 +279,23 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: surfaceColor,
+          color: isWaitingForPayment
+              ? (isDark
+                    ? Colors.orange.shade900.withOpacity(0.22)
+                    : Colors.orange.shade50)
+              : isActivated
+              ? (isDark
+                    ? Colors.green.shade900.withOpacity(0.22)
+                    : Colors.green.shade50)
+              : surfaceColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isTopJob ? primaryColor : borderColor,
-            width: isTopJob ? 2 : 1,
+            color: isWaitingForPayment
+                ? Colors.orange.shade400
+                : isActivated
+                ? Colors.green.shade400
+                : (isTopJob ? primaryColor : borderColor),
+            width: isWaitingForPayment || isActivated || isTopJob ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
@@ -356,20 +350,46 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
                       ),
                       margin: const EdgeInsets.only(bottom: 6),
                       decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.15),
+                        color:
+                            (isWaitingForPayment
+                                    ? Colors.orange.shade700
+                                    : isActivated
+                                    ? Colors.green.shade700
+                                    : primaryColor)
+                                .withOpacity(0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.star, size: 12, color: primaryColor),
+                          Icon(
+                            isWaitingForPayment
+                                ? Icons.hourglass_top
+                                : isActivated
+                                ? Icons.check_circle
+                                : Icons.star,
+                            size: 12,
+                            color: isWaitingForPayment
+                                ? Colors.orange.shade700
+                                : isActivated
+                                ? Colors.green.shade700
+                                : primaryColor,
+                          ),
                           const SizedBox(width: 4),
                           Text(
-                            'Next Job',
+                            isWaitingForPayment
+                                ? 'Waiting for Payment'
+                                : isActivated
+                                ? 'Activated'
+                                : 'Next Job',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: primaryColor,
+                              color: isWaitingForPayment
+                                  ? Colors.orange.shade700
+                                  : isActivated
+                                  ? Colors.green.shade700
+                                  : primaryColor,
                             ),
                           ),
                         ],
@@ -545,7 +565,7 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
       await jobProvider.loadScheduledJobs();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Job marked complete. Awaiting customer payment.'),
+          content: Text('Job moved to Waiting for Payment.'),
           behavior: SnackBarBehavior.floating,
         ),
       );

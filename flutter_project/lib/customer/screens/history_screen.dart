@@ -1060,7 +1060,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       );
                     }
                   },
-                  child: const Text('Confirm Complete'),
+                  child: const Text('Confirm Payment'),
                 ),
               ),
             ],
@@ -1098,9 +1098,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case 'in_progress':
         return 'In Progress';
       case 'completed':
-        return 'Completed';
+        return 'Confirm Payment';
       case 'awaiting_payment':
-        return 'Awaiting Confirmation';
+        return 'Confirm Payment';
       case 'cancelled':
         return 'Cancelled';
       default:

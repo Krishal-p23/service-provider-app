@@ -56,9 +56,9 @@ class BookingCard extends StatelessWidget {
       case 'in_progress':
         return 'In Progress';
       case 'completed':
-        return 'Completed';
+        return 'Confirm Payment';
       case 'awaiting_payment':
-        return 'Awaiting Confirmation';
+        return 'Confirm Payment';
       case 'cancelled':
         return 'Cancelled';
       default:
@@ -265,7 +265,7 @@ class BookingCard extends StatelessWidget {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: onComplete,
-                          child: const Text('Mark Complete'),
+                          child: const Text('Confirm Payment'),
                         ),
                       ),
                     ],
@@ -282,7 +282,9 @@ class BookingCard extends StatelessWidget {
                     ],
 
                     // Rate & Review button for completed bookings
-                    if (booking.status == 'completed' && onRate != null && !hasReview) ...[
+                    if (booking.status == 'completed' &&
+                        onRate != null &&
+                        !hasReview) ...[
                       Expanded(
                         child: ElevatedButton(
                           onPressed: onRate,

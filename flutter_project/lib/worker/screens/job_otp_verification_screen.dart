@@ -98,7 +98,9 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('OTP verified. You can now mark this job complete.'),
+            content: Text(
+              'OTP verified. You can now move this job to Waiting for Payment.',
+            ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -137,7 +139,7 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Job marked done. Awaiting customer confirmation.'),
+            content: Text('Job status updated to Waiting for Payment.'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -153,7 +155,7 @@ class _JobOTPVerificationScreenState extends State<JobOTPVerificationScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Job is already awaiting customer confirmation.'),
+            content: Text('Job is already in Waiting for Payment.'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
