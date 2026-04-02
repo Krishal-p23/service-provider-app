@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/service_provider.dart';
 import '../../providers/booking_provider.dart';
+import '../../../providers/user_provider.dart';
 import 'package:flutter_project/customer/screens/users/booking_status_screen.dart';
 
 class RateWorkerScreen extends StatefulWidget {
@@ -59,14 +60,23 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
             : _commentController.text.trim(),
       );
 
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final currentUser = userProvider.currentUser;
+      if (currentUser != null) {
+        await userProvider.fetchUserReviews();
+        await bookingProvider.fetchUserBookings(currentUser.id);
+      }
+
       if (!mounted) return;
 
-      // Navigate to bookings screen
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const BookingStatusScreen()),
-        (route) => false,
-      );
+      if (Navigator.of(context).canPop()) {
+        Navigator.pop(context, true);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const BookingStatusScreen()),
+        );
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -85,14 +95,6 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
     }
   }
 
-  void _skipReview() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const BookingStatusScreen()),
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -106,122 +108,144 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
         ? serviceProvider.getWorkerUserByWorkerId(booking.workerId)
         : null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rate Service'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _skipReview,
+    return WillPopScope(
+      onWillPop: () async => false, // Prevent back navigation
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Rate Service'),
+          automaticallyImplyLeading: false, // Remove back button
         ),
-        actions: [
-          TextButton(onPressed: _skipReview, child: const Text('Skip')),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Worker Info
-            if (worker != null) ...[
-              CircleAvatar(
-                radius: 50,
-                backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-                backgroundImage: worker.profilePhoto != null
-                    ? NetworkImage(worker.profilePhoto!)
-                    : null,
-                child: worker.profilePhoto == null
-                    ? Icon(Icons.person, size: 50, color: theme.primaryColor)
-                    : null,
-              ),
-              const SizedBox(height: 16),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              // Worker Info
+              if (worker != null) ...[
+                CircleAvatar(
+                  radius: 50,
+                  backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+                  backgroundImage: worker.profilePhoto != null
+                      ? NetworkImage(worker.profilePhoto!)
+                      : null,
+                  child: worker.profilePhoto == null
+                      ? Icon(Icons.person, size: 50, color: theme.primaryColor)
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  workerUser?.name ?? 'Worker ${worker.id}',
+                  style: theme.textTheme.displayMedium,
+                ),
+                const SizedBox(height: 32),
+              ],
+
               Text(
-                workerUser?.name ?? 'Worker ${worker.id}',
-                style: theme.textTheme.displayMedium,
+                'How was your experience?',
+                style: theme.textTheme.displaySmall,
+              ),
+              const SizedBox(height: 24),
+
+              // Star Rating
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  return IconButton(
+                    icon: Icon(
+                      index < _rating ? Icons.star : Icons.star_border,
+                      size: 48,
+                    ),
+                    color: Colors.amber,
+                    onPressed: () {
+                      setState(() {
+                        _rating = index + 1;
+                      });
+                    },
+                  );
+                }),
+              ),
+              if (_rating > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _rating == 1
+                      ? 'Poor'
+                      : _rating == 2
+                      ? 'Below Average'
+                      : _rating == 3
+                      ? 'Average'
+                      : _rating == 4
+                      ? 'Good'
+                      : 'Excellent',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 32),
+
+              // Mandatory review notice
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.blue.shade700, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Please share your feedback to complete this booking',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 32),
-            ],
 
-            Text(
-              'How was your experience?',
-              style: theme.textTheme.displaySmall,
-            ),
-            const SizedBox(height: 24),
-
-            // Star Rating
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(5, (index) {
-                return IconButton(
-                  icon: Icon(
-                    index < _rating ? Icons.star : Icons.star_border,
-                    size: 48,
+              // Comment TextField
+              TextField(
+                controller: _commentController,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Share your experience (optional)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  color: Colors.amber,
-                  onPressed: () {
-                    setState(() {
-                      _rating = index + 1;
-                    });
-                  },
-                );
-              }),
-            ),
-            if (_rating > 0) ...[
-              const SizedBox(height: 8),
-              Text(
-                _rating == 1
-                    ? 'Poor'
-                    : _rating == 2
-                    ? 'Below Average'
-                    : _rating == 3
-                    ? 'Average'
-                    : _rating == 4
-                    ? 'Good'
-                    : 'Excellent',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.primaryColor,
-                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitReview,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Submit Review',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
               ),
             ],
-            const SizedBox(height: 32),
-
-            // Comment TextField
-            TextField(
-              controller: _commentController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: 'Share your experience (optional)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Submit Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitReview,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Submit Review',
-                        style: TextStyle(fontSize: 16),
-                      ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -521,16 +521,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             'Completed',
                             'Cancelled',
                           ].map((status) {
-                            return FilterChip(
-                              label: Text(status),
-                              selected: tempStatus == status,
-                              onSelected: (selected) {
-                                setModalState(() {
-                                  tempStatus = status;
-                                });
-                              },
-                            );
-                          }).toList(),
+                        return FilterChip(
+                          label: Text(status),
+                          selected: tempStatus == status,
+                          onSelected: (selected) {
+                            setModalState(() {
+                              tempStatus = status;
+                            });
+                          },
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(height: 20),
 
@@ -1098,7 +1098,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case 'in_progress':
         return 'In Progress';
       case 'completed':
-        return 'Confirm Payment';
+        return 'Completed';
       case 'awaiting_payment':
         return 'Confirm Payment';
       case 'cancelled':

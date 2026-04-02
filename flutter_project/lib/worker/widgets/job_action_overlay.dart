@@ -8,6 +8,7 @@ class JobActionOverlay extends StatelessWidget {
   final bool isTopJob;
   final VoidCallback onActivate;
   final VoidCallback? onMarkDone;
+  final VoidCallback? onShowQr;
   final VoidCallback onReschedule;
   final VoidCallback onDelete;
 
@@ -17,6 +18,7 @@ class JobActionOverlay extends StatelessWidget {
     required this.isTopJob,
     required this.onActivate,
     this.onMarkDone,
+    this.onShowQr,
     required this.onReschedule,
     required this.onDelete,
   });
@@ -177,37 +179,30 @@ class JobActionOverlay extends StatelessWidget {
               child: Column(
                 children: [
                   if (isWaitingForPayment) ...[
-                    Container(
+                    SizedBox(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.orange.withOpacity(0.3),
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onShowQr?.call();
+                        },
+                        icon: const Icon(Icons.qr_code_2, size: 20),
+                        label: const Text(
+                          'Show QR',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.hourglass_top,
-                            color: Colors.orange.shade700,
-                            size: 20,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Waiting for Payment',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange.shade800,
-                            ),
-                          ),
-                        ],
+                          elevation: 0,
+                        ),
                       ),
                     ),
                   ] else ...[

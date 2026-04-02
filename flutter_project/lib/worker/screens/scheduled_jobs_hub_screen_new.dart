@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../customer/services/api_service.dart';
+import '../../customer/screens/users/demo_payment_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/map_launcher.dart';
 import '../models/job.dart';
+import '../dialogs/service_category_selection_dialog.dart';
 import '../providers/job_provider.dart';
 import '../widgets/job_action_overlay.dart';
 import '../screens/job_otp_verification_screen.dart';
@@ -18,6 +21,63 @@ class ScheduledJobsHubScreenNew extends StatefulWidget {
 }
 
 class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
+  static const String _qrAmountKeyPrefix = 'worker_qr_amount_';
+
+  Future<void> _saveQrAmount(int bookingId, double amount) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('$_qrAmountKeyPrefix$bookingId', amount);
+  }
+
+  Future<double?> _getSavedQrAmount(int bookingId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble('$_qrAmountKeyPrefix$bookingId');
+  }
+
+  Future<void> _openQrScreen(
+    BuildContext context, {
+    required int bookingId,
+    required double amount,
+    required String customerName,
+    required String serviceName,
+  }) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DemoPaymentScreen(
+          bookingId: bookingId,
+          amount: amount,
+          customerName: customerName,
+          serviceName: serviceName,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleShowQr(BuildContext context, Job job) async {
+    final bookingId = int.tryParse(job.id);
+    if (bookingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid booking id. Cannot open QR.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final savedAmount = await _getSavedQrAmount(bookingId);
+    final amount = savedAmount ?? job.amount;
+
+    if (!context.mounted) return;
+    await _openQrScreen(
+      context,
+      bookingId: bookingId,
+      amount: amount,
+      customerName: job.customerName,
+      serviceName: job.title,
+    );
+  }
+
   Future<void> _openCustomerNavigation(Job job) async {
     if (job.customerLatitude == null || job.customerLongitude == null) {
       if (!mounted) return;
@@ -533,6 +593,7 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
         isTopJob: isTopJob,
         onActivate: () => _handleActivate(context, jobProvider, job),
         onMarkDone: () => _handleMarkDone(context, jobProvider, job),
+        onShowQr: () => _handleShowQr(context, job),
         onReschedule: () => _handleReschedule(context, jobProvider, job),
         onDelete: () => _handleDelete(context, jobProvider, job),
       ),
@@ -555,19 +616,48 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
       return;
     }
 
+    final selectedAmount = await showDialog<double>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ServiceCategorySelectionDialog(
+        serviceName: job.title,
+        basePrice: job.amount,
+        customerName: job.customerName,
+        bookingId: bookingId,
+      ),
+    );
+
+    if (selectedAmount == null) {
+      return;
+    }
+
     final apiService = ApiService();
     await apiService.initialize();
-    final result = await apiService.markJobDone(bookingId: bookingId);
+    final result = await apiService.markJobDone(
+      bookingId: bookingId,
+      totalAmount: selectedAmount,
+    );
 
     if (!context.mounted) return;
 
     if (result['success'] == true) {
+      final serverAmount =
+          (result['data']?['total_amount'] as num?)?.toDouble() ??
+          selectedAmount;
+      await _saveQrAmount(bookingId, serverAmount);
       await jobProvider.loadScheduledJobs();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Job moved to Waiting for Payment.'),
           behavior: SnackBarBehavior.floating,
         ),
+      );
+      await _openQrScreen(
+        context,
+        bookingId: bookingId,
+        amount: serverAmount,
+        customerName: job.customerName,
+        serviceName: job.title,
       );
       return;
     }
@@ -628,13 +718,25 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
       );
     }
 
-    Navigator.push(
+    final activated = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) =>
             JobOTPVerificationScreen(job: job, bookingId: bookingId),
       ),
     );
+
+    if (!context.mounted) return;
+    if (activated == true) {
+      await jobProvider.loadScheduledJobs();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Job activated successfully.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _handleReschedule(

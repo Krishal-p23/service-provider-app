@@ -213,6 +213,76 @@ class BookingCard extends StatelessWidget {
 
               const SizedBox(height: 12),
 
+              // OTP Section (for pending/confirmed bookings)
+              if ((booking.status == 'pending' ||
+                      booking.status == 'confirmed') &&
+                  booking.activationOtp != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.blue.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.security,
+                            size: 16,
+                            color: Colors.blue.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Activation OTP',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: Colors.blue.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          booking.activationOtp!,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.displayMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                      ),
+                      if (booking.otpExpiresAt != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Expires: ${timeFormat.format(booking.otpExpiresAt!)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               // Amount
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
