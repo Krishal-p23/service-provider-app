@@ -330,6 +330,44 @@ def generate_payment_qr(request):
 			status=400,
 		)
 
+	with connection.cursor() as cursor:
+		cursor.execute(
+			"""
+			SELECT total_amount
+			FROM bookings
+			WHERE id = %s
+			""",
+			[booking_id],
+		)
+		booking_row = cursor.fetchone()
+
+	if not booking_row:
+		return JsonResponse(
+			{
+				"status": "error",
+				"message": "Booking not found",
+				"code": "BOOKING_NOT_FOUND",
+			},
+			status=404,
+		)
+
+	booking_amount = float(booking_row[0] or 0)
+	if abs(total_amount - booking_amount) > 0.01:
+		return JsonResponse(
+			{
+				"status": "error",
+				"message": "Requested amount does not match booking amount",
+				"code": "AMOUNT_MISMATCH",
+				"data": {
+					"booking_id": int(booking_id),
+					"provided_amount": total_amount,
+					"expected_amount": booking_amount,
+				},
+			},
+			status=409,
+		)
+
+	total_amount = booking_amount
 	commission_percent = float(getattr(settings, "ADMIN_CUT_PERCENT", 2) or 2)
 	admin_amount = round(total_amount * (commission_percent / 100.0), 2)
 	worker_amount = round(total_amount - admin_amount, 2)
@@ -402,6 +440,7 @@ def confirm_payment(request):
 	payment_status = str(payload.get("payment_status") or "").strip().lower()
 	use_wallet = bool(payload.get("use_wallet", False))
 	user_id = payload.get("user_id")
+	requested_amount = payload.get("amount")
 
 	if booking_id is None or not payment_method:
 		return JsonResponse(
@@ -430,6 +469,29 @@ def confirm_payment(request):
 	if not transaction_ref:
 		transaction_ref = f"{payment_method}-{uuid.uuid4().hex[:12]}"
 
+	parsed_requested_amount = None
+	if requested_amount is not None:
+		try:
+			parsed_requested_amount = float(requested_amount)
+		except (TypeError, ValueError):
+			return JsonResponse(
+				{
+					"status": "error",
+					"message": "amount must be numeric",
+					"code": "VALIDATION_ERROR",
+				},
+				status=400,
+			)
+		if parsed_requested_amount <= 0:
+			return JsonResponse(
+				{
+					"status": "error",
+					"message": "amount must be greater than 0",
+					"code": "VALIDATION_ERROR",
+				},
+				status=400,
+			)
+
 	try:
 		with connection.cursor() as cursor:
 			cursor.execute(
@@ -454,6 +516,24 @@ def confirm_payment(request):
 
 			booking_user_id = booking_row[1]
 			amount = float(booking_row[2] or 0)
+
+			if (
+				parsed_requested_amount is not None
+				and abs(parsed_requested_amount - amount) > 0.01
+			):
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Requested amount does not match booking amount",
+						"code": "AMOUNT_MISMATCH",
+						"data": {
+							"booking_id": int(booking_id),
+							"provided_amount": parsed_requested_amount,
+							"expected_amount": amount,
+						},
+					},
+					status=409,
+				)
 
 			if use_wallet:
 				wallet_user_id = int(user_id) if user_id is not None else int(booking_user_id)

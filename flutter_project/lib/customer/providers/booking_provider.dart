@@ -203,11 +203,13 @@ class BookingProvider with ChangeNotifier {
   Future<Map<String, dynamic>> confirmCompletion({
     required int bookingId,
     int? userId,
+    double? amount,
   }) async {
     await _apiService.initialize();
     final result = await _apiService.confirmBookingCompletion(
       bookingId: bookingId,
       userId: userId,
+      amount: amount,
     );
 
     final data = result['data'];

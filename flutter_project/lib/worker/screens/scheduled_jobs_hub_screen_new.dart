@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../customer/services/api_service.dart';
+import '../../customer/screens/users/demo_payment_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/map_launcher.dart';
 import '../models/job.dart';
+import '../dialogs/service_category_selection_dialog.dart';
 import '../providers/job_provider.dart';
-import '../widgets/current_job_card.dart';
 import '../widgets/job_action_overlay.dart';
 import '../screens/job_otp_verification_screen.dart';
 
@@ -19,6 +21,63 @@ class ScheduledJobsHubScreenNew extends StatefulWidget {
 }
 
 class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
+  static const String _qrAmountKeyPrefix = 'worker_qr_amount_';
+
+  Future<void> _saveQrAmount(int bookingId, double amount) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('$_qrAmountKeyPrefix$bookingId', amount);
+  }
+
+  Future<double?> _getSavedQrAmount(int bookingId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble('$_qrAmountKeyPrefix$bookingId');
+  }
+
+  Future<void> _openQrScreen(
+    BuildContext context, {
+    required int bookingId,
+    required double amount,
+    required String customerName,
+    required String serviceName,
+  }) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DemoPaymentScreen(
+          bookingId: bookingId,
+          amount: amount,
+          customerName: customerName,
+          serviceName: serviceName,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleShowQr(BuildContext context, Job job) async {
+    final bookingId = int.tryParse(job.id);
+    if (bookingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid booking id. Cannot open QR.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final savedAmount = await _getSavedQrAmount(bookingId);
+    final amount = savedAmount ?? job.amount;
+
+    if (!context.mounted) return;
+    await _openQrScreen(
+      context,
+      bookingId: bookingId,
+      amount: amount,
+      customerName: job.customerName,
+      serviceName: job.title,
+    );
+  }
+
   Future<void> _openCustomerNavigation(Job job) async {
     if (job.customerLatitude == null || job.customerLongitude == null) {
       if (!mounted) return;
@@ -63,25 +122,6 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
         builder: (context, jobProvider, child) {
           return Column(
             children: [
-              // Current Job Card (shown only when there's an active job)
-              if (jobProvider.activeJob != null)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: CurrentJobCard(
-                    job: jobProvider.activeJob!,
-                    onReschedule: () => _handleReschedule(
-                      context,
-                      jobProvider,
-                      jobProvider.activeJob!,
-                    ),
-                    onDelete: () => _handleDelete(
-                      context,
-                      jobProvider,
-                      jobProvider.activeJob!,
-                    ),
-                  ),
-                ),
-
               // Scheduled Jobs Card with Filter
               Expanded(
                 child: Padding(
@@ -290,6 +330,8 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
         ? Colors.grey.shade400
         : Colors.grey.shade600;
     final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
+    final isActivated = job.status.toLowerCase() == 'in_progress';
+    final isWaitingForPayment = job.status.toLowerCase() == 'awaiting_payment';
 
     return GestureDetector(
       onTap: () => _showJobActionOverlay(context, job, isTopJob, jobProvider),
@@ -297,11 +339,23 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: surfaceColor,
+          color: isWaitingForPayment
+              ? (isDark
+                    ? Colors.orange.shade900.withOpacity(0.22)
+                    : Colors.orange.shade50)
+              : isActivated
+              ? (isDark
+                    ? Colors.green.shade900.withOpacity(0.22)
+                    : Colors.green.shade50)
+              : surfaceColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isTopJob ? primaryColor : borderColor,
-            width: isTopJob ? 2 : 1,
+            color: isWaitingForPayment
+                ? Colors.orange.shade400
+                : isActivated
+                ? Colors.green.shade400
+                : (isTopJob ? primaryColor : borderColor),
+            width: isWaitingForPayment || isActivated || isTopJob ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
@@ -356,20 +410,46 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
                       ),
                       margin: const EdgeInsets.only(bottom: 6),
                       decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.15),
+                        color:
+                            (isWaitingForPayment
+                                    ? Colors.orange.shade700
+                                    : isActivated
+                                    ? Colors.green.shade700
+                                    : primaryColor)
+                                .withOpacity(0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.star, size: 12, color: primaryColor),
+                          Icon(
+                            isWaitingForPayment
+                                ? Icons.hourglass_top
+                                : isActivated
+                                ? Icons.check_circle
+                                : Icons.star,
+                            size: 12,
+                            color: isWaitingForPayment
+                                ? Colors.orange.shade700
+                                : isActivated
+                                ? Colors.green.shade700
+                                : primaryColor,
+                          ),
                           const SizedBox(width: 4),
                           Text(
-                            'Next Job',
+                            isWaitingForPayment
+                                ? 'Waiting for Payment'
+                                : isActivated
+                                ? 'Activated'
+                                : 'Next Job',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: primaryColor,
+                              color: isWaitingForPayment
+                                  ? Colors.orange.shade700
+                                  : isActivated
+                                  ? Colors.green.shade700
+                                  : primaryColor,
                             ),
                           ),
                         ],
@@ -513,6 +593,7 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
         isTopJob: isTopJob,
         onActivate: () => _handleActivate(context, jobProvider, job),
         onMarkDone: () => _handleMarkDone(context, jobProvider, job),
+        onShowQr: () => _handleShowQr(context, job),
         onReschedule: () => _handleReschedule(context, jobProvider, job),
         onDelete: () => _handleDelete(context, jobProvider, job),
       ),
@@ -535,19 +616,48 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
       return;
     }
 
+    final selectedAmount = await showDialog<double>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ServiceCategorySelectionDialog(
+        serviceName: job.title,
+        basePrice: job.amount,
+        customerName: job.customerName,
+        bookingId: bookingId,
+      ),
+    );
+
+    if (selectedAmount == null) {
+      return;
+    }
+
     final apiService = ApiService();
     await apiService.initialize();
-    final result = await apiService.markJobDone(bookingId: bookingId);
+    final result = await apiService.markJobDone(
+      bookingId: bookingId,
+      totalAmount: selectedAmount,
+    );
 
     if (!context.mounted) return;
 
     if (result['success'] == true) {
+      final serverAmount =
+          (result['data']?['total_amount'] as num?)?.toDouble() ??
+          selectedAmount;
+      await _saveQrAmount(bookingId, serverAmount);
       await jobProvider.loadScheduledJobs();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Job marked complete. Awaiting customer payment.'),
+          content: Text('Job moved to Waiting for Payment.'),
           behavior: SnackBarBehavior.floating,
         ),
+      );
+      await _openQrScreen(
+        context,
+        bookingId: bookingId,
+        amount: serverAmount,
+        customerName: job.customerName,
+        serviceName: job.title,
       );
       return;
     }
@@ -608,13 +718,25 @@ class _ScheduledJobsHubScreenNewState extends State<ScheduledJobsHubScreenNew> {
       );
     }
 
-    Navigator.push(
+    final activated = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) =>
             JobOTPVerificationScreen(job: job, bookingId: bookingId),
       ),
     );
+
+    if (!context.mounted) return;
+    if (activated == true) {
+      await jobProvider.loadScheduledJobs();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Job activated successfully.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _handleReschedule(

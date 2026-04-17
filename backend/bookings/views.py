@@ -995,11 +995,43 @@ def reschedule_booking(request, booking_id):
 def mark_job_done(request, booking_id):
 	"""POST /api/bookings/<booking_id>/mark-done/ - worker marks in-progress job as awaiting payment."""
 	try:
+		payload = json.loads(request.body or "{}")
+	except json.JSONDecodeError:
+		return JsonResponse(
+			{"status": "error", "message": "Invalid JSON", "code": "INVALID_JSON"},
+			status=400,
+		)
+
+	requested_amount = payload.get("total_amount")
+	parsed_amount = None
+	if requested_amount is not None:
+		try:
+			parsed_amount = float(requested_amount)
+		except (TypeError, ValueError):
+			return JsonResponse(
+				{
+					"status": "error",
+					"message": "total_amount must be numeric",
+					"code": "VALIDATION_ERROR",
+				},
+				status=400,
+			)
+		if parsed_amount <= 0:
+			return JsonResponse(
+				{
+					"status": "error",
+					"message": "total_amount must be greater than 0",
+					"code": "VALIDATION_ERROR",
+				},
+				status=400,
+			)
+
+	try:
 		_ensure_booking_status_constraint()
 		with connection.cursor() as cursor:
 			cursor.execute(
 				"""
-				SELECT status
+				SELECT status, total_amount
 				FROM bookings
 				WHERE id = %s
 				""",
@@ -1018,6 +1050,7 @@ def mark_job_done(request, booking_id):
 				)
 
 			current_status = str(row[0] or "").lower()
+			resolved_amount = parsed_amount if parsed_amount is not None else float(row[1] or 0)
 			if current_status != "in_progress":
 				return JsonResponse(
 					{
@@ -1034,10 +1067,10 @@ def mark_job_done(request, booking_id):
 			cursor.execute(
 				"""
 				UPDATE bookings
-				SET status = %s
+				SET status = %s, total_amount = %s
 				WHERE id = %s
 				""",
-				["awaiting_payment", booking_id],
+				["awaiting_payment", resolved_amount, booking_id],
 			)
 
 		return JsonResponse(
@@ -1047,6 +1080,7 @@ def mark_job_done(request, booking_id):
 				"data": {
 					"booking_id": booking_id,
 					"status": "awaiting_payment",
+					"total_amount": resolved_amount,
 				},
 			},
 			status=200,
@@ -1077,8 +1111,32 @@ def confirm_booking_completion(request, booking_id):
 		)
 
 	requested_user_id = payload.get("user_id")
+	requested_amount = payload.get("amount")
 	requested_payment_mode = str(payload.get("payment_mode") or "").strip().lower()
 	razorpay_enabled = bool(getattr(settings, "WEBLAB_RAZORPAY_ENABLED", False))
+
+	parsed_requested_amount = None
+	if requested_amount is not None:
+		try:
+			parsed_requested_amount = float(requested_amount)
+		except (TypeError, ValueError):
+			return JsonResponse(
+				{
+					"status": "error",
+					"message": "amount must be numeric",
+					"code": "VALIDATION_ERROR",
+				},
+				status=400,
+			)
+		if parsed_requested_amount <= 0:
+			return JsonResponse(
+				{
+					"status": "error",
+					"message": "amount must be greater than 0",
+					"code": "VALIDATION_ERROR",
+				},
+				status=400,
+			)
 
 	try:
 		with connection.cursor() as cursor:
@@ -1103,7 +1161,26 @@ def confirm_booking_completion(request, booking_id):
 				)
 
 			_, booking_user_id, current_status, amount = row
+			booking_amount = float(amount or 0)
 			current_status = str(current_status or "").lower()
+
+			if (
+				parsed_requested_amount is not None
+				and abs(parsed_requested_amount - booking_amount) > 0.01
+			):
+				return JsonResponse(
+					{
+						"status": "error",
+						"message": "Scanned amount does not match booking amount",
+						"code": "AMOUNT_MISMATCH",
+						"data": {
+							"booking_id": int(booking_id),
+							"provided_amount": parsed_requested_amount,
+							"expected_amount": booking_amount,
+						},
+					},
+					status=409,
+				)
 
 			if requested_user_id is not None and int(requested_user_id) != int(booking_user_id):
 				return JsonResponse(
@@ -1171,7 +1248,7 @@ def confirm_booking_completion(request, booking_id):
 								"payment_status": "paid",
 								"payment_method": "COD",
 								"transaction_ref": transaction_ref,
-								"amount": float(amount or 0),
+								"amount": booking_amount,
 							},
 						},
 						status=200,
@@ -1186,7 +1263,7 @@ def confirm_booking_completion(request, booking_id):
 						"data": {
 							"booking_id": int(booking_id),
 							"status": current_status,
-							"amount": float(amount or 0),
+							"amount": booking_amount,
 							"allow_cash": True,
 							"allow_online": True,
 							"payment_gateway": "razorpay",
@@ -1223,7 +1300,7 @@ def confirm_booking_completion(request, booking_id):
 					"payment_status": "paid",
 					"payment_method": "UPI",
 					"transaction_ref": transaction_ref,
-					"amount": float(amount or 0),
+					"amount": booking_amount,
 				},
 			},
 			status=200,

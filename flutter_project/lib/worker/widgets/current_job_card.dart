@@ -2,19 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../utils/map_launcher.dart';
 import '../models/job.dart';
-import 'gradient_button.dart';
 
 class CurrentJobCard extends StatelessWidget {
   final Job job;
-  final VoidCallback onReschedule;
-  final VoidCallback onDelete;
 
-  const CurrentJobCard({
-    super.key,
-    required this.job,
-    required this.onReschedule,
-    required this.onDelete,
-  });
+  const CurrentJobCard({super.key, required this.job});
 
   Future<void> _openCustomerNavigation(BuildContext context) async {
     if (job.customerLatitude == null || job.customerLongitude == null) {
@@ -36,19 +28,19 @@ class CurrentJobCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeFormat = DateFormat('h:mm a');
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activatedFillColor = isDark
+        ? Colors.green.shade900.withOpacity(0.22)
+        : Colors.green.shade50;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        color: activatedFillColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.green.shade400, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.green.withOpacity(0.15),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -62,19 +54,26 @@ class CurrentJobCard extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1976D2).withOpacity(0.1),
+                    color: Colors.green.withOpacity(0.14),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
-                    children: const [
-                      Icon(Icons.radio_button_checked, color: Color(0xFF1976D2), size: 16),
+                    children: [
+                      Icon(
+                        Icons.radio_button_checked,
+                        color: Colors.green.shade700,
+                        size: 16,
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'ACTIVE JOB',
                         style: TextStyle(
-                          color: Color(0xFF1976D2),
+                          color: Color(0xFF2E7D32),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
@@ -97,23 +96,23 @@ class CurrentJobCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1976D2).withOpacity(0.1),
+                    color: Colors.green.withOpacity(0.14),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.access_time,
-                        color: Color(0xFF1976D2),
+                        color: Colors.green.shade700,
                         size: 28,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         timeFormat.format(job.scheduledTime),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1976D2),
+                          color: Colors.green.shade700,
                         ),
                       ),
                     ],
@@ -140,7 +139,7 @@ class CurrentJobCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                         child: Row(
                           children: [
-                             Icon(
+                            Icon(
                               Icons.location_on,
                               color: isDark ? Colors.white70 : Colors.black54,
                               size: 16,
@@ -151,7 +150,9 @@ class CurrentJobCard extends StatelessWidget {
                                 job.address,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: isDark ? Colors.white70 : Colors.black54,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black54,
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -187,12 +188,19 @@ class CurrentJobCard extends StatelessWidget {
                       ],
                       const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.outline.withOpacity(0.2),
                             width: 1,
                           ),
                         ),
@@ -203,7 +211,9 @@ class CurrentJobCard extends StatelessWidget {
                               'Amount: ',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.6),
                               ),
                             ),
                             Text(
@@ -224,83 +234,28 @@ class CurrentJobCard extends StatelessWidget {
             ),
           ),
 
-          // Action Buttons
+          // Activated state footer
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? Colors.grey.shade900.withOpacity(0.5) : Colors.grey.shade50,
+              color: isDark
+                  ? Colors.green.shade800.withOpacity(0.25)
+                  : Colors.green.shade100,
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(16),
                 bottomRight: Radius.circular(16),
               ),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Expanded(
-                  child: GradientButton(
-                    onPressed: onReschedule,
-                    gradientColors: [
-                      Theme.of(context).colorScheme.primary.withOpacity(0.8),
-                      Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.primary.withOpacity(0.7),
-                    ],
-                    borderRadius: BorderRadius.circular(10),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.schedule, size: 18, color: Colors.white),
-                        SizedBox(width: 8),
-                        Text(
-                          'Reschedule',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GradientButton(
-                    onPressed: onDelete,
-                    gradientColors: [
-                      Theme.of(context).colorScheme.error.withOpacity(0.7),
-                      Theme.of(context).colorScheme.error,
-                      Theme.of(context).colorScheme.error.withOpacity(0.8),
-                    ],
-                    borderRadius: BorderRadius.circular(10),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context).colorScheme.error.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.delete_outline, size: 18, color: Colors.white),
-                        SizedBox(width: 8),
-                        Text(
-                          'Delete',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                Icon(Icons.verified, color: Colors.green.shade700, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Activated - Waiting for Payment',
+                  style: TextStyle(
+                    color: Colors.green.shade800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],

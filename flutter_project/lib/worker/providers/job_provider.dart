@@ -84,11 +84,7 @@ class JobProvider extends ChangeNotifier {
         _scheduledJobs.sort(
           (a, b) => a.scheduledTime.compareTo(b.scheduledTime),
         );
-
-        // Remove active job from scheduled jobs if it exists
-        if (_activeJob != null) {
-          _scheduledJobs.removeWhere((job) => job.id == _activeJob!.id);
-        }
+        _activeJob = null;
 
         _error = null;
       } else {

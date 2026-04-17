@@ -1852,12 +1852,18 @@ class ApiService {
 
   /// Worker marks in-progress job as done and moves it to awaiting_payment
   /// POST /api/bookings/{booking_id}/mark-done/
-  Future<Map<String, dynamic>> markJobDone({required int bookingId}) async {
+  Future<Map<String, dynamic>> markJobDone({
+    required int bookingId,
+    double? totalAmount,
+  }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/bookings/$bookingId/mark-done/'),
             headers: _headers,
+            body: jsonEncode({
+              if (totalAmount != null) 'total_amount': totalAmount,
+            }),
           )
           .timeout(const Duration(seconds: 15));
 
@@ -1894,13 +1900,17 @@ class ApiService {
   Future<Map<String, dynamic>> confirmBookingCompletion({
     required int bookingId,
     int? userId,
+    double? amount,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/bookings/$bookingId/confirm-complete/'),
             headers: _headers,
-            body: jsonEncode({if (userId != null) 'user_id': userId}),
+            body: jsonEncode({
+              if (userId != null) 'user_id': userId,
+              if (amount != null) 'amount': amount,
+            }),
           )
           .timeout(const Duration(seconds: 15));
 

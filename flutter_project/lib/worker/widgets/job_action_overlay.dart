@@ -8,6 +8,7 @@ class JobActionOverlay extends StatelessWidget {
   final bool isTopJob;
   final VoidCallback onActivate;
   final VoidCallback? onMarkDone;
+  final VoidCallback? onShowQr;
   final VoidCallback onReschedule;
   final VoidCallback onDelete;
 
@@ -17,6 +18,7 @@ class JobActionOverlay extends StatelessWidget {
     required this.isTopJob,
     required this.onActivate,
     this.onMarkDone,
+    this.onShowQr,
     required this.onReschedule,
     required this.onDelete,
   });
@@ -48,6 +50,8 @@ class JobActionOverlay extends StatelessWidget {
     final secondaryTextColor = isDark
         ? Colors.grey.shade400
         : Colors.grey.shade600;
+    final isActivated = job.status.toLowerCase() == 'in_progress';
+    final isWaitingForPayment = job.status.toLowerCase() == 'awaiting_payment';
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -61,7 +65,11 @@ class JobActionOverlay extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: primaryColor,
+                color: isWaitingForPayment
+                    ? Colors.orange.shade700
+                    : isActivated
+                    ? Colors.green.shade600
+                    : primaryColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(20),
                   topRight: Radius.circular(20),
@@ -131,7 +139,8 @@ class JobActionOverlay extends StatelessWidget {
                       context,
                       icon: Icons.near_me,
                       label: 'Distance',
-                      value: '${job.customerDistanceKm!.toStringAsFixed(1)} km from you',
+                      value:
+                          '${job.customerDistanceKm!.toStringAsFixed(1)} km from you',
                     ),
                   ],
                   const SizedBox(height: 12),
@@ -143,7 +152,8 @@ class JobActionOverlay extends StatelessWidget {
                     valueColor: primaryColor,
                     valueBold: true,
                   ),
-                  if (job.customerLatitude != null && job.customerLongitude != null) ...[
+                  if (job.customerLatitude != null &&
+                      job.customerLongitude != null) ...[
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -168,86 +178,114 @@ class JobActionOverlay extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        if (job.status.toLowerCase() == 'in_progress' &&
-                            onMarkDone != null) {
-                          onMarkDone!();
-                          return;
-                        }
-                        onActivate();
-                      },
-                      icon: Icon(
-                        job.status.toLowerCase() == 'in_progress'
-                            ? Icons.check_circle_outline
-                            : Icons.play_circle_outline,
-                        size: 22,
-                      ),
-                      label: Text(
-                        job.status.toLowerCase() == 'in_progress'
-                            ? 'Mark Job Complete'
-                            : 'Activate Job',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                  if (isWaitingForPayment) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onShowQr?.call();
+                        },
+                        icon: const Icon(Icons.qr_code_2, size: 20),
+                        label: const Text(
+                          'Show QR',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
                         ),
-                        elevation: 0,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            onReschedule();
-                          },
-                          icon: const Icon(Icons.schedule, size: 20),
-                          label: const Text('Reschedule'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: primaryColor,
-                            side: BorderSide(color: primaryColor),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                  ] else ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          if (isActivated && onMarkDone != null) {
+                            onMarkDone!();
+                            return;
+                          }
+                          onActivate();
+                        },
+                        icon: Icon(
+                          isActivated
+                              ? Icons.check_circle_outline
+                              : Icons.play_circle_outline,
+                          size: 22,
+                        ),
+                        label: Text(
+                          isActivated ? 'Mark Job Complete' : 'Activate Job',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (!isActivated && !isWaitingForPayment) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              onReschedule();
+                            },
+                            icon: const Icon(Icons.schedule, size: 20),
+                            label: const Text('Reschedule'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: primaryColor,
+                              side: BorderSide(color: primaryColor),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            onDelete();
-                          },
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          label: const Text('Delete'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              onDelete();
+                            },
+                            icon: const Icon(Icons.delete_outline, size: 20),
+                            label: const Text('Delete'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

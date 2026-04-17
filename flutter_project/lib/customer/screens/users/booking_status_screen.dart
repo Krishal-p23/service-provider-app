@@ -8,6 +8,7 @@ import '../../widgets/booking_card.dart';
 import 'rate_worker_screen.dart';
 import 'review_management_screen.dart';
 import 'payment_screen.dart';
+import 'scan_payment_qr_screen.dart';
 
 class BookingStatusScreen extends StatefulWidget {
   const BookingStatusScreen({super.key});
@@ -36,6 +37,10 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
       context,
       listen: false,
     );
+    final serviceProvider = Provider.of<ServiceProvider>(
+      context,
+      listen: false,
+    );
     final currentUser = userProvider.currentUser;
     if (currentUser == null) {
       return;
@@ -43,9 +48,23 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
 
     // Initial load
     await bookingProvider.fetchUserBookings(currentUser.id);
+    await userProvider.fetchUserReviews();
 
-    // Start polling for real-time updates (e.g., when worker activates job via OTP)
-    bookingProvider.startPolling(currentUser.id);
+    // Load worker details for completed bookings to fetch reviews
+    final completedBookings = bookingProvider.getCompletedBookings(
+      currentUser.id,
+    );
+    for (final booking in completedBookings) {
+      await serviceProvider.getWorkerDetails(
+        booking.workerId,
+        booking.serviceId,
+      );
+    }
+
+    if (mounted) {
+      // Start polling for real-time updates (e.g., when worker activates job via OTP)
+      bookingProvider.startPolling(currentUser.id);
+    }
   }
 
   Future<void> _refreshBookings() async {
@@ -60,6 +79,7 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
       return;
     }
     await bookingProvider.fetchUserBookings(currentUser.id);
+    await userProvider.fetchUserReviews();
   }
 
   @override
@@ -114,6 +134,9 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
     final bookingProvider = Provider.of<BookingProvider>(context);
     final userProvider = Provider.of<UserProvider>(context);
     final currentUser = userProvider.currentUser;
+    final reviewedBookingIds = userProvider.userReviews
+        .map((review) => review.bookingId)
+        .toSet();
 
     if (currentUser == null) {
       return Scaffold(
@@ -133,6 +156,20 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Bookings'),
+        actions: [
+          IconButton(
+            tooltip: 'Scan Payment QR',
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ScanPaymentQrScreen(),
+                ),
+              ).then((_) => _refreshBookings());
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: theme.primaryColor,
@@ -147,15 +184,19 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildBookingList(upcomingBookings, 'upcoming'),
-          _buildBookingList(ongoingBookings, 'ongoing'),
-          _buildBookingList(completedBookings, 'completed'),
+          _buildBookingList(upcomingBookings, 'upcoming', reviewedBookingIds),
+          _buildBookingList(ongoingBookings, 'ongoing', reviewedBookingIds),
+          _buildBookingList(completedBookings, 'completed', reviewedBookingIds),
         ],
       ),
     );
   }
 
-  Widget _buildBookingList(List<dynamic> bookings, String type) {
+  Widget _buildBookingList(
+    List<dynamic> bookings,
+    String type,
+    Set<int> reviewedBookingIds,
+  ) {
     final bookingProvider = Provider.of<BookingProvider>(
       context,
       listen: false,
@@ -164,8 +205,6 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
       context,
       listen: false,
     );
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-
     if (bookings.isEmpty) {
       return Center(
         child: Column(
@@ -199,7 +238,7 @@ class _BookingStatusScreenState extends State<BookingStatusScreen>
 
         // Check if review exists for completed bookings
         final hasReview = type == 'completed'
-            ? serviceProvider.getReviewForBooking(booking.id) != null
+            ? reviewedBookingIds.contains(booking.id)
             : false;
 
         return BookingCard(
