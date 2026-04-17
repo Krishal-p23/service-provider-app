@@ -78,6 +78,123 @@ def _get_worker_id_by_user_id(user_id):
     return row[0] if row else None
 
 
+def _update_worker_kyc_status(worker_id: int, status_value: str, source: str = 'unknown') -> bool:
+    """Apply KYC status update to worker record.
+
+    Returns True when a supported status is applied, else False.
+    """
+    normalized = str(status_value or '').strip().lower()
+    if not worker_id or not normalized:
+        return False
+
+    if normalized in ('approved', 'verified', 'success', 'completed'):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE workers SET is_verified = TRUE, verification_status = %s WHERE id = %s",
+                ['approved', worker_id],
+            )
+        logger.info(
+            "[KYC_%s] Worker %s approved. Updated is_verified=TRUE, verification_status='approved'",
+            source,
+            worker_id,
+        )
+        return True
+
+    if normalized in ('rejected', 'declined', 'failed'):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE workers SET is_verified = FALSE, verification_status = %s WHERE id = %s",
+                ['rejected', worker_id],
+            )
+        logger.info(
+            "[KYC_%s] Worker %s rejected. Updated is_verified=FALSE, verification_status='rejected'",
+            source,
+            worker_id,
+        )
+        return True
+
+    if normalized in ('pending', 'in_review', 'review'):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE workers SET verification_status = %s WHERE id = %s",
+                ['pending', worker_id],
+            )
+        logger.info(
+            "[KYC_%s] Worker %s pending. Updated verification_status='pending'",
+            source,
+            worker_id,
+        )
+        return True
+
+    return False
+
+
+def _sync_worker_pending_kyc(worker_id: int, email: str | None = None) -> tuple[bool, str | None]:
+    """Sync pending KYC status from Didit and update local worker record when possible."""
+    vendor_candidates = [str(worker_id)]
+    if email:
+        vendor_candidates.append(str(email).strip())
+
+    logger.info(
+        "[KYC_ProfileSync] Trying Didit sync for worker_id=%s vendor_candidates=%s",
+        worker_id,
+        vendor_candidates,
+    )
+
+    result = DiditVerificationService.get_latest_verification_status(vendor_candidates)
+    if not result.get('success'):
+        logger.info(
+            "[KYC_ProfileSync] Didit sync returned no status for worker_id=%s: %s",
+            worker_id,
+            result.get('message'),
+        )
+        return False, None
+
+    status = str(result.get('status') or '').strip().lower()
+    if not status:
+        logger.info(
+            "[KYC_ProfileSync] Didit sync returned empty status for worker_id=%s",
+            worker_id,
+        )
+        return False, None
+
+    if _update_worker_kyc_status(worker_id, status, source='ProfileSync'):
+        logger.info(
+            "[KYC_ProfileSync] Updated worker_id=%s from Didit status=%s",
+            worker_id,
+            status,
+        )
+        return True, status
+
+    logger.info(
+        "[KYC_ProfileSync] Didit status did not map to update for worker_id=%s status=%s",
+        worker_id,
+        status,
+    )
+    return False, status
+
+
+def _sync_worker_kyc_by_session(session_id: str, status_hint: str | None = None) -> tuple[bool, int | None, str | None]:
+    """Sync KYC using Didit verificationSessionId and optional status hint."""
+    result = DiditVerificationService.retrieve_session_result(session_id)
+    if not result.get('success'):
+        return False, None, None
+
+    vendor_data = result.get('vendor_data')
+    status_value = str(result.get('status') or status_hint or '').strip().lower()
+
+    try:
+        worker_id = int(str(vendor_data).strip()) if vendor_data is not None else None
+    except (ValueError, TypeError):
+        worker_id = None
+
+    if not worker_id or not status_value:
+        return False, worker_id, status_value or None
+
+    updated = _update_worker_kyc_status(worker_id, status_value, source='CallbackRedirect')
+    return updated, worker_id, status_value
+
+
 def _verify_didit_webhook_signature(request):
     """Validate Didit webhook signature using DIDIT_WEBHOOK_SECRET."""
     secret = (settings.DIDIT_WEBHOOK_SECRET or '').strip()
@@ -205,12 +322,52 @@ def start_kyc_session(request):
 
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 def kyc_callback(request):
     """
-    GET /api/workers/kyc/callback/
+    GET/POST /api/workers/kyc/callback/
     Redirect target after verification completes.
+    Also accepts status payloads as a compatibility fallback.
     """
+    if request.method == 'POST':
+        # Compatibility path: if a provider posts status here, process it.
+        if not _verify_didit_webhook_signature(request):
+            return JsonResponse({'received': False, 'message': 'Invalid signature'}, status=401)
+
+        try:
+            payload = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'received': False, 'message': 'Invalid JSON payload'}, status=400)
+
+        vendor_data = payload.get('vendor_data')
+        if vendor_data is None and isinstance(payload.get('session'), dict):
+            vendor_data = payload['session'].get('vendor_data')
+
+        status_value = payload.get('status')
+        if status_value is None and isinstance(payload.get('session'), dict):
+            status_value = payload['session'].get('status')
+
+        try:
+            worker_id = int(str(vendor_data).strip()) if vendor_data is not None else None
+        except (ValueError, TypeError):
+            worker_id = None
+
+        _update_worker_kyc_status(worker_id, status_value, source='Callback')
+        return JsonResponse({'received': True}, status=200)
+
+    # Browser redirect path from Didit callback URL:
+    # /api/workers/kyc/callback/?verificationSessionId=...&status=Approved
+    session_id = (
+        request.GET.get('verificationSessionId')
+        or request.GET.get('session_id')
+        or request.GET.get('sessionId')
+        or ''
+    ).strip()
+    status_hint = (request.GET.get('status') or '').strip().lower()
+
+    if session_id:
+        _sync_worker_kyc_by_session(session_id, status_hint)
+
     return JsonResponse(
         {
             'success': True,
@@ -255,16 +412,7 @@ def kyc_webhook(request):
     except (ValueError, TypeError):
         worker_id = None
 
-    if worker_id and status_value == 'approved':
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "UPDATE workers SET is_verified = TRUE, verification_status = %s WHERE id = %s",
-                ['approved', worker_id],
-            )
-            logger.info(
-                "[KYC_Webhook] Worker %s KYC approved. Updated is_verified=TRUE, verification_status='approved'",
-                worker_id,
-            )
+    _update_worker_kyc_status(worker_id, status_value, source='Webhook')
 
     return JsonResponse({'received': True, 'test': is_test_webhook}, status=200)
 
@@ -1463,6 +1611,37 @@ def profile(request):
                     "message": "Worker profile not found",
                     "code": "PROFILE_NOT_FOUND"
                 }, status=404)
+
+            worker_id = row[0]
+            is_verified = bool(row[2])
+            verification_status = (row[3] or 'not_started').strip().lower()
+            user_email = row[9] or ''
+
+            # If local verification_status is not final, always re-check Didit.
+            if verification_status in ('pending', 'not_started', ''):
+                updated, synced_status = _sync_worker_pending_kyc(worker_id, user_email)
+                if updated:
+                    cursor.execute(
+                        'SELECT is_verified, verification_status FROM workers WHERE id = %s',
+                        [worker_id],
+                    )
+                    refreshed = cursor.fetchone()
+                    if refreshed:
+                        is_verified = bool(refreshed[0])
+                        verification_status = (refreshed[1] or verification_status).strip().lower()
+                        logger.info(
+                            "[KYC_Profile] worker_id=%s refreshed from DB after sync: is_verified=%s verification_status=%s",
+                            worker_id,
+                            is_verified,
+                            verification_status,
+                        )
+                elif synced_status:
+                    verification_status = synced_status
+                    logger.info(
+                        "[KYC_Profile] worker_id=%s using Didit synced_status without DB update: %s",
+                        worker_id,
+                        verification_status,
+                    )
             
             # Get worker services
             cursor.execute("""
@@ -1498,8 +1677,8 @@ def profile(request):
                 "name": row[8],
                 "email": row[9],
                 "phone": row[10],
-                "is_verified": row[2],
-                "verification_status": row[3] or 'not_started',
+                "is_verified": is_verified,
+                "verification_status": verification_status,
                 "is_available": row[4],
                 "experience_years": row[5],
                 "bio": row[6] or "",
